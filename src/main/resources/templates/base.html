@@ -58,6 +58,14 @@
           border: none; border-radius: 6px; background: none; color: #4a5568; cursor: pointer; vertical-align: middle; }
   .icon:hover { background: #e2e8f0; color: #2b6cb0; }
   .icon.red:hover { background: #fed7d7; color: #c53030; }
+  /* Цена: иконка глаза, сама цена — в подсказке при наведении */
+  table.items th.eye, table.items td.eye { text-align: center; }
+  table.items.fixed td.eye { overflow: visible; }
+  .tip { position: relative; cursor: default; }
+  .tip.none { color: #cbd5e0; }
+  .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
+                  background: #2d3748; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 13px; white-space: nowrap; z-index: 2; }
+  .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
 
   .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
   .btn.gray { background: #718096; }

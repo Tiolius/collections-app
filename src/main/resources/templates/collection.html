@@ -50,7 +50,7 @@
   <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (digital ? '' : ',phys')}">
     <thead><tr>
       <th th:each="col : ${cols}" th:class="${col.css()}">
-        <a class="sort" th:href="@{/collections/{id}(id=${c.id()},sort=${col.key()},dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'},size=${size})}"
+        <a class="sort" th:title="${col.key() == 'price' ? 'Сортировать по цене' : null}" th:href="@{/collections/{id}(id=${c.id()},sort=${col.key()},dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'},size=${size})}"
            th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
         <span class="grip" title="Потяните, чтобы изменить ширину"></span>
       </th>
@@ -61,7 +61,12 @@
       <td th:if="${digital}" th:text="${it.platform()}"></td>
       <td th:if="${digital}" th:text="${it.format()}"></td>
       <td th:text="${it.status()}"></td>
-      <td class="num" th:text="${it.price()}"></td>
+      <td class="eye">
+        <span class="icon tip" tabindex="0" aria-label="Цена" th:classappend="${it.price() == null} ? 'none'">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>
+        </span>
+      </td>
       <td class="actions">
         <a class="icon" title="Изменить" aria-label="Изменить" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>

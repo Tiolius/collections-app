@@ -68,7 +68,7 @@ public class WebController {
             cols.add(new Col("format", "Формат", ""));
         }
         cols.add(new Col("status", "Статус", ""));
-        cols.add(new Col("price", "Цена, ₽", "num"));
+        cols.add(new Col("price", "₽", "eye")); // сама цена скрыта, видна в подсказке у иконки глаза
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
