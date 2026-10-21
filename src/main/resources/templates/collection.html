@@ -34,6 +34,11 @@
       <div class="body">
         <div class="name" th:text="${it.name()}"></div>
         <div class="type" th:text="${it.type() == null or it.type().isEmpty() ? '—' : it.type()}"></div>
+        <div class="type" th:if="${!#strings.isEmpty(it.platform())}" th:text="${'Платформа: ' + it.platform()}"></div>
+        <div class="type" th:if="${!#strings.isEmpty(it.format())}" th:text="${'Формат: ' + it.format()}"></div>
+        <div class="type" th:if="${!#strings.isEmpty(it.publisher())}" th:text="${'Издатель: ' + it.publisher()}"></div>
+        <div class="type" th:if="${!#strings.isEmpty(it.status())}" th:text="${'Статус: ' + it.status()}"></div>
+        <div class="type" th:if="${it.price() != null}" th:text="${'Цена: ' + it.price() + ' ₽'}"></div>
       </div>
       <div class="actions">
         <a class="btn gray" th:href="@{/items/{id}/edit(id=${it.id()})}">Изменить</a>

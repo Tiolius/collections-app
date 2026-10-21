@@ -16,21 +16,46 @@ import org.springframework.web.server.ResponseStatusException;
 public class Repo {
 
     private static final String COLS = "id, name, type, image_mime IS NOT NULL AS has_image";
+    private static final String ITEM_COLS = COLS + ", collection_id, platform, format, publisher, status, price";
+
+    /** Дополнительные столбцы items: добавляются в старые базы при старте. */
+    private static final Map<String, String> ITEM_EXTRA = Map.of(
+            "platform", "TEXT", "format", "TEXT", "publisher", "TEXT", "status", "TEXT", "price", "INTEGER");
 
     private final JdbcTemplate jdbc;
 
     public Repo(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
+        migrate();
     }
 
-    private static RowMapper<Entry> mapper(boolean withCollection, boolean withCount) {
+    /** schema.sql создаёт только новые таблицы, поэтому недостающие столбцы добавляем здесь. */
+    private void migrate() {
+        List<String> existing = jdbc.queryForList("SELECT name FROM pragma_table_info('items')", String.class);
+        ITEM_EXTRA.forEach((col, type) -> {
+            if (!existing.contains(col)) jdbc.execute("ALTER TABLE items ADD COLUMN " + col + " " + type);
+        });
+    }
+
+    private static RowMapper<Entry> mapper(boolean isItem, boolean withCount) {
         return (rs, i) -> new Entry(
                 rs.getLong("id"),
                 rs.getString("name"),
                 rs.getString("type"),
                 rs.getBoolean("has_image"),
-                withCollection ? rs.getLong("collection_id") : null,
-                withCount ? rs.getInt("cnt") : 0);
+                isItem ? rs.getLong("collection_id") : null,
+                withCount ? rs.getInt("cnt") : 0,
+                isItem ? rs.getString("platform") : null,
+                isItem ? rs.getString("format") : null,
+                isItem ? rs.getString("publisher") : null,
+                isItem ? rs.getString("status") : null,
+                isItem ? price(rs) : null);
+    }
+
+    /** Цена или null (getObject(.., Integer.class) драйвер SQLite не умеет для NULL). */
+    private static Integer price(java.sql.ResultSet rs) throws java.sql.SQLException {
+        int v = rs.getInt("price");
+        return rs.wasNull() ? null : v;
     }
 
     // ---------- чтение ----------
@@ -45,12 +70,12 @@ public class Repo {
     }
 
     public List<Entry> items(long collectionId) {
-        return jdbc.query("SELECT " + COLS + ", collection_id FROM items WHERE collection_id = ? "
+        return jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE collection_id = ? "
                 + "ORDER BY name COLLATE NOCASE", mapper(true, false), collectionId);
     }
 
     public Entry item(long id) {
-        return one(jdbc.query("SELECT " + COLS + ", collection_id FROM items WHERE id = ?", mapper(true, false), id));
+        return one(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id = ?", mapper(true, false), id));
     }
 
     /** Возвращает {image, image_mime} или 404. */
@@ -93,11 +118,24 @@ public class Repo {
         }
     }
 
+    /** Сохраняет поля, которые есть только у объектов. */
+    public void saveItemDetails(long id, String platform, String format, String publisher,
+                                String status, Integer price) {
+        if (price != null && price < 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
+        jdbc.update("UPDATE items SET platform = ?, format = ?, publisher = ?, status = ?, price = ? WHERE id = ?",
+                trim(platform), trim(format), trim(publisher), trim(status), price, id);
+    }
+
     public void delete(String table, long id) {
         jdbc.update("DELETE FROM " + table + " WHERE id = ?", id); // объекты коллекции удаляются каскадно
     }
 
     // ---------- вспомогательное ----------
+
+    private static String trim(String s) {
+        return s == null ? "" : s.trim();
+    }
 
     private static Entry one(List<Entry> list) {
         if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);

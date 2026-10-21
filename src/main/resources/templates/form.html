@@ -13,6 +13,41 @@
     <label>Тип</label>
     <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
 
+    <th:block th:if="${isItem}">
+      <label>Платформа</label>
+      <input type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
+      <datalist id="platforms">
+        <option>PC / Windows</option><option>Nintendo Switch</option><option>PlayStation Vita</option>
+        <option>PlayStation Portable</option><option>PlayStation 3</option><option>Nintendo 3DS</option>
+        <option>Wii U</option><option>GameCube</option><option>NES</option>
+        <option>Game Boy</option><option>Game Boy Advance</option>
+      </datalist>
+
+      <label>Формат</label>
+      <input type="text" name="format" list="formats" th:value="${obj != null ? obj.format() : ''}">
+      <datalist id="formats">
+        <option>Physical</option><option>Digital</option><option>Digital (Steam)</option>
+        <option>Digital (GOG)</option><option>Digital (Epic)</option><option>Digital (PSN)</option>
+        <option>Digital (Nintendo)</option><option>Digital (Origin)</option><option>Digital (Uplay)</option>
+      </datalist>
+
+      <label>Издатель</label>
+      <input type="text" name="publisher" list="publishers" th:value="${obj != null ? obj.publisher() : ''}">
+      <datalist id="publishers">
+        <option>1C Games</option><option>Руссобит-М</option><option>Акелла</option>
+        <option>Бука</option><option>Новый диск</option><option>Torum Media</option>
+      </datalist>
+
+      <label>Статус прохождения</label>
+      <input type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
+      <datalist id="statuses">
+        <option>Complete</option><option>Incomplete</option>
+      </datalist>
+
+      <label>Цена (₽)</label>
+      <input type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
+    </th:block>
+
     <label>Картинка</label>
     <th:block th:if="${imgUrl != null}">
       <img class="preview" th:src="${imgUrl}" alt="">

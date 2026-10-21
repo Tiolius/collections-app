@@ -6,11 +6,17 @@ CREATE TABLE IF NOT EXISTS collections (
     image_mime TEXT
 );
 
+-- Новые столбцы items добавлять и сюда, и в Repo.ITEM_EXTRA (для уже существующих баз)
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     type TEXT,
     image BLOB,
-    image_mime TEXT
+    image_mime TEXT,
+    platform TEXT,
+    format TEXT,
+    publisher TEXT,
+    status TEXT,
+    price INTEGER
 );

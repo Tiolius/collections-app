@@ -32,7 +32,7 @@ public class WebController {
 
     @GetMapping("/collections/new")
     public String newCollectionForm(Model m) {
-        return form(m, null, null, "Новая коллекция", "/");
+        return form(m, null, false, null, "Новая коллекция", "/");
     }
 
     @Transactional
@@ -59,7 +59,7 @@ public class WebController {
     @GetMapping("/collections/{id}/edit")
     public String editCollectionForm(@PathVariable long id, Model m) {
         Entry c = repo.collection(id);
-        return form(m, c, c.hasImage() ? "/collections/" + id + "/image" : null,
+        return form(m, c, false, c.hasImage() ? "/collections/" + id + "/image" : null,
                 "Редактировать коллекцию", "/collections/" + id);
     }
 
@@ -84,17 +84,23 @@ public class WebController {
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@PathVariable long cid, Model m) {
         repo.collection(cid);
-        return form(m, null, null, "Новый объект", "/collections/" + cid);
+        return form(m, null, true, null, "Новый объект", "/collections/" + cid);
     }
 
     @Transactional
     @PostMapping("/collections/{cid}/items/new")
     public String createItem(@PathVariable long cid, @RequestParam String name,
                              @RequestParam(required = false) String type,
+                             @RequestParam(required = false) String platform,
+                             @RequestParam(required = false) String format,
+                             @RequestParam(required = false) String publisher,
+                             @RequestParam(required = false) String status,
+                             @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) MultipartFile image) {
         repo.collection(cid);
         long id = repo.createItem(cid);
         repo.save("items", id, name, type, image, false);
+        repo.saveItemDetails(id, platform, format, publisher, status, price);
         return "redirect:/collections/" + cid;
     }
 
@@ -106,17 +112,24 @@ public class WebController {
     @GetMapping("/items/{id}/edit")
     public String editItemForm(@PathVariable long id, Model m) {
         Entry it = repo.item(id);
-        return form(m, it, it.hasImage() ? "/items/" + id + "/image" : null,
+        return form(m, it, true, it.hasImage() ? "/items/" + id + "/image" : null,
                 "Редактировать объект", "/collections/" + it.collectionId());
     }
 
+    @Transactional
     @PostMapping("/items/{id}/edit")
     public String editItem(@PathVariable long id, @RequestParam String name,
                            @RequestParam(required = false) String type,
+                           @RequestParam(required = false) String platform,
+                           @RequestParam(required = false) String format,
+                           @RequestParam(required = false) String publisher,
+                           @RequestParam(required = false) String status,
+                           @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) MultipartFile image,
                            @RequestParam(name = "remove_image", required = false) String removeImage) {
         Entry it = repo.item(id);
         repo.save("items", id, name, type, image, removeImage != null);
+        repo.saveItemDetails(id, platform, format, publisher, status, price);
         return "redirect:/collections/" + it.collectionId();
     }
 
@@ -129,8 +142,9 @@ public class WebController {
 
     // ---------- вспомогательное ----------
 
-    private String form(Model m, Entry obj, String imgUrl, String title, String back) {
+    private String form(Model m, Entry obj, boolean isItem, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
+        m.addAttribute("isItem", isItem);
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);
         m.addAttribute("back", back);
