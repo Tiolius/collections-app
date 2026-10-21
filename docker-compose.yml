@@ -1,0 +1,9 @@
+services:
+  web:
+    build: .
+    container_name: collections-app
+    ports:
+      - "47321:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main>
+  <p><a th:href="${back}">← Назад</a></p>
+  <h2 th:text="${title}"></h2>
+  <form class="form" method="post" enctype="multipart/form-data">
+    <label>Название *</label>
+    <input type="text" name="name" required th:value="${obj != null ? obj.name() : ''}">
+
+    <label>Тип</label>
+    <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
+
+    <label>Картинка</label>
+    <th:block th:if="${imgUrl != null}">
+      <img class="preview" th:src="${imgUrl}" alt="">
+      <label style="font-weight:normal"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+    </th:block>
+    <input type="file" name="image" accept="image/*">
+
+    <div style="margin-top:20px">
+      <button class="btn">Сохранить</button>
+      <a class="btn gray" th:href="${back}">Отмена</a>
+    </div>
+  </form>
+</main>
+</body>
+</html>

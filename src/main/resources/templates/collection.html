@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main>
+  <p><a href="/">← Все коллекции</a></p>
+  <div class="head">
+    <img th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+    <div>
+      <h2 style="margin:0" th:text="${c.name()}"></h2>
+      <div class="type" th:text="${'Тип: ' + (c.type() == null or c.type().isEmpty() ? '—' : c.type())}"></div>
+      <div style="margin-top:8px">
+        <a class="btn gray" th:href="@{/collections/{id}/edit(id=${c.id()})}">Изменить</a>
+        <form class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
+              onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
+          <button class="btn red">Удалить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <h3>Объекты</h3>
+    <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}">+ Новый объект</a>
+  </div>
+  <p class="empty" th:if="${items.isEmpty()}">В коллекции пока нет объектов.</p>
+  <div class="grid">
+    <div class="card" th:each="it : ${items}">
+      <a th:if="${it.hasImage()}" th:href="@{/items/{id}/image(id=${it.id()})}" target="_blank">
+        <img th:src="@{/items/{id}/image(id=${it.id()})}" alt="">
+      </a>
+      <div th:unless="${it.hasImage()}" class="noimg">нет картинки</div>
+      <div class="body">
+        <div class="name" th:text="${it.name()}"></div>
+        <div class="type" th:text="${it.type() == null or it.type().isEmpty() ? '—' : it.type()}"></div>
+      </div>
+      <div class="actions">
+        <a class="btn gray" th:href="@{/items/{id}/edit(id=${it.id()})}">Изменить</a>
+        <form class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
+              onsubmit="return confirm('Удалить объект?')">
+          <button class="btn red">Удалить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
