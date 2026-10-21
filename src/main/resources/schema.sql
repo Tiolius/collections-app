@@ -1,3 +1,5 @@
+-- Схема базы. Выполняется при каждом старте; создаёт таблицы, если их нет.
+
 CREATE TABLE IF NOT EXISTS collections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -6,7 +8,6 @@ CREATE TABLE IF NOT EXISTS collections (
     kind TEXT -- тип коллекции, значения в Repo.KINDS
 );
 
--- Новые столбцы добавлять и сюда, и в Repo.migrate() (для уже существующих баз)
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,

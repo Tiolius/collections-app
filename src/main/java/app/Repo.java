@@ -41,38 +41,6 @@ public class Repo {
 
     public Repo(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        migrate();
-    }
-
-    /** schema.sql создаёт только новые таблицы, поэтому старые базы приводим к текущей схеме здесь. */
-    private void migrate() {
-        addColumn("collections", "kind", "TEXT");
-        addColumn("items", "platform", "TEXT");
-        addColumn("items", "format", "TEXT");
-        addColumn("items", "status", "TEXT");
-        addColumn("items", "price", "INTEGER");
-        // Старые названия типов коллекций
-        jdbc.update("UPDATE collections SET kind = ? WHERE kind = 'Физическая'", GAMES_DISC);
-        jdbc.update("UPDATE collections SET kind = ? WHERE kind = 'Цифровая'", GAMES_DIGITAL);
-        // Столбцы, которые больше не используются: у объектов нет издателя, типа и картинки
-        boolean dropped = false;
-        for (String col : List.of("publisher", "type", "image", "image_mime")) dropped |= dropColumn("items", col);
-        dropped |= dropColumn("collections", "type"); // свободный текст «Тип» заменён на тип коллекции (kind)
-        if (dropped) jdbc.execute("VACUUM"); // вернуть место, которое занимали удалённые картинки
-    }
-
-    private boolean dropColumn(String table, String col) {
-        if (!columns(table).contains(col)) return false;
-        jdbc.execute("ALTER TABLE " + table + " DROP COLUMN " + col);
-        return true;
-    }
-
-    private void addColumn(String table, String col, String type) {
-        if (!columns(table).contains(col)) jdbc.execute("ALTER TABLE " + table + " ADD COLUMN " + col + " " + type);
-    }
-
-    private List<String> columns(String table) {
-        return jdbc.queryForList("SELECT name FROM pragma_table_info(?)", String.class, table);
     }
 
     private static RowMapper<Entry> mapper(boolean isItem, boolean withCount) {
