@@ -8,7 +8,10 @@
   * { box-sizing: border-box; }
   body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f6; color: #222; font-size: 15px; }
   header { background: #2d3748; color: #fff; padding: 8px 24px; }
+  header { display: flex; align-items: center; justify-content: space-between; }
   header a { color: #fff; text-decoration: none; font-weight: 600; }
+  header a.settings { font-weight: normal; opacity: .85; }
+  header a.settings:hover { opacity: 1; }
   /* На всю ширину экрана; отступы по краям небольшие */
   main { padding: 16px 24px; }
   h2 { margin: 0; font-size: 22px; }
@@ -65,6 +68,7 @@
           border: none; border-radius: 6px; background: none; color: #4a5568; cursor: pointer; vertical-align: middle; }
   .icon:hover { background: #e2e8f0; color: #2b6cb0; }
   .icon.red:hover { background: #fed7d7; color: #c53030; }
+  .icon.disabled { color: #cbd5e0; cursor: not-allowed; }
   /* Цена: иконка глаза, сама цена — в подсказке при наведении */
   table.items th.eye, table.items td.eye { text-align: center; }
   table.items.fixed td.eye { overflow: visible; }
@@ -104,6 +108,9 @@
 </style>
 </head>
 <body>
-<header th:fragment="header"><a href="/">📦 Коллекции</a></header>
+<header th:fragment="header">
+  <a href="/">📦 Коллекции</a>
+  <a class="settings" href="/kinds" title="Типы коллекций и их поля">⚙ Настройки</a>
+</header>
 </body>
 </html>

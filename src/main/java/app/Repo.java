@@ -2,11 +2,15 @@ package app;
 
 import java.io.IOException;
 import java.text.Collator;
+import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,23 +33,16 @@ public class Repo {
         return c::compare;
     }
 
-    /** Типы коллекций (выпадающий список — по алфавиту). */
-    public static final String GAMES_DISC = "Игры (диски)", GAMES_DIGITAL = "Игры (цифровые)",
-            MUSIC_DISC = "Музыка (диски)", BOOKS = "Книги";
-    public static final List<String> KINDS =
-            List.of(GAMES_DISC, GAMES_DIGITAL, MUSIC_DISC, BOOKS).stream().sorted(alphabetical()).toList();
-
-    /** Поля объекта (кроме названия) в зависимости от типа коллекции. */
-    private static final Map<String, Set<String>> KIND_FIELDS = Map.of(
-            GAMES_DIGITAL, Set.of("platform", "format", "status", "price"), // как вкладка PC Collection
-            GAMES_DISC, Set.of("status", "price"),                          // как вкладки издателей
-            MUSIC_DISC, Set.of("price"),
-            BOOKS, Set.of("price"));
-    private static final Set<String> ALL_FIELDS = Set.of("platform", "format", "status", "price");
-
-    /** Какие поля есть у объектов коллекции этого типа (у коллекции без типа — все). */
-    public static Set<String> itemFields(String kind) {
-        return KIND_FIELDS.getOrDefault(kind, ALL_FIELDS);
+    /**
+     * Готовый набор полей объекта (кроме названия, оно есть всегда): ключ → подпись.
+     * Ключ = столбец в items. Тип коллекции выбирает поля из этого набора.
+     */
+    public static final Map<String, String> FIELDS = new LinkedHashMap<>();
+    static {
+        FIELDS.put("platform", "Платформа");
+        FIELDS.put("format", "Формат");
+        FIELDS.put("status", "Статус прохождения");
+        FIELDS.put("price", "Цена");
     }
 
     private final JdbcTemplate jdbc;
@@ -72,6 +69,68 @@ public class Repo {
     private static Integer price(java.sql.ResultSet rs) throws java.sql.SQLException {
         int v = rs.getInt("price");
         return rs.wasNull() ? null : v;
+    }
+
+    // ---------- типы коллекций ----------
+
+    private static Set<String> parseFields(String s) {
+        Set<String> f = Arrays.stream(s == null ? new String[0] : s.split(","))
+                .map(String::trim).collect(Collectors.toSet());
+        // в порядке FIELDS
+        return FIELDS.keySet().stream().filter(f::contains).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static final RowMapper<Kind> KIND_MAPPER = (rs, i) -> new Kind(
+            rs.getLong("id"), rs.getString("name"), parseFields(rs.getString("fields")), rs.getInt("used"));
+
+    private static final String KIND_SELECT = "SELECT id, name, fields, "
+            + "(SELECT COUNT(*) FROM collections c WHERE c.kind = k.name) AS used FROM kinds k";
+
+    /** Все типы по алфавиту. */
+    public List<Kind> kinds() {
+        return jdbc.query(KIND_SELECT, KIND_MAPPER).stream()
+                .sorted(Comparator.comparing(Kind::name, alphabetical())).toList();
+    }
+
+    public Kind kind(long id) {
+        List<Kind> list = jdbc.query(KIND_SELECT + " WHERE id = ?", KIND_MAPPER, id);
+        if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return list.get(0);
+    }
+
+    /** Поля объектов коллекции этого типа. Если тип не найден — все поля, чтобы данные не прятались. */
+    public Set<String> itemFields(String kindName) {
+        List<Kind> list = jdbc.query(KIND_SELECT + " WHERE name = ?", KIND_MAPPER, kindName);
+        return list.isEmpty() ? FIELDS.keySet() : list.get(0).fields();
+    }
+
+    /**
+     * Создаёт (id == null) или изменяет тип. При переименовании меняет тип и у его коллекций.
+     * Возвращает id типа.
+     */
+    public long saveKind(Long id, String name, List<String> fields) {
+        requireName(name);
+        String n = name.trim();
+        for (Kind k : kinds())
+            if (alphabetical().compare(k.name(), n) == 0 && (id == null || k.id() != id))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Тип «" + k.name() + "» уже есть");
+        String f = FIELDS.keySet().stream().filter(key -> fields != null && fields.contains(key))
+                .collect(Collectors.joining(","));
+        if (id == null)
+            return jdbc.queryForObject("INSERT INTO kinds (name, fields) VALUES (?, ?) RETURNING id", Long.class, n, f);
+        Kind old = kind(id);
+        jdbc.update("UPDATE kinds SET name = ?, fields = ? WHERE id = ?", n, f, id);
+        jdbc.update("UPDATE collections SET kind = ? WHERE kind = ?", n, old.name());
+        return id;
+    }
+
+    /** Удаляет тип, если ни одна коллекция его не использует. */
+    public void deleteKind(long id) {
+        Kind k = kind(id);
+        if (k.used() > 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Тип «" + k.name() + "» используется в коллекциях (" + k.used() + "), его нельзя удалить");
+        jdbc.update("DELETE FROM kinds WHERE id = ?", id);
     }
 
     // ---------- чтение ----------
@@ -138,7 +197,7 @@ public class Repo {
     /** Сохраняет коллекцию: название, тип и (если загружена) картинку; removeImage удаляет картинку. */
     public void saveCollection(long id, String name, String kind, MultipartFile image, boolean removeImage) {
         requireName(name);
-        if (!KINDS.contains(kind))
+        if (kind == null || jdbc.queryForObject("SELECT COUNT(*) FROM kinds WHERE name = ?", Integer.class, kind) == 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите тип коллекции");
         jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
@@ -157,7 +216,7 @@ public class Repo {
     }
 
     /**
-     * Сохраняет объект: название и те поля, которые есть у типа коллекции (itemFields).
+     * Сохраняет объект: название и те поля, которые есть у типа коллекции (см. настройки типа).
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long id, String kind, String name, String platform, String format, String status, Integer price) {

@@ -73,7 +73,7 @@ public class WebController {
                              @RequestParam(defaultValue = "1") int page,
                              @RequestParam(defaultValue = "50") int size) {
         Entry c = repo.collection(id);
-        Set<String> fields = Repo.itemFields(c.kind());
+        Set<String> fields = repo.itemFields(c.kind());
 
         List<Col> cols = new ArrayList<>();
         cols.add(new Col("name", "Название", "title"));
@@ -159,7 +159,7 @@ public class WebController {
 
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@PathVariable long cid, Model m) {
-        Set<String> fields = Repo.itemFields(repo.collection(cid).kind());
+        Set<String> fields = repo.itemFields(repo.collection(cid).kind());
         return form(m, null, true, fields, null, "Новый объект", "/collections/" + cid);
     }
 
@@ -179,7 +179,7 @@ public class WebController {
     @GetMapping("/items/{id}/edit")
     public String editItemForm(@PathVariable long id, Model m, @RequestParam(required = false) String view) {
         Entry it = repo.item(id);
-        Set<String> fields = Repo.itemFields(repo.collection(it.collectionId()).kind());
+        Set<String> fields = repo.itemFields(repo.collection(it.collectionId()).kind());
         m.addAttribute("view", view);
         return form(m, it, true, fields, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
     }
@@ -203,13 +203,59 @@ public class WebController {
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 
+    // ---------- Настройки: типы коллекций ----------
+
+    @GetMapping("/kinds")
+    public String kinds(Model m) {
+        m.addAttribute("kinds", repo.kinds());
+        m.addAttribute("fieldNames", Repo.FIELDS);
+        return "kinds";
+    }
+
+    @GetMapping("/kinds/new")
+    public String newKindForm(Model m) {
+        return kindForm(m, null, "Новый тип коллекции");
+    }
+
+    @PostMapping("/kinds/new")
+    public String createKind(@RequestParam String name, @RequestParam(required = false) List<String> fields) {
+        repo.saveKind(null, name, fields);
+        return "redirect:/kinds";
+    }
+
+    @GetMapping("/kinds/{id}/edit")
+    public String editKindForm(@PathVariable long id, Model m) {
+        return kindForm(m, repo.kind(id), "Тип коллекции");
+    }
+
+    @Transactional
+    @PostMapping("/kinds/{id}/edit")
+    public String editKind(@PathVariable long id, @RequestParam String name,
+                           @RequestParam(required = false) List<String> fields) {
+        repo.saveKind(id, name, fields);
+        return "redirect:/kinds";
+    }
+
+    @PostMapping("/kinds/{id}/delete")
+    public String deleteKind(@PathVariable long id) {
+        repo.deleteKind(id);
+        return "redirect:/kinds";
+    }
+
+    private String kindForm(Model m, Kind kind, String title) {
+        m.addAttribute("kind", kind);
+        m.addAttribute("fieldNames", Repo.FIELDS);
+        m.addAttribute("title", title);
+        return "kind-form";
+    }
+
     // ---------- вспомогательное ----------
 
     private String form(Model m, Entry obj, boolean isItem, Set<String> fields, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
         m.addAttribute("isItem", isItem);
         m.addAttribute("fields", fields);
-        m.addAttribute("kinds", Repo.KINDS);
+        m.addAttribute("kinds", repo.kinds().stream().map(Kind::name).toList());
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);
         m.addAttribute("back", back);
