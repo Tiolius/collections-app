@@ -19,13 +19,15 @@
   .name { font-weight: 600; }
   .empty { color: #777; }
 
-  /* Главная: коллекции в несколько колонок (на 1920 — 5) */
-  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
-  .list .row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: #fff; border-radius: 8px;
+  /* Главная: коллекции списком в одну колонку, 10 на странице — помещаются на экран 1920×1080 */
+  .list { display: flex; flex-direction: column; gap: 4px; }
+  .list .row { display: flex; align-items: center; gap: 14px; height: 72px; padding: 0 12px; background: #fff; border-radius: 8px;
                box-shadow: 0 1px 2px rgba(0,0,0,.08); text-decoration: none; color: inherit; min-width: 0; }
   .list .row:hover { background: #ebf4ff; }
   .list .row > div { min-width: 0; }
+  .list .name { font-size: 16px; }
   .list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list .thumb { width: 56px; height: 56px; }
   .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #e2e8f0; display: block; }
 
   /* Страница коллекции: шапка в одну строку, таблица на всю ширину */
@@ -96,7 +98,6 @@
   @media (max-width: 700px) {
     main { padding: 12px; }
     .form { grid-template-columns: 1fr; }
-    .list { grid-template-columns: 1fr; }
   }
 </style>
 </head>

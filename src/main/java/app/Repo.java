@@ -97,9 +97,14 @@ public class Repo {
 
     // ---------- чтение ----------
 
-    public List<Entry> allCollections() {
+    public int countCollections() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM collections", Integer.class);
+    }
+
+    /** Страница списка коллекций (по названию). */
+    public List<Entry> collections(int limit, int offset) {
         return jdbc.query("SELECT " + COLLECTION_COLS + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt "
-                + "FROM collections c ORDER BY name COLLATE NOCASE", mapper(false, true));
+                + "FROM collections c ORDER BY name COLLATE NOCASE, id LIMIT ? OFFSET ?", mapper(false, true), limit, offset);
     }
 
     public Entry collection(long id) {

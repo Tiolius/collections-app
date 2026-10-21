@@ -28,9 +28,18 @@ public class WebController {
 
     // ---------- Коллекции ----------
 
+    /** Коллекций на одной странице главной. */
+    private static final int COLLECTIONS_PER_PAGE = 10;
+
     @GetMapping("/")
-    public String index(Model m) {
-        m.addAttribute("collections", repo.allCollections());
+    public String index(Model m, @RequestParam(defaultValue = "1") int page) {
+        int total = repo.countCollections();
+        int pages = Math.max(1, (total + COLLECTIONS_PER_PAGE - 1) / COLLECTIONS_PER_PAGE);
+        page = Math.min(Math.max(page, 1), pages);
+        m.addAttribute("collections", repo.collections(COLLECTIONS_PER_PAGE, (page - 1) * COLLECTIONS_PER_PAGE));
+        m.addAttribute("page", page);
+        m.addAttribute("pages", pages);
+        m.addAttribute("pageLinks", pageLinks(page, pages));
         return "index";
     }
 
