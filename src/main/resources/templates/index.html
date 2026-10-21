@@ -6,6 +6,13 @@
 <main>
   <div class="bar">
     <h2>Мои коллекции</h2>
+    <span class="pager pages" th:if="${pages > 1}">
+      <th:block th:each="p : ${pageLinks}">
+        <span th:if="${p == 0}" class="muted">…</span>
+        <b th:if="${p == page}" th:text="${p}"></b>
+        <a th:if="${p != 0 and p != page}" th:text="${p}" th:href="@{/(page=${p})}"></a>
+      </th:block>
+    </span>
     <span class="spacer"></span>
     <a class="btn" href="/collections/new">+ Новая коллекция</a>
   </div>
@@ -19,15 +26,6 @@
         <div class="type" th:text="${c.kind() == null ? '—' : c.kind()}"></div>
       </div>
     </a>
-  </div>
-  <div class="bar pager" th:if="${pages > 1}" style="margin-top:12px">
-    <span class="pages">
-      <th:block th:each="p : ${pageLinks}">
-        <span th:if="${p == 0}" class="muted">…</span>
-        <b th:if="${p == page}" th:text="${p}"></b>
-        <a th:if="${p != 0 and p != page}" th:text="${p}" th:href="@{/(page=${p})}"></a>
-      </th:block>
-    </span>
   </div>
 </main>
 </body>
