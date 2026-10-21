@@ -16,11 +16,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class Repo {
 
     private static final String COLS = "id, name, type, image_mime IS NOT NULL AS has_image";
-    private static final String ITEM_COLS = COLS + ", collection_id, platform, format, publisher, status, price";
+    private static final String COLLECTION_COLS = COLS + ", kind";
+    private static final String ITEM_COLS = COLS + ", collection_id, platform, format, status, price";
 
-    /** Дополнительные столбцы items: добавляются в старые базы при старте. */
-    private static final Map<String, String> ITEM_EXTRA = Map.of(
-            "platform", "TEXT", "format", "TEXT", "publisher", "TEXT", "status", "TEXT", "price", "INTEGER");
+    /** Допустимые значения вида коллекции. */
+    public static final List<String> KINDS = List.of("Физическая", "Цифровая");
 
     private final JdbcTemplate jdbc;
 
@@ -29,12 +29,22 @@ public class Repo {
         migrate();
     }
 
-    /** schema.sql создаёт только новые таблицы, поэтому недостающие столбцы добавляем здесь. */
+    /** schema.sql создаёт только новые таблицы, поэтому старые базы приводим к текущей схеме здесь. */
     private void migrate() {
-        List<String> existing = jdbc.queryForList("SELECT name FROM pragma_table_info('items')", String.class);
-        ITEM_EXTRA.forEach((col, type) -> {
-            if (!existing.contains(col)) jdbc.execute("ALTER TABLE items ADD COLUMN " + col + " " + type);
-        });
+        addColumn("collections", "kind", "TEXT");
+        addColumn("items", "platform", "TEXT");
+        addColumn("items", "format", "TEXT");
+        addColumn("items", "status", "TEXT");
+        addColumn("items", "price", "INTEGER");
+        if (columns("items").contains("publisher")) jdbc.execute("ALTER TABLE items DROP COLUMN publisher");
+    }
+
+    private void addColumn(String table, String col, String type) {
+        if (!columns(table).contains(col)) jdbc.execute("ALTER TABLE " + table + " ADD COLUMN " + col + " " + type);
+    }
+
+    private List<String> columns(String table) {
+        return jdbc.queryForList("SELECT name FROM pragma_table_info(?)", String.class, table);
     }
 
     private static RowMapper<Entry> mapper(boolean isItem, boolean withCount) {
@@ -45,9 +55,9 @@ public class Repo {
                 rs.getBoolean("has_image"),
                 isItem ? rs.getLong("collection_id") : null,
                 withCount ? rs.getInt("cnt") : 0,
+                isItem ? null : rs.getString("kind"),
                 isItem ? rs.getString("platform") : null,
                 isItem ? rs.getString("format") : null,
-                isItem ? rs.getString("publisher") : null,
                 isItem ? rs.getString("status") : null,
                 isItem ? price(rs) : null);
     }
@@ -61,12 +71,12 @@ public class Repo {
     // ---------- чтение ----------
 
     public List<Entry> allCollections() {
-        return jdbc.query("SELECT " + COLS + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt "
+        return jdbc.query("SELECT " + COLLECTION_COLS + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt "
                 + "FROM collections c ORDER BY name COLLATE NOCASE", mapper(false, true));
     }
 
     public Entry collection(long id) {
-        return one(jdbc.query("SELECT " + COLS + " FROM collections WHERE id = ?", mapper(false, false), id));
+        return one(jdbc.query("SELECT " + COLLECTION_COLS + " FROM collections WHERE id = ?", mapper(false, false), id));
     }
 
     public List<Entry> items(long collectionId) {
@@ -118,13 +128,19 @@ public class Repo {
         }
     }
 
+    /** Сохраняет вид коллекции: "Физическая" или "Цифровая". */
+    public void saveCollectionKind(long id, String kind) {
+        if (!KINDS.contains(kind))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите вид коллекции: Физическая или Цифровая");
+        jdbc.update("UPDATE collections SET kind = ? WHERE id = ?", kind, id);
+    }
+
     /** Сохраняет поля, которые есть только у объектов. */
-    public void saveItemDetails(long id, String platform, String format, String publisher,
-                                String status, Integer price) {
+    public void saveItemDetails(long id, String platform, String format, String status, Integer price) {
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
-        jdbc.update("UPDATE items SET platform = ?, format = ?, publisher = ?, status = ?, price = ? WHERE id = ?",
-                trim(platform), trim(format), trim(publisher), trim(status), price, id);
+        jdbc.update("UPDATE items SET platform = ?, format = ?, status = ?, price = ? WHERE id = ?",
+                trim(platform), trim(format), trim(status), price, id);
     }
 
     public void delete(String table, long id) {

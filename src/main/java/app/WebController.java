@@ -38,9 +38,11 @@ public class WebController {
     @Transactional
     @PostMapping("/collections/new")
     public String createCollection(@RequestParam String name, @RequestParam(required = false) String type,
+                                   @RequestParam(required = false) String kind,
                                    @RequestParam(required = false) MultipartFile image) {
         long id = repo.createCollection();
         repo.save("collections", id, name, type, image, false);
+        repo.saveCollectionKind(id, kind);
         return "redirect:/collections/" + id;
     }
 
@@ -63,13 +65,16 @@ public class WebController {
                 "Редактировать коллекцию", "/collections/" + id);
     }
 
+    @Transactional
     @PostMapping("/collections/{id}/edit")
     public String editCollection(@PathVariable long id, @RequestParam String name,
                                  @RequestParam(required = false) String type,
+                                 @RequestParam(required = false) String kind,
                                  @RequestParam(required = false) MultipartFile image,
                                  @RequestParam(name = "remove_image", required = false) String removeImage) {
         repo.collection(id); // 404, если нет
         repo.save("collections", id, name, type, image, removeImage != null);
+        repo.saveCollectionKind(id, kind);
         return "redirect:/collections/" + id;
     }
 
@@ -93,14 +98,13 @@ public class WebController {
                              @RequestParam(required = false) String type,
                              @RequestParam(required = false) String platform,
                              @RequestParam(required = false) String format,
-                             @RequestParam(required = false) String publisher,
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) MultipartFile image) {
         repo.collection(cid);
         long id = repo.createItem(cid);
         repo.save("items", id, name, type, image, false);
-        repo.saveItemDetails(id, platform, format, publisher, status, price);
+        repo.saveItemDetails(id, platform, format, status, price);
         return "redirect:/collections/" + cid;
     }
 
@@ -122,14 +126,13 @@ public class WebController {
                            @RequestParam(required = false) String type,
                            @RequestParam(required = false) String platform,
                            @RequestParam(required = false) String format,
-                           @RequestParam(required = false) String publisher,
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) MultipartFile image,
                            @RequestParam(name = "remove_image", required = false) String removeImage) {
         Entry it = repo.item(id);
         repo.save("items", id, name, type, image, removeImage != null);
-        repo.saveItemDetails(id, platform, format, publisher, status, price);
+        repo.saveItemDetails(id, platform, format, status, price);
         return "redirect:/collections/" + it.collectionId();
     }
 
@@ -145,6 +148,7 @@ public class WebController {
     private String form(Model m, Entry obj, boolean isItem, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
         m.addAttribute("isItem", isItem);
+        m.addAttribute("kinds", Repo.KINDS);
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);
         m.addAttribute("back", back);

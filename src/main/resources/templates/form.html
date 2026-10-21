@@ -13,6 +13,14 @@
     <label>Тип</label>
     <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
 
+    <th:block th:unless="${isItem}">
+      <label>Вид коллекции *</label>
+      <label class="radio" th:each="k : ${kinds}">
+        <input type="radio" name="kind" required th:value="${k}" th:checked="${obj != null and k == obj.kind()}">
+        <span th:text="${k}"></span>
+      </label>
+    </th:block>
+
     <th:block th:if="${isItem}">
       <label>Платформа</label>
       <input type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
@@ -31,12 +39,6 @@
         <option>Digital (Nintendo)</option><option>Digital (Origin)</option><option>Digital (Uplay)</option>
       </datalist>
 
-      <label>Издатель</label>
-      <input type="text" name="publisher" list="publishers" th:value="${obj != null ? obj.publisher() : ''}">
-      <datalist id="publishers">
-        <option>1C Games</option><option>Руссобит-М</option><option>Акелла</option>
-        <option>Бука</option><option>Новый диск</option><option>Torum Media</option>
-      </datalist>
 
       <label>Статус прохождения</label>
       <input type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">

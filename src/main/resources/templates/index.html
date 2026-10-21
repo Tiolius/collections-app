@@ -17,6 +17,7 @@
         <div class="body">
           <div class="name" th:text="${c.name()}"></div>
           <div class="type" th:text="${(c.type() == null or c.type().isEmpty() ? '—' : c.type()) + ' · объектов: ' + c.count()}"></div>
+          <div class="type" th:if="${c.kind() != null}" th:text="${c.kind()}"></div>
         </div>
       </a>
     </div>
