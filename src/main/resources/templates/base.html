@@ -53,7 +53,11 @@
   .pager { font-size: 14px; }
   .pager .pages a, .pager .pages b, .pager > a, .pager > b { padding: 2px 6px; }
   .pager b { background: #3182ce; color: #fff; border-radius: 4px; }
-  table.items .btn { padding: 3px 10px; font-size: 13px; }
+  /* Иконки действий в строке: карандаш и корзина */
+  .icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0;
+          border: none; border-radius: 6px; background: none; color: #4a5568; cursor: pointer; vertical-align: middle; }
+  .icon:hover { background: #e2e8f0; color: #2b6cb0; }
+  .icon.red:hover { background: #fed7d7; color: #c53030; }
 
   .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
   .btn.gray { background: #718096; }
