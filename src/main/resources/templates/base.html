@@ -34,8 +34,11 @@
   table.items th, table.items td { padding: 5px 12px; text-align: left; border-top: 1px solid #edf2f7; font-size: 14px; }
   table.items th { background: #edf2f7; border-top: none; position: sticky; top: 0; z-index: 1; }
   table.items tr:hover td { background: #f7fafc; }
-  table.items .num { text-align: right; white-space: nowrap; }
-  table.items .actions { white-space: nowrap; text-align: right; width: 1%; }
+  /* Название забирает всё свободное место, остальные столбцы — по содержимому */
+  table.items th, table.items td { width: 1%; white-space: nowrap; }
+  table.items .title { width: auto; white-space: normal; }
+  table.items .num { text-align: right; }
+  table.items .actions { text-align: right; }
   table.items .btn { padding: 3px 10px; font-size: 13px; }
 
   .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
@@ -48,7 +51,8 @@
           display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
   .form > label { font-weight: 600; }
   .form .full { grid-column: 1 / -1; }
-  .form input[type=text], .form input[type=number] { width: 100%; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
+  .form input[type=text], .form input[type=number] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
+  .form input[name=name] { max-width: none; }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; border-radius: 6px; }
 

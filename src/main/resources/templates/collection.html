@@ -27,7 +27,7 @@
   <p class="empty" th:if="${items.isEmpty()}">В коллекции пока нет объектов.</p>
   <table class="items" th:unless="${items.isEmpty()}">
     <thead><tr>
-      <th>Название</th>
+      <th class="title">Название</th>
       <th th:if="${digital}">Платформа</th>
       <th th:if="${digital}">Формат</th>
       <th>Статус</th>
@@ -35,7 +35,7 @@
       <th></th>
     </tr></thead>
     <tbody><tr th:each="it : ${items}">
-      <td th:text="${it.name()}"></td>
+      <td class="title" th:text="${it.name()}"></td>
       <td th:if="${digital}" th:text="${it.platform()}"></td>
       <td th:if="${digital}" th:text="${it.format()}"></td>
       <td th:text="${it.status()}"></td>
