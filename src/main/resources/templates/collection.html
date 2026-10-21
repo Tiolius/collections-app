@@ -5,14 +5,14 @@
 <header th:replace="~{base :: header}"></header>
 <main>
   <div class="bar collhead">
-    <a href="/">← Все коллекции</a>
+    <a class="btn light" href="/">← Все коллекции</a>
     <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
     <div>
       <h2 th:text="${c.name()}"></h2>
       <div class="muted">
         <span th:text="${'Тип: ' + (c.type() == null or c.type().isEmpty() ? '—' : c.type())}"></span> ·
         <span th:text="${'Вид: ' + (c.kind() == null ? '—' : c.kind())}"></span> ·
-        <span th:text="${'Объектов: ' + items.size()}"></span>
+        <span th:text="${'Объектов: ' + total}"></span>
       </div>
     </div>
     <span class="spacer"></span>
@@ -24,31 +24,106 @@
     </form>
   </div>
 
-  <p class="empty" th:if="${items.isEmpty()}">В коллекции пока нет объектов.</p>
-  <table class="items" th:unless="${items.isEmpty()}">
+  <p class="empty" th:if="${total == 0}">В коллекции пока нет объектов.</p>
+
+  <th:block th:if="${total > 0}">
+  <div class="bar pager">
+    <span class="muted" th:text="${'Показано ' + from + '–' + to + ' из ' + total}"></span>
+    <span class="pages" th:if="${pages > 1}">
+      <th:block th:each="p : ${pageLinks}">
+        <span th:if="${p == 0}" class="muted">…</span>
+        <b th:if="${p == page}" th:text="${p}"></b>
+        <a th:if="${p != 0 and p != page}" th:text="${p}"
+           th:href="@{/collections/{id}(id=${c.id()},sort=${sort},dir=${dir},page=${p},size=${size})}"></a>
+      </th:block>
+    </span>
+    <span class="spacer"></span>
+    <span class="muted">На странице:</span>
+    <th:block th:each="s : ${sizes}">
+      <b th:if="${s == size}" th:text="${s}"></b>
+      <a th:unless="${s == size}" th:text="${s}"
+         th:href="@{/collections/{id}(id=${c.id()},sort=${sort},dir=${dir},size=${s})}"></a>
+    </th:block>
+    <a href="#" class="muted" id="reset-widths" title="Вернуть исходную ширину столбцов">сбросить ширину столбцов</a>
+  </div>
+
+  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (digital ? '' : ',phys')}">
     <thead><tr>
-      <th class="title">Название</th>
-      <th th:if="${digital}">Платформа</th>
-      <th th:if="${digital}">Формат</th>
-      <th>Статус</th>
-      <th class="num">Цена, ₽</th>
-      <th></th>
+      <th th:each="col : ${cols}" th:class="${col.css()}">
+        <a class="sort" th:href="@{/collections/{id}(id=${c.id()},sort=${col.key()},dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'},size=${size})}"
+           th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
+        <span class="grip" title="Потяните, чтобы изменить ширину"></span>
+      </th>
+      <th class="actions"></th>
     </tr></thead>
     <tbody><tr th:each="it : ${items}">
-      <td class="title" th:text="${it.name()}"></td>
+      <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
       <td th:if="${digital}" th:text="${it.platform()}"></td>
       <td th:if="${digital}" th:text="${it.format()}"></td>
       <td th:text="${it.status()}"></td>
       <td class="num" th:text="${it.price()}"></td>
       <td class="actions">
-        <a class="btn gray" th:href="@{/items/{id}/edit(id=${it.id()})}">Изменить</a>
+        <a class="btn gray" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}">Изменить</a>
         <form class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
               onsubmit="return confirm('Удалить объект?')">
+          <input type="hidden" name="view" th:value="${view}">
           <button class="btn red">Удалить</button>
         </form>
       </td>
     </tr></tbody>
   </table>
+  </th:block>
 </main>
+<script>
+  // Ширина столбцов: потянуть за правый край заголовка. Запоминается в браузере (localStorage).
+  (function () {
+    var table = document.querySelector('table.items');
+    if (!table) return;
+    var key = 'colw:' + table.dataset.cols;
+    var ths = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+    // Текущая ширина столбца с запасом на округление, чтобы текст не обрезался
+    function width(th) { return Math.ceil(th.getBoundingClientRect().width) + 1; }
+    // Ширина таблицы = сумма столбцов, чтобы менялся только тот столбец, который тянут
+    function fitTable() {
+      table.style.width = ths.reduce(function (sum, th) { return sum + parseInt(th.style.width, 10); }, 0) + 'px';
+    }
+    function fix(widths) {
+      ths.forEach(function (th, i) { th.style.width = widths[i] + 'px'; });
+      fitTable();
+      table.classList.add('fixed');
+    }
+    function save() {
+      try { localStorage.setItem(key, JSON.stringify(ths.map(function (th) { return parseInt(th.style.width, 10); }))); } catch (e) {}
+    }
+    try {
+      var saved = JSON.parse(localStorage.getItem(key));
+      if (saved && saved.length === ths.length) fix(saved);
+    } catch (e) {}
+    ths.forEach(function (th) {
+      var grip = th.querySelector('.grip');
+      if (!grip) return;
+      grip.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        if (!table.classList.contains('fixed')) fix(ths.map(width));
+        var startX = e.clientX, startW = parseInt(th.style.width, 10);
+        document.body.classList.add('resizing');
+        function move(ev) { th.style.width = Math.max(40, startW + ev.clientX - startX) + 'px'; fitTable(); }
+        function up() {
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+          document.body.classList.remove('resizing');
+          save();
+        }
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+    });
+    document.getElementById('reset-widths').addEventListener('click', function (e) {
+      e.preventDefault();
+      try { localStorage.removeItem(key); } catch (err) {}
+      location.reload();
+    });
+  })();
+</script>
 </body>
 </html>

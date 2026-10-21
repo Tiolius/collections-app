@@ -1,5 +1,7 @@
 package app;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.MediaType;
@@ -45,13 +47,69 @@ public class WebController {
         return "redirect:/collections/" + id;
     }
 
+    /** Столбец таблицы объектов: ключ сортировки, заголовок, css-класс. */
+    public record Col(String key, String label, String css) {}
+
+    private static final List<Integer> PAGE_SIZES = List.of(25, 50, 100, 200);
+
     @GetMapping("/collections/{id}")
-    public String collection(@PathVariable long id, Model m) {
+    public String collection(@PathVariable long id, Model m,
+                             @RequestParam(defaultValue = "name") String sort,
+                             @RequestParam(defaultValue = "asc") String dir,
+                             @RequestParam(defaultValue = "1") int page,
+                             @RequestParam(defaultValue = "50") int size) {
         Entry c = repo.collection(id);
+        boolean digital = Repo.hasDigitalFields(c.kind());
+
+        List<Col> cols = new ArrayList<>();
+        cols.add(new Col("name", "Название", "title"));
+        if (digital) {
+            cols.add(new Col("platform", "Платформа", ""));
+            cols.add(new Col("format", "Формат", ""));
+        }
+        cols.add(new Col("status", "Статус", ""));
+        cols.add(new Col("price", "Цена, ₽", "num"));
+
+        String requested = sort;
+        if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
+        boolean desc = "desc".equals(dir);
+        if (!PAGE_SIZES.contains(size)) size = 50;
+        int total = repo.countItems(id);
+        int pages = Math.max(1, (total + size - 1) / size);
+        page = Math.min(Math.max(page, 1), pages);
+
         m.addAttribute("c", c);
-        m.addAttribute("digital", Repo.hasDigitalFields(c.kind()));
-        m.addAttribute("items", repo.items(id));
+        m.addAttribute("digital", digital);
+        m.addAttribute("cols", cols);
+        m.addAttribute("items", repo.items(id, sort, desc, size, (page - 1) * size));
+        m.addAttribute("sort", sort);
+        m.addAttribute("dir", desc ? "desc" : "asc");
+        m.addAttribute("page", page);
+        m.addAttribute("pages", pages);
+        m.addAttribute("size", size);
+        m.addAttribute("sizes", PAGE_SIZES);
+        m.addAttribute("total", total);
+        m.addAttribute("from", (page - 1) * size + 1);
+        m.addAttribute("to", Math.min(page * size, total));
+        m.addAttribute("pageLinks", pageLinks(page, pages));
+        // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
+        m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size);
         return "collection";
+    }
+
+    /** Номера страниц для навигации: первая, последняя и соседние с текущей; 0 — пропуск («…»). */
+    private static List<Integer> pageLinks(int page, int pages) {
+        List<Integer> res = new ArrayList<>();
+        for (int p = 1; p <= pages; p++) {
+            if (p == 1 || p == pages || Math.abs(p - page) <= 2) res.add(p);
+            else if (res.get(res.size() - 1) != 0) res.add(0);
+        }
+        return res;
+    }
+
+    /** Адрес страницы коллекции с сохранённым видом списка (view — только из нашей же ссылки). */
+    private static String collectionUrl(long cid, String view) {
+        return "/collections/" + cid + (view != null && view.matches("[A-Za-z0-9=&]*") && !view.isEmpty() ? "?" + view : "");
     }
 
     @GetMapping("/collections/{id}/image")
@@ -108,10 +166,11 @@ public class WebController {
     }
 
     @GetMapping("/items/{id}/edit")
-    public String editItemForm(@PathVariable long id, Model m) {
+    public String editItemForm(@PathVariable long id, Model m, @RequestParam(required = false) String view) {
         Entry it = repo.item(id);
         boolean digital = Repo.hasDigitalFields(repo.collection(it.collectionId()).kind());
-        return form(m, it, true, digital, null, "Редактировать объект", "/collections/" + it.collectionId());
+        m.addAttribute("view", view);
+        return form(m, it, true, digital, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
     }
 
     @PostMapping("/items/{id}/edit")
@@ -119,17 +178,18 @@ public class WebController {
                            @RequestParam(required = false) String platform,
                            @RequestParam(required = false) String format,
                            @RequestParam(required = false) String status,
-                           @RequestParam(required = false) Integer price) {
+                           @RequestParam(required = false) Integer price,
+                           @RequestParam(required = false) String view) {
         Entry it = repo.item(id);
         repo.saveItem(id, repo.collection(it.collectionId()).kind(), name, platform, format, status, price);
-        return "redirect:/collections/" + it.collectionId();
+        return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 
     @PostMapping("/items/{id}/delete")
-    public String deleteItem(@PathVariable long id) {
+    public String deleteItem(@PathVariable long id, @RequestParam(required = false) String view) {
         Entry it = repo.item(id);
         repo.delete("items", id);
-        return "redirect:/collections/" + it.collectionId();
+        return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 
     // ---------- вспомогательное ----------

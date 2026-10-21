@@ -45,7 +45,16 @@ public class Repo {
         addColumn("items", "format", "TEXT");
         addColumn("items", "status", "TEXT");
         addColumn("items", "price", "INTEGER");
-        if (columns("items").contains("publisher")) jdbc.execute("ALTER TABLE items DROP COLUMN publisher");
+        // Столбцы, которые больше не используются: у объектов нет издателя, типа и картинки
+        boolean dropped = false;
+        for (String col : List.of("publisher", "type", "image", "image_mime")) dropped |= dropColumn("items", col);
+        if (dropped) jdbc.execute("VACUUM"); // вернуть место, которое занимали удалённые картинки
+    }
+
+    private boolean dropColumn(String table, String col) {
+        if (!columns(table).contains(col)) return false;
+        jdbc.execute("ALTER TABLE " + table + " DROP COLUMN " + col);
+        return true;
     }
 
     private void addColumn(String table, String col, String type) {
@@ -88,9 +97,25 @@ public class Repo {
         return one(jdbc.query("SELECT " + COLLECTION_COLS + " FROM collections WHERE id = ?", mapper(false, false), id));
     }
 
-    public List<Entry> items(long collectionId) {
-        return jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE collection_id = ? "
-                + "ORDER BY name COLLATE NOCASE", mapper(true, false), collectionId);
+    /** Поля, по которым можно сортировать объекты: ключ из URL → столбец. */
+    public static final Map<String, String> ITEM_SORT = Map.of(
+            "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price");
+
+    public int countItems(long collectionId) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM items WHERE collection_id = ?", Integer.class, collectionId);
+    }
+
+    /**
+     * Страница объектов коллекции. sort — ключ из ITEM_SORT (иначе по названию).
+     * Пустые значения всегда в конце, при равенстве — по названию.
+     */
+    public List<Entry> items(long collectionId, String sort, boolean desc, int limit, int offset) {
+        String col = ITEM_SORT.getOrDefault(sort, "name");
+        String order = "(" + col + " IS NULL OR " + col + " = ''), "
+                + col + (col.equals("price") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
+                + ", name COLLATE NOCASE, id";
+        return jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE collection_id = ? ORDER BY " + order
+                + " LIMIT ? OFFSET ?", mapper(true, false), collectionId, limit, offset);
     }
 
     public Entry item(long id) {

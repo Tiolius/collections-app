@@ -5,10 +5,11 @@
 <header th:replace="~{base :: header}"></header>
 <main>
   <div class="bar">
-    <a th:href="${back}">← Назад</a>
+    <a class="btn light" th:href="${back}">← Назад</a>
     <h2 th:text="${title}"></h2>
   </div>
   <form class="form" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="view" th:if="${view != null}" th:value="${view}">
     <label for="f-name">Название *</label>
     <input id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
 
