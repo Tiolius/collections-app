@@ -4,51 +4,137 @@
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
-  <p><a href="/">← Все коллекции</a></p>
-  <div class="head">
-    <img th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+  <div class="bar collhead">
+    <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></a>
+    <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
     <div>
-      <h2 style="margin:0" th:text="${c.name()}"></h2>
-      <div class="type" th:text="${'Тип: ' + (c.type() == null or c.type().isEmpty() ? '—' : c.type())}"></div>
-      <div class="type" th:text="${'Вид: ' + (c.kind() == null ? '—' : c.kind())}"></div>
-      <div style="margin-top:8px">
-        <a class="btn gray" th:href="@{/collections/{id}/edit(id=${c.id()})}">Изменить</a>
-        <form class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
-              onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
-          <button class="btn red">Удалить</button>
-        </form>
+      <h2 th:text="${c.name()}"></h2>
+      <div class="muted">
+        <span th:text="${'Тип: ' + (c.kind() == null ? '—' : c.kind())}"></span> ·
+        <span th:text="${'Объектов: ' + total}"></span>
       </div>
     </div>
+    <span class="spacer"></span>
+    <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}">+ Новый объект</a>
+    <a class="btn gray" th:href="@{/collections/{id}/edit(id=${c.id()})}">Изменить коллекцию</a>
+    <form class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
+          onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
+      <button class="btn red">Удалить коллекцию</button>
+    </form>
   </div>
 
-  <div class="bar">
-    <h3>Объекты</h3>
-    <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}">+ Новый объект</a>
+  <p class="empty" th:if="${total == 0}">В коллекции пока нет объектов.</p>
+
+  <th:block th:if="${total > 0}">
+  <div class="bar pager">
+    <span class="muted" th:text="${'Показано ' + from + '–' + to + ' из ' + total}"></span>
+    <span class="pages" th:if="${pages > 1}">
+      <th:block th:each="p : ${pageLinks}">
+        <span th:if="${p == 0}" class="muted">…</span>
+        <b th:if="${p == page}" th:text="${p}"></b>
+        <a th:if="${p != 0 and p != page}" th:text="${p}"
+           th:href="@{/collections/{id}(id=${c.id()},sort=${sort},dir=${dir},page=${p},size=${size})}"></a>
+      </th:block>
+    </span>
+    <span class="spacer"></span>
+    <form method="get" class="inline" th:action="@{/collections/{id}(id=${c.id()})}">
+      <input type="hidden" name="sort" th:value="${sort}">
+      <input type="hidden" name="dir" th:value="${dir}">
+      <label class="muted" for="page-size">На странице:</label>
+      <select id="page-size" name="size" onchange="this.form.submit()">
+        <option th:each="s : ${sizes}" th:value="${s}" th:text="${s}" th:selected="${s == size}"></option>
+      </select>
+      <noscript><button class="btn">OK</button></noscript>
+    </form>
+    <button type="button" class="btn light small" id="reset-widths" title="Вернуть исходную ширину столбцов">Сбросить ширину столбцов</button>
   </div>
-  <p class="empty" th:if="${items.isEmpty()}">В коллекции пока нет объектов.</p>
-  <div class="grid">
-    <div class="card" th:each="it : ${items}">
-      <a th:if="${it.hasImage()}" th:href="@{/items/{id}/image(id=${it.id()})}" target="_blank">
-        <img th:src="@{/items/{id}/image(id=${it.id()})}" alt="">
-      </a>
-      <div th:unless="${it.hasImage()}" class="noimg">нет картинки</div>
-      <div class="body">
-        <div class="name" th:text="${it.name()}"></div>
-        <div class="type" th:text="${it.type() == null or it.type().isEmpty() ? '—' : it.type()}"></div>
-        <div class="type" th:if="${!#strings.isEmpty(it.platform())}" th:text="${'Платформа: ' + it.platform()}"></div>
-        <div class="type" th:if="${!#strings.isEmpty(it.format())}" th:text="${'Формат: ' + it.format()}"></div>
-        <div class="type" th:if="${!#strings.isEmpty(it.status())}" th:text="${'Статус: ' + it.status()}"></div>
-        <div class="type" th:if="${it.price() != null}" th:text="${'Цена: ' + it.price() + ' ₽'}"></div>
-      </div>
-      <div class="actions">
-        <a class="btn gray" th:href="@{/items/{id}/edit(id=${it.id()})}">Изменить</a>
+
+  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',')}">
+    <thead><tr>
+      <th th:each="col : ${cols}" th:class="${col.css()}">
+        <a class="sort" th:title="${col.key() == 'price' ? 'Сортировать по цене' : null}" th:href="@{/collections/{id}(id=${c.id()},sort=${col.key()},dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'},size=${size})}"
+           th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
+        <span class="grip" title="Потяните, чтобы изменить ширину"></span>
+      </th>
+      <th class="actions"></th>
+    </tr></thead>
+    <tbody><tr th:each="it : ${items}">
+      <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
+      <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
+      <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
+      <td th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
+      <td class="eye" th:if="${fields.contains('price')}">
+        <span class="icon tip" tabindex="0" aria-label="Цена" th:classappend="${it.price() == null} ? 'none'">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>
+        </span>
+      </td>
+      <td class="actions">
+        <a class="icon" title="Изменить" aria-label="Изменить" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </a>
         <form class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
               onsubmit="return confirm('Удалить объект?')">
-          <button class="btn red">Удалить</button>
+          <input type="hidden" name="view" th:value="${view}">
+          <button class="icon red" title="Удалить" aria-label="Удалить">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
         </form>
-      </div>
-    </div>
-  </div>
+      </td>
+    </tr></tbody>
+  </table>
+  </th:block>
 </main>
+<script>
+  // Ширина столбцов: потянуть за правый край заголовка. Запоминается в браузере (localStorage).
+  (function () {
+    var table = document.querySelector('table.items');
+    if (!table) return;
+    var key = 'colw:' + table.dataset.cols;
+    var ths = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+    // Текущая ширина столбца с запасом на округление, чтобы текст не обрезался
+    function width(th) { return Math.ceil(th.getBoundingClientRect().width) + 1; }
+    // Ширина таблицы = сумма столбцов, чтобы менялся только тот столбец, который тянут
+    function fitTable() {
+      table.style.width = ths.reduce(function (sum, th) { return sum + parseInt(th.style.width, 10); }, 0) + 'px';
+    }
+    function fix(widths) {
+      ths.forEach(function (th, i) { th.style.width = widths[i] + 'px'; });
+      fitTable();
+      table.classList.add('fixed');
+    }
+    function save() {
+      try { localStorage.setItem(key, JSON.stringify(ths.map(function (th) { return parseInt(th.style.width, 10); }))); } catch (e) {}
+    }
+    try {
+      var saved = JSON.parse(localStorage.getItem(key));
+      if (saved && saved.length === ths.length) fix(saved);
+    } catch (e) {}
+    ths.forEach(function (th) {
+      var grip = th.querySelector('.grip');
+      if (!grip) return;
+      grip.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        if (!table.classList.contains('fixed')) fix(ths.map(width));
+        var startX = e.clientX, startW = parseInt(th.style.width, 10);
+        document.body.classList.add('resizing');
+        function move(ev) { th.style.width = Math.max(40, startW + ev.clientX - startX) + 'px'; fitTable(); }
+        function up() {
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+          document.body.classList.remove('resizing');
+          save();
+        }
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+    });
+    document.getElementById('reset-widths').addEventListener('click', function (e) {
+      e.preventDefault();
+      try { localStorage.removeItem(key); } catch (err) {}
+      location.reload();
+    });
+  })();
+</script>
 </body>
 </html>

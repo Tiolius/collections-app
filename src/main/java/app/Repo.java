@@ -1,8 +1,16 @@
 package app;
 
 import java.io.IOException;
+import java.text.Collator;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,44 +23,39 @@ import org.springframework.web.server.ResponseStatusException;
 @Repository
 public class Repo {
 
-    private static final String COLS = "id, name, type, image_mime IS NOT NULL AS has_image";
-    private static final String COLLECTION_COLS = COLS + ", kind";
-    private static final String ITEM_COLS = COLS + ", collection_id, platform, format, status, price";
+    private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
+    private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price";
 
-    /** Допустимые значения вида коллекции. */
-    public static final List<String> KINDS = List.of("Физическая", "Цифровая");
+    /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
+    public static Comparator<String> alphabetical() {
+        Collator c = Collator.getInstance(Locale.forLanguageTag("ru"));
+        c.setStrength(Collator.SECONDARY);
+        return c::compare;
+    }
+
+    /**
+     * Готовый набор полей объекта (кроме названия, оно есть всегда): ключ → подпись.
+     * Ключ = столбец в items. Тип коллекции выбирает поля из этого набора.
+     */
+    public static final Map<String, String> FIELDS = new LinkedHashMap<>();
+    static {
+        FIELDS.put("platform", "Платформа");
+        FIELDS.put("format", "Формат");
+        FIELDS.put("status", "Статус прохождения");
+        FIELDS.put("price", "Цена");
+    }
 
     private final JdbcTemplate jdbc;
 
     public Repo(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        migrate();
-    }
-
-    /** schema.sql создаёт только новые таблицы, поэтому старые базы приводим к текущей схеме здесь. */
-    private void migrate() {
-        addColumn("collections", "kind", "TEXT");
-        addColumn("items", "platform", "TEXT");
-        addColumn("items", "format", "TEXT");
-        addColumn("items", "status", "TEXT");
-        addColumn("items", "price", "INTEGER");
-        if (columns("items").contains("publisher")) jdbc.execute("ALTER TABLE items DROP COLUMN publisher");
-    }
-
-    private void addColumn(String table, String col, String type) {
-        if (!columns(table).contains(col)) jdbc.execute("ALTER TABLE " + table + " ADD COLUMN " + col + " " + type);
-    }
-
-    private List<String> columns(String table) {
-        return jdbc.queryForList("SELECT name FROM pragma_table_info(?)", String.class, table);
     }
 
     private static RowMapper<Entry> mapper(boolean isItem, boolean withCount) {
         return (rs, i) -> new Entry(
                 rs.getLong("id"),
                 rs.getString("name"),
-                rs.getString("type"),
-                rs.getBoolean("has_image"),
+                !isItem && rs.getBoolean("has_image"),
                 isItem ? rs.getLong("collection_id") : null,
                 withCount ? rs.getInt("cnt") : 0,
                 isItem ? null : rs.getString("kind"),
@@ -68,30 +71,114 @@ public class Repo {
         return rs.wasNull() ? null : v;
     }
 
+    // ---------- типы коллекций ----------
+
+    private static Set<String> parseFields(String s) {
+        Set<String> f = Arrays.stream(s == null ? new String[0] : s.split(","))
+                .map(String::trim).collect(Collectors.toSet());
+        // в порядке FIELDS
+        return FIELDS.keySet().stream().filter(f::contains).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static final RowMapper<Kind> KIND_MAPPER = (rs, i) -> new Kind(
+            rs.getLong("id"), rs.getString("name"), parseFields(rs.getString("fields")), rs.getInt("used"));
+
+    private static final String KIND_SELECT = "SELECT id, name, fields, "
+            + "(SELECT COUNT(*) FROM collections c WHERE c.kind = k.name) AS used FROM kinds k";
+
+    /** Все типы по алфавиту. */
+    public List<Kind> kinds() {
+        return jdbc.query(KIND_SELECT, KIND_MAPPER).stream()
+                .sorted(Comparator.comparing(Kind::name, alphabetical())).toList();
+    }
+
+    public Kind kind(long id) {
+        List<Kind> list = jdbc.query(KIND_SELECT + " WHERE id = ?", KIND_MAPPER, id);
+        if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return list.get(0);
+    }
+
+    /** Поля объектов коллекции этого типа. Если тип не найден — все поля, чтобы данные не прятались. */
+    public Set<String> itemFields(String kindName) {
+        List<Kind> list = jdbc.query(KIND_SELECT + " WHERE name = ?", KIND_MAPPER, kindName);
+        return list.isEmpty() ? FIELDS.keySet() : list.get(0).fields();
+    }
+
+    /**
+     * Создаёт (id == null) или изменяет тип. При переименовании меняет тип и у его коллекций.
+     * Возвращает id типа.
+     */
+    public long saveKind(Long id, String name, List<String> fields) {
+        requireName(name);
+        String n = name.trim();
+        for (Kind k : kinds())
+            if (alphabetical().compare(k.name(), n) == 0 && (id == null || k.id() != id))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Тип «" + k.name() + "» уже есть");
+        String f = FIELDS.keySet().stream().filter(key -> fields != null && fields.contains(key))
+                .collect(Collectors.joining(","));
+        if (id == null)
+            return jdbc.queryForObject("INSERT INTO kinds (name, fields) VALUES (?, ?) RETURNING id", Long.class, n, f);
+        Kind old = kind(id);
+        jdbc.update("UPDATE kinds SET name = ?, fields = ? WHERE id = ?", n, f, id);
+        jdbc.update("UPDATE collections SET kind = ? WHERE kind = ?", n, old.name());
+        return id;
+    }
+
+    /** Удаляет тип, если ни одна коллекция его не использует. */
+    public void deleteKind(long id) {
+        Kind k = kind(id);
+        if (k.used() > 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Тип «" + k.name() + "» используется в коллекциях (" + k.used() + "), его нельзя удалить");
+        jdbc.update("DELETE FROM kinds WHERE id = ?", id);
+    }
+
     // ---------- чтение ----------
 
-    public List<Entry> allCollections() {
-        return jdbc.query("SELECT " + COLLECTION_COLS + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt "
-                + "FROM collections c ORDER BY name COLLATE NOCASE", mapper(false, true));
+    /**
+     * Все коллекции по алфавиту. Сортируем в Java: SQLite не умеет сравнивать кириллицу без учёта регистра.
+     * Коллекций немного, поэтому страницу на главной вырезаем из этого списка.
+     */
+    public List<Entry> collections() {
+        List<Entry> list = jdbc.query("SELECT " + COLLECTION_COLS
+                + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt FROM collections c", mapper(false, true));
+        Comparator<String> abc = alphabetical();
+        return list.stream().sorted(Comparator.comparing(Entry::name, abc).thenComparing(Entry::id)).toList();
     }
 
     public Entry collection(long id) {
         return one(jdbc.query("SELECT " + COLLECTION_COLS + " FROM collections WHERE id = ?", mapper(false, false), id));
     }
 
-    public List<Entry> items(long collectionId) {
-        return jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE collection_id = ? "
-                + "ORDER BY name COLLATE NOCASE", mapper(true, false), collectionId);
+    /** Поля, по которым можно сортировать объекты: ключ из URL → столбец. */
+    public static final Map<String, String> ITEM_SORT = Map.of(
+            "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price");
+
+    public int countItems(long collectionId) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM items WHERE collection_id = ?", Integer.class, collectionId);
+    }
+
+    /**
+     * Страница объектов коллекции. sort — ключ из ITEM_SORT (иначе по названию).
+     * Пустые значения всегда в конце, при равенстве — по названию.
+     */
+    public List<Entry> items(long collectionId, String sort, boolean desc, int limit, int offset) {
+        String col = ITEM_SORT.getOrDefault(sort, "name");
+        String order = "(" + col + " IS NULL OR " + col + " = ''), "
+                + col + (col.equals("price") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
+                + ", name COLLATE NOCASE, id";
+        return jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE collection_id = ? ORDER BY " + order
+                + " LIMIT ? OFFSET ?", mapper(true, false), collectionId, limit, offset);
     }
 
     public Entry item(long id) {
         return one(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id = ?", mapper(true, false), id));
     }
 
-    /** Возвращает {image, image_mime} или 404. */
-    public Map<String, Object> image(String table, long id) {
+    /** Картинка коллекции: {image, image_mime} или 404. */
+    public Map<String, Object> collectionImage(long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT image, image_mime FROM " + table + " WHERE id = ? AND image IS NOT NULL", id);
+                "SELECT image, image_mime FROM collections WHERE id = ? AND image IS NOT NULL", id);
         if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return rows.get(0);
     }
@@ -107,40 +194,41 @@ public class Repo {
                 Long.class, collectionId);
     }
 
-    /** Сохраняет название, тип и (если загружена) картинку; removeImage удаляет картинку. */
-    public void save(String table, long id, String name, String type, MultipartFile image, boolean removeImage) {
-        if (name == null || name.isBlank())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Название обязательно");
-        jdbc.update("UPDATE " + table + " SET name = ?, type = ? WHERE id = ?", name.trim(),
-                type == null ? "" : type.trim(), id);
+    /** Сохраняет коллекцию: название, тип и (если загружена) картинку; removeImage удаляет картинку. */
+    public void saveCollection(long id, String name, String kind, MultipartFile image, boolean removeImage) {
+        requireName(name);
+        if (kind == null || jdbc.queryForObject("SELECT COUNT(*) FROM kinds WHERE name = ?", Integer.class, kind) == 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите тип коллекции");
+        jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
         if (image != null && !image.isEmpty()) {
             String mime = image.getContentType();
             if (mime == null || !mime.startsWith("image/"))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Файл должен быть картинкой");
             try {
-                jdbc.update("UPDATE " + table + " SET image = ?, image_mime = ? WHERE id = ?", image.getBytes(), mime, id);
+                jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", image.getBytes(), mime, id);
             } catch (IOException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось прочитать файл");
             }
         } else if (removeImage) {
-            jdbc.update("UPDATE " + table + " SET image = NULL, image_mime = NULL WHERE id = ?", id);
+            jdbc.update("UPDATE collections SET image = NULL, image_mime = NULL WHERE id = ?", id);
         }
     }
 
-    /** Сохраняет вид коллекции: "Физическая" или "Цифровая". */
-    public void saveCollectionKind(long id, String kind) {
-        if (!KINDS.contains(kind))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите вид коллекции: Физическая или Цифровая");
-        jdbc.update("UPDATE collections SET kind = ? WHERE id = ?", kind, id);
-    }
-
-    /** Сохраняет поля, которые есть только у объектов. */
-    public void saveItemDetails(long id, String platform, String format, String status, Integer price) {
+    /**
+     * Сохраняет объект: название и те поля, которые есть у типа коллекции (см. настройки типа).
+     * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
+     */
+    public void saveItem(long id, String kind, String name, String platform, String format, String status, Integer price) {
+        requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
-        jdbc.update("UPDATE items SET platform = ?, format = ?, status = ?, price = ? WHERE id = ?",
-                trim(platform), trim(format), trim(status), price, id);
+        Set<String> f = itemFields(kind);
+        jdbc.update("UPDATE items SET name = ? WHERE id = ?", name.trim(), id);
+        if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(platform), id);
+        if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
+        if (f.contains("status")) jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
+        if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
     }
 
     public void delete(String table, long id) {
@@ -148,6 +236,11 @@ public class Repo {
     }
 
     // ---------- вспомогательное ----------
+
+    private static void requireName(String name) {
+        if (name == null || name.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Название обязательно");
+    }
 
     private static String trim(String s) {
         return s == null ? "" : s.trim();

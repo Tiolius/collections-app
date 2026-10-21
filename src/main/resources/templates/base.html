@@ -6,34 +6,109 @@
 <title>Коллекции</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f6; color: #222; }
-  header { background: #2d3748; color: #fff; padding: 12px 20px; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f6; color: #222; font-size: 15px; }
+  header { background: #2d3748; color: #fff; padding: 8px 24px; }
+  header { display: flex; align-items: center; justify-content: space-between; }
   header a { color: #fff; text-decoration: none; font-weight: 600; }
-  main { max-width: 1000px; margin: 0 auto; padding: 20px; }
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
-  .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); display: flex; flex-direction: column; }
-  .card img, .noimg { width: 100%; height: 160px; object-fit: cover; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #999; }
-  .card .body { padding: 10px 12px; flex: 1; }
-  .card .name { font-weight: 600; }
-  .type { color: #666; font-size: 14px; }
-  .card .actions { display: flex; gap: 6px; padding: 0 12px 12px; }
-  a.card-link { text-decoration: none; color: inherit; }
-  .btn { display: inline-block; padding: 7px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
+  header a.settings { font-weight: normal; opacity: .85; }
+  header a.settings:hover { opacity: 1; }
+  /* На всю ширину экрана; отступы по краям небольшие */
+  main { padding: 16px 24px; }
+  h2 { margin: 0; font-size: 22px; }
+  a { color: #2b6cb0; }
+  .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .bar .spacer { flex: 1; }
+  .muted, .type { color: #666; font-size: 14px; }
+  .name { font-weight: 600; }
+  .empty { color: #777; }
+
+  /* Главная: коллекции в 2 колонки, 10 на странице (5 рядов) — помещаются на экран 1920×1080 */
+  .list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .list .row { display: flex; align-items: center; gap: 18px; height: 148px; padding: 0 12px; background: #fff; border-radius: 8px;
+               box-shadow: 0 1px 2px rgba(0,0,0,.08); text-decoration: none; color: inherit; min-width: 0; }
+  .list .row:hover { background: #ebf4ff; }
+  .list .row > div { min-width: 0; }
+  .list .name { font-size: 18px; margin-bottom: 4px; }
+  .list .type { font-size: 15px; }
+  .list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list .thumb { width: 128px; height: 128px; border-radius: 8px; }
+  .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #e2e8f0; display: block; }
+
+  /* Страница коллекции: шапка в одну строку, таблица на всю ширину */
+  .collhead .thumb { width: 56px; height: 56px; }
+  table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  table.items th, table.items td { padding: 5px 12px; text-align: left; border-top: 1px solid #edf2f7; font-size: 14px; }
+  table.items th { background: #edf2f7; border-top: none; position: sticky; top: 0; z-index: 1; }
+  table.items tr:hover td { background: #f7fafc; }
+  /* Название забирает всё свободное место, остальные столбцы — по содержимому */
+  table.items th, table.items td { width: 1%; white-space: nowrap; }
+  table.items .title { width: auto; white-space: normal; }
+  table.items .num { text-align: right; }
+  table.items .actions { text-align: right; }
+  table.items th { padding-right: 16px; }
+  table.items th a.sort { color: inherit; text-decoration: none; display: block; }
+  table.items th a.sort:hover { color: #2b6cb0; }
+  /* Ручка для изменения ширины столбца — правый край заголовка */
+  /* Границы столбцов — тонкие линии и в строках, и в заголовке */
+  table.items td + td, table.items th + th { border-left: 1px solid #d5dde6; }
+  /* Ручка — невидимая полоса у правого края заголовка (курсор ↔) */
+  table.items .grip { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; }
+  body.resizing { cursor: col-resize; user-select: none; }
+  /* После ручной настройки ширины — фиксированная раскладка, длинный текст обрезается */
+  table.items.fixed { table-layout: fixed; }
+  table.items.fixed td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.items.fixed td.actions { overflow: visible; }
+  .pager { font-size: 14px; }
+  .pager .pages a, .pager .pages b, .pager > a, .pager > b { padding: 2px 6px; }
+  .pager b { background: #3182ce; color: #fff; border-radius: 4px; }
+  /* Иконки действий в строке: карандаш и корзина */
+  .icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0;
+          border: none; border-radius: 6px; background: none; color: #4a5568; cursor: pointer; vertical-align: middle; }
+  .icon:hover { background: #e2e8f0; color: #2b6cb0; }
+  .icon.red:hover { background: #fed7d7; color: #c53030; }
+  .icon.disabled { color: #cbd5e0; cursor: not-allowed; }
+  /* Цена: иконка глаза, сама цена — в подсказке при наведении */
+  table.items th.eye, table.items td.eye { text-align: center; }
+  table.items.fixed td.eye { overflow: visible; }
+  .tip { position: relative; cursor: default; }
+  .tip.none { color: #cbd5e0; }
+  .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
+                  background: #2d3748; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 13px; white-space: nowrap; z-index: 2; }
+  .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
+
+  .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
   .btn.gray { background: #718096; }
   .btn.red { background: #e53e3e; }
+  .btn.light { background: #fff; color: #2d3748; border: 1px solid #cbd5e0; }
+  .btn.light:hover { background: #edf2f7; }
+  .btn.back { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; padding: 0; }
+  .btn.small { padding: 3px 10px; font-size: 13px; }
   form.inline { display: inline; }
-  .form { background: #fff; padding: 20px; border-radius: 8px; max-width: 500px; }
-  .form label { display: block; margin: 12px 0 4px; font-weight: 600; }
-  .form input[type=text], .form input[type=number] { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
-  .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin: 4px 16px 0 0; font-weight: normal; }
-  .preview { max-width: 200px; max-height: 200px; display: block; margin: 8px 0; border-radius: 6px; }
-  .head { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
-  .head img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; }
-  .empty { color: #777; }
+
+  /* Форма: подпись слева, поле справа */
+  .form { background: #fff; padding: 16px 20px; border-radius: 8px; max-width: 900px;
+          display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
+  .form > label { font-weight: 600; }
+  .form .full { grid-column: 1 / -1; }
+  select { padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; background: #fff; }
+  .form select { width: 100%; max-width: 360px; }
+  .pager select { font-size: 14px; padding: 3px 6px; }
+  .form input[type=text], .form input[type=number] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
+  .form input[name=name] { max-width: none; }
+  .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; }
+  .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; border-radius: 6px; }
+
+  @media (max-width: 700px) {
+    main { padding: 12px; }
+    .form { grid-template-columns: 1fr; }
+    .list { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<header th:fragment="header"><a href="/">📦 Коллекции</a></header>
+<header th:fragment="header">
+  <a href="/">📦 Коллекции</a>
+  <a class="settings" href="/kinds" title="Типы коллекций и их поля">⚙ Настройки</a>
+</header>
 </body>
 </html>

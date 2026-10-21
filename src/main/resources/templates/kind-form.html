@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main>
+  <div class="bar">
+    <a class="btn light back" href="/kinds" title="Назад" aria-label="Назад"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></a>
+    <h2 th:text="${title}"></h2>
+  </div>
+  <form class="form" method="post">
+    <label for="f-name">Название типа *</label>
+    <input id="f-name" type="text" name="name" required autofocus th:value="${kind != null ? kind.name() : ''}">
+
+    <label>Поля объектов</label>
+    <div>
+      <label class="radio"><input type="checkbox" checked disabled> Название</label>
+      <label class="radio" th:each="f : ${fieldNames}">
+        <input type="checkbox" name="fields" th:value="${f.key}" th:checked="${kind != null and kind.fields().contains(f.key)}">
+        <span th:text="${f.value}"></span>
+      </label>
+    </div>
+
+    <p class="full muted" style="margin:0" th:if="${kind != null and kind.used() > 0}"
+       th:text="${'Тип используется в коллекциях: ' + kind.used() + '. Если снять поле, его значения у объектов не удалятся, а только перестанут показываться.'}"></p>
+
+    <div class="full">
+      <button class="btn">Сохранить</button>
+      <a class="btn gray" href="/kinds">Отмена</a>
+    </div>
+  </form>
+</main>
+</body>
+</html>
