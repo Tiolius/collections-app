@@ -118,13 +118,11 @@
         if (!table.classList.contains('fixed')) fix(ths.map(width));
         var startX = e.clientX, startW = parseInt(th.style.width, 10);
         document.body.classList.add('resizing');
-        th.classList.add('resizing');
         function move(ev) { th.style.width = Math.max(40, startW + ev.clientX - startX) + 'px'; fitTable(); }
         function up() {
           document.removeEventListener('mousemove', move);
           document.removeEventListener('mouseup', up);
           document.body.classList.remove('resizing');
-          th.classList.remove('resizing');
           save();
         }
         document.addEventListener('mousemove', move);
