@@ -74,6 +74,7 @@ public class WebController {
                              @RequestParam(defaultValue = "50") int size) {
         Entry c = repo.collection(id);
         Set<String> fields = repo.itemFields(c.kind());
+        m.addAttribute("statusColors", repo.statusColors(c.kind()));
 
         List<Col> cols = new ArrayList<>();
         cols.add(new Col("name", "Название", "title"));
@@ -217,9 +218,12 @@ public class WebController {
         return kindForm(m, null, "Новый тип коллекции");
     }
 
+    @Transactional
     @PostMapping("/kinds/new")
-    public String createKind(@RequestParam String name, @RequestParam(required = false) List<String> fields) {
-        repo.saveKind(null, name, fields);
+    public String createKind(@RequestParam String name, @RequestParam(required = false) List<String> fields,
+                             @RequestParam(name = "st", required = false) List<String> statuses,
+                             @RequestParam(name = "stc", required = false) List<String> colors) {
+        repo.saveKind(null, name, fields, statuses, colors);
         return "redirect:/kinds";
     }
 
@@ -231,8 +235,10 @@ public class WebController {
     @Transactional
     @PostMapping("/kinds/{id}/edit")
     public String editKind(@PathVariable long id, @RequestParam String name,
-                           @RequestParam(required = false) List<String> fields) {
-        repo.saveKind(id, name, fields);
+                           @RequestParam(required = false) List<String> fields,
+                           @RequestParam(name = "st", required = false) List<String> statuses,
+                           @RequestParam(name = "stc", required = false) List<String> colors) {
+        repo.saveKind(id, name, fields, statuses, colors);
         return "redirect:/kinds";
     }
 
@@ -242,8 +248,18 @@ public class WebController {
         return "redirect:/kinds";
     }
 
+    /** Сколько пустых строк «статус — цвет» добавлять в форму типа. */
+    private static final int EMPTY_STATUS_ROWS = 3;
+
     private String kindForm(Model m, Kind kind, String title) {
         m.addAttribute("kind", kind);
+        m.addAttribute("statusColors", kind == null ? Map.of() : kind.statusColors());
+        m.addAttribute("emptyRows", IntStream.range(0, EMPTY_STATUS_ROWS).boxed().toList());
+        // подсказки: стандартные статусы и те, что уже есть у объектов этого типа
+        Set<String> hints = new java.util.TreeSet<>(Repo.alphabetical());
+        hints.addAll(List.of("Complete", "Incomplete"));
+        if (kind != null) hints.addAll(repo.usedStatuses(kind.name()));
+        m.addAttribute("statusHints", hints);
         m.addAttribute("fieldNames", Repo.FIELDS);
         m.addAttribute("title", title);
         return "kind-form";

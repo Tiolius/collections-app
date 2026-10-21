@@ -21,6 +21,25 @@
       </label>
     </div>
 
+    <label class="top">Цвет строки по статусу</label>
+    <div>
+      <table class="status-colors">
+        <tr><th>Статус</th><th>Цвет</th></tr>
+        <tr th:each="e : ${statusColors}">
+          <td><input type="text" name="st" list="status-hints" th:value="${e.key}"></td>
+          <td><input type="color" name="stc" th:value="${e.value}"></td>
+        </tr>
+        <tr th:each="i : ${emptyRows}">
+          <td><input type="text" name="st" list="status-hints" placeholder="статус"></td>
+          <td><input type="color" name="stc" value="#fefcbf"></td>
+        </tr>
+      </table>
+      <datalist id="status-hints"><option th:each="h : ${statusHints}" th:value="${h}"></option></datalist>
+      <div class="muted hint">Строки объектов с этим статусом закрашиваются выбранным цветом (регистр букв не важен).
+        Чтобы убрать цвет, очистите статус. Нужно больше строк — сохраните, и появятся новые пустые.
+        Работает, если у типа отмечено поле «Статус прохождения».</div>
+    </div>
+
     <p class="full muted" style="margin:0" th:if="${kind != null and kind.used() > 0}"
        th:text="${'Тип используется в коллекциях: ' + kind.used() + '. Если снять поле, его значения у объектов не удалятся, а только перестанут показываться.'}"></p>
 

@@ -81,21 +81,46 @@ public class Repo {
     }
 
     private static final RowMapper<Kind> KIND_MAPPER = (rs, i) -> new Kind(
-            rs.getLong("id"), rs.getString("name"), parseFields(rs.getString("fields")), rs.getInt("used"));
+            rs.getLong("id"), rs.getString("name"), parseFields(rs.getString("fields")), rs.getInt("used"), Map.of());
+
+    /** Добавляет к типам цвета статусов (статусы по алфавиту). */
+    private List<Kind> withColors(List<Kind> kinds) {
+        Map<Long, Map<String, String>> byKind = new java.util.HashMap<>();
+        jdbc.query("SELECT kind_id, status, color FROM kind_status_colors", rs -> {
+            byKind.computeIfAbsent(rs.getLong("kind_id"), k -> new java.util.TreeMap<>(alphabetical()))
+                    .put(rs.getString("status"), rs.getString("color"));
+        });
+        return kinds.stream().map(k -> new Kind(k.id(), k.name(), k.fields(), k.used(),
+                byKind.getOrDefault(k.id(), Map.of()))).toList();
+    }
 
     private static final String KIND_SELECT = "SELECT id, name, fields, "
             + "(SELECT COUNT(*) FROM collections c WHERE c.kind = k.name) AS used FROM kinds k";
 
     /** Все типы по алфавиту. */
     public List<Kind> kinds() {
-        return jdbc.query(KIND_SELECT, KIND_MAPPER).stream()
+        return withColors(jdbc.query(KIND_SELECT, KIND_MAPPER)).stream()
                 .sorted(Comparator.comparing(Kind::name, alphabetical())).toList();
     }
 
     public Kind kind(long id) {
-        List<Kind> list = jdbc.query(KIND_SELECT + " WHERE id = ?", KIND_MAPPER, id);
+        List<Kind> list = withColors(jdbc.query(KIND_SELECT + " WHERE id = ?", KIND_MAPPER, id));
         if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return list.get(0);
+    }
+
+    /** Цвета строк по статусу для типа: статус в нижнем регистре → цвет. */
+    public Map<String, String> statusColors(String kindName) {
+        Map<String, String> res = new java.util.HashMap<>();
+        jdbc.query("SELECT s.status, s.color FROM kind_status_colors s JOIN kinds k ON k.id = s.kind_id WHERE k.name = ?",
+                rs -> { res.put(rs.getString("status").trim().toLowerCase(Locale.ROOT), rs.getString("color")); }, kindName);
+        return res;
+    }
+
+    /** Статусы, которые уже встречаются у объектов коллекций этого типа (для подсказок в форме). */
+    public List<String> usedStatuses(String kindName) {
+        return jdbc.queryForList("SELECT DISTINCT i.status FROM items i JOIN collections c ON c.id = i.collection_id "
+                + "WHERE c.kind = ? AND i.status <> ''", String.class, kindName).stream().sorted(alphabetical()).toList();
     }
 
     /** Поля объектов коллекции этого типа. Если тип не найден — все поля, чтобы данные не прятались. */
@@ -108,7 +133,7 @@ public class Repo {
      * Создаёт (id == null) или изменяет тип. При переименовании меняет тип и у его коллекций.
      * Возвращает id типа.
      */
-    public long saveKind(Long id, String name, List<String> fields) {
+    public long saveKind(Long id, String name, List<String> fields, List<String> statuses, List<String> colors) {
         requireName(name);
         String n = name.trim();
         for (Kind k : kinds())
@@ -116,12 +141,38 @@ public class Repo {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Тип «" + k.name() + "» уже есть");
         String f = FIELDS.keySet().stream().filter(key -> fields != null && fields.contains(key))
                 .collect(Collectors.joining(","));
-        if (id == null)
-            return jdbc.queryForObject("INSERT INTO kinds (name, fields) VALUES (?, ?) RETURNING id", Long.class, n, f);
-        Kind old = kind(id);
-        jdbc.update("UPDATE kinds SET name = ?, fields = ? WHERE id = ?", n, f, id);
-        jdbc.update("UPDATE collections SET kind = ? WHERE kind = ?", n, old.name());
-        return id;
+        Map<String, String> sc = parseStatusColors(statuses, colors);
+        long kindId;
+        if (id == null) {
+            kindId = jdbc.queryForObject("INSERT INTO kinds (name, fields) VALUES (?, ?) RETURNING id", Long.class, n, f);
+        } else {
+            Kind old = kind(id);
+            jdbc.update("UPDATE kinds SET name = ?, fields = ? WHERE id = ?", n, f, id);
+            jdbc.update("UPDATE collections SET kind = ? WHERE kind = ?", n, old.name());
+            kindId = id;
+        }
+        jdbc.update("DELETE FROM kind_status_colors WHERE kind_id = ?", kindId);
+        sc.forEach((st, color) -> jdbc.update(
+                "INSERT INTO kind_status_colors (kind_id, status, color) VALUES (?, ?, ?)", kindId, st, color));
+        return kindId;
+    }
+
+    /** Пары «статус — цвет» из формы: пустые статусы пропускаются, повтор статуса (без учёта регистра) — ошибка. */
+    private static Map<String, String> parseStatusColors(List<String> statuses, List<String> colors) {
+        Map<String, String> res = new LinkedHashMap<>();
+        if (statuses == null) return res;
+        Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < statuses.size(); i++) {
+            String st = statuses.get(i) == null ? "" : statuses.get(i).trim();
+            if (st.isEmpty()) continue;
+            String color = colors != null && i < colors.size() ? colors.get(i) : null;
+            if (color == null || !color.matches("#[0-9a-fA-F]{6}"))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неверный цвет для статуса «" + st + "»");
+            if (!seen.add(st.toLowerCase(Locale.ROOT)))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Статус «" + st + "» указан дважды");
+            res.put(st, color.toLowerCase(Locale.ROOT));
+        }
+        return res;
     }
 
     /** Удаляет тип, если ни одна коллекция его не использует. */

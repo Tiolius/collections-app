@@ -16,12 +16,16 @@
     <thead><tr>
       <th>Тип коллекции</th>
       <th>Поля объектов</th>
+      <th>Цвета статусов</th>
       <th class="num">Коллекций</th>
       <th class="actions"></th>
     </tr></thead>
     <tbody><tr th:each="k : ${kinds}">
       <td th:text="${k.name()}"></td>
       <td class="title" th:text="${'Название' + (k.fields().isEmpty() ? '' : ', ' + #strings.listJoin(k.fields().![#vars.fieldNames.get(#this)], ', '))}"></td>
+      <td>
+        <span class="swatch" th:each="e : ${k.statusColors()}" th:style="${'background:' + e.value}" th:text="${e.key}"></span>
+      </td>
       <td class="num" th:text="${k.used()}"></td>
       <td class="actions">
         <a class="icon" title="Изменить" aria-label="Изменить" th:href="@{/kinds/{id}/edit(id=${k.id()})}">

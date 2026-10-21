@@ -34,3 +34,11 @@ SELECT * FROM (VALUES
     ('Книги', 'price'),
     ('Музыка (диски)', 'price'))
 WHERE NOT EXISTS (SELECT 1 FROM kinds);
+
+-- Цвет строки объекта в зависимости от статуса (настраивается в типе коллекции)
+CREATE TABLE IF NOT EXISTS kind_status_colors (
+    kind_id INTEGER NOT NULL REFERENCES kinds(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    color TEXT NOT NULL, -- #rrggbb
+    PRIMARY KEY (kind_id, status)
+);

@@ -58,7 +58,9 @@
       </th>
       <th class="actions"></th>
     </tr></thead>
-    <tbody><tr th:each="it : ${items}">
+    <tbody><tr th:each="it : ${items}"
+               th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
+               th:style="${bg != null ? '--row-bg:' + bg : null}">
       <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
       <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
       <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
