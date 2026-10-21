@@ -10,10 +10,10 @@
     <label>Название *</label>
     <input type="text" name="name" required th:value="${obj != null ? obj.name() : ''}">
 
-    <label>Тип</label>
-    <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
-
     <th:block th:unless="${isItem}">
+      <label>Тип</label>
+      <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
+
       <label>Вид коллекции *</label>
       <label class="radio" th:each="k : ${kinds}">
         <input type="radio" name="kind" required th:value="${k}" th:checked="${obj != null and k == obj.kind()}">
@@ -46,19 +46,19 @@
       <datalist id="statuses">
         <option>Complete</option><option>Incomplete</option>
       </datalist>
-    </th:block>
 
-    <th:block th:if="${isItem and digital}">
       <label>Цена (₽)</label>
       <input type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
-    <label>Картинка</label>
-    <th:block th:if="${imgUrl != null}">
-      <img class="preview" th:src="${imgUrl}" alt="">
-      <label style="font-weight:normal"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+    <th:block th:unless="${isItem}">
+      <label>Картинка</label>
+      <th:block th:if="${imgUrl != null}">
+        <img class="preview" th:src="${imgUrl}" alt="">
+        <label style="font-weight:normal"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+      </th:block>
+      <input type="file" name="image" accept="image/*">
     </th:block>
-    <input type="file" name="image" accept="image/*">
 
     <div style="margin-top:20px">
       <button class="btn">Сохранить</button>

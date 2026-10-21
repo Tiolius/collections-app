@@ -26,29 +26,30 @@
     <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}">+ Новый объект</a>
   </div>
   <p class="empty" th:if="${items.isEmpty()}">В коллекции пока нет объектов.</p>
-  <div class="grid">
-    <div class="card" th:each="it : ${items}">
-      <a th:if="${it.hasImage()}" th:href="@{/items/{id}/image(id=${it.id()})}" target="_blank">
-        <img th:src="@{/items/{id}/image(id=${it.id()})}" alt="">
-      </a>
-      <div th:unless="${it.hasImage()}" class="noimg">нет картинки</div>
-      <div class="body">
-        <div class="name" th:text="${it.name()}"></div>
-        <div class="type" th:text="${it.type() == null or it.type().isEmpty() ? '—' : it.type()}"></div>
-        <div class="type" th:if="${digital and !#strings.isEmpty(it.platform())}" th:text="${'Платформа: ' + it.platform()}"></div>
-        <div class="type" th:if="${digital and !#strings.isEmpty(it.format())}" th:text="${'Формат: ' + it.format()}"></div>
-        <div class="type" th:if="${!#strings.isEmpty(it.status())}" th:text="${'Статус: ' + it.status()}"></div>
-        <div class="type" th:if="${digital and it.price() != null}" th:text="${'Цена: ' + it.price() + ' ₽'}"></div>
-      </div>
-      <div class="actions">
+  <table class="items" th:unless="${items.isEmpty()}">
+    <tr>
+      <th>Название</th>
+      <th th:if="${digital}">Платформа</th>
+      <th th:if="${digital}">Формат</th>
+      <th>Статус</th>
+      <th class="num">Цена, ₽</th>
+      <th></th>
+    </tr>
+    <tr th:each="it : ${items}">
+      <td th:text="${it.name()}"></td>
+      <td th:if="${digital}" th:text="${it.platform()}"></td>
+      <td th:if="${digital}" th:text="${it.format()}"></td>
+      <td th:text="${it.status()}"></td>
+      <td class="num" th:text="${it.price()}"></td>
+      <td class="actions">
         <a class="btn gray" th:href="@{/items/{id}/edit(id=${it.id()})}">Изменить</a>
         <form class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
               onsubmit="return confirm('Удалить объект?')">
           <button class="btn red">Удалить</button>
         </form>
-      </div>
-    </div>
-  </div>
+      </td>
+    </tr>
+  </table>
 </main>
 </body>
 </html>

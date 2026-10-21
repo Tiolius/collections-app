@@ -32,7 +32,7 @@ public class WebController {
 
     @GetMapping("/collections/new")
     public String newCollectionForm(Model m) {
-        return form(m, null, false, null, "Новая коллекция", "/");
+        return form(m, null, false, false, null, "Новая коллекция", "/");
     }
 
     @Transactional
@@ -41,8 +41,7 @@ public class WebController {
                                    @RequestParam(required = false) String kind,
                                    @RequestParam(required = false) MultipartFile image) {
         long id = repo.createCollection();
-        repo.save("collections", id, name, type, image, false);
-        repo.saveCollectionKind(id, kind);
+        repo.saveCollection(id, name, type, kind, image, false);
         return "redirect:/collections/" + id;
     }
 
@@ -57,17 +56,19 @@ public class WebController {
 
     @GetMapping("/collections/{id}/image")
     public ResponseEntity<byte[]> collectionImage(@PathVariable long id) {
-        return image("collections", id);
+        Map<String, Object> row = repo.collectionImage(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
+                .body((byte[]) row.get("image"));
     }
 
     @GetMapping("/collections/{id}/edit")
     public String editCollectionForm(@PathVariable long id, Model m) {
         Entry c = repo.collection(id);
-        return form(m, c, false, c.hasImage() ? "/collections/" + id + "/image" : null,
+        return form(m, c, false, false, c.hasImage() ? "/collections/" + id + "/image" : null,
                 "Редактировать коллекцию", "/collections/" + id);
     }
 
-    @Transactional
     @PostMapping("/collections/{id}/edit")
     public String editCollection(@PathVariable long id, @RequestParam String name,
                                  @RequestParam(required = false) String type,
@@ -75,8 +76,7 @@ public class WebController {
                                  @RequestParam(required = false) MultipartFile image,
                                  @RequestParam(name = "remove_image", required = false) String removeImage) {
         repo.collection(id); // 404, если нет
-        repo.save("collections", id, name, type, image, removeImage != null);
-        repo.saveCollectionKind(id, kind);
+        repo.saveCollection(id, name, type, kind, image, removeImage != null);
         return "redirect:/collections/" + id;
     }
 
@@ -90,52 +90,38 @@ public class WebController {
 
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@PathVariable long cid, Model m) {
-        m.addAttribute("digital", Repo.hasDigitalFields(repo.collection(cid).kind()));
-        return form(m, null, true, null, "Новый объект", "/collections/" + cid);
+        boolean digital = Repo.hasDigitalFields(repo.collection(cid).kind());
+        return form(m, null, true, digital, null, "Новый объект", "/collections/" + cid);
     }
 
     @Transactional
     @PostMapping("/collections/{cid}/items/new")
     public String createItem(@PathVariable long cid, @RequestParam String name,
-                             @RequestParam(required = false) String type,
                              @RequestParam(required = false) String platform,
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
-                             @RequestParam(required = false) Integer price,
-                             @RequestParam(required = false) MultipartFile image) {
+                             @RequestParam(required = false) Integer price) {
         Entry c = repo.collection(cid);
         long id = repo.createItem(cid);
-        repo.save("items", id, name, type, image, false);
-        repo.saveItemDetails(id, c.kind(), platform, format, status, price);
+        repo.saveItem(id, c.kind(), name, platform, format, status, price);
         return "redirect:/collections/" + cid;
-    }
-
-    @GetMapping("/items/{id}/image")
-    public ResponseEntity<byte[]> itemImage(@PathVariable long id) {
-        return image("items", id);
     }
 
     @GetMapping("/items/{id}/edit")
     public String editItemForm(@PathVariable long id, Model m) {
         Entry it = repo.item(id);
-        m.addAttribute("digital", Repo.hasDigitalFields(repo.collection(it.collectionId()).kind()));
-        return form(m, it, true, it.hasImage() ? "/items/" + id + "/image" : null,
-                "Редактировать объект", "/collections/" + it.collectionId());
+        boolean digital = Repo.hasDigitalFields(repo.collection(it.collectionId()).kind());
+        return form(m, it, true, digital, null, "Редактировать объект", "/collections/" + it.collectionId());
     }
 
-    @Transactional
     @PostMapping("/items/{id}/edit")
     public String editItem(@PathVariable long id, @RequestParam String name,
-                           @RequestParam(required = false) String type,
                            @RequestParam(required = false) String platform,
                            @RequestParam(required = false) String format,
                            @RequestParam(required = false) String status,
-                           @RequestParam(required = false) Integer price,
-                           @RequestParam(required = false) MultipartFile image,
-                           @RequestParam(name = "remove_image", required = false) String removeImage) {
+                           @RequestParam(required = false) Integer price) {
         Entry it = repo.item(id);
-        repo.save("items", id, name, type, image, removeImage != null);
-        repo.saveItemDetails(id, repo.collection(it.collectionId()).kind(), platform, format, status, price);
+        repo.saveItem(id, repo.collection(it.collectionId()).kind(), name, platform, format, status, price);
         return "redirect:/collections/" + it.collectionId();
     }
 
@@ -148,20 +134,14 @@ public class WebController {
 
     // ---------- вспомогательное ----------
 
-    private String form(Model m, Entry obj, boolean isItem, String imgUrl, String title, String back) {
+    private String form(Model m, Entry obj, boolean isItem, boolean digital, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
         m.addAttribute("isItem", isItem);
+        m.addAttribute("digital", digital);
         m.addAttribute("kinds", Repo.KINDS);
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);
         m.addAttribute("back", back);
         return "form";
-    }
-
-    private ResponseEntity<byte[]> image(String table, long id) {
-        Map<String, Object> row = repo.image(table, id);
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
-                .body((byte[]) row.get("image"));
     }
 }

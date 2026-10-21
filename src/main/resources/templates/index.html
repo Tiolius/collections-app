@@ -9,18 +9,15 @@
     <a class="btn" href="/collections/new">+ Новая коллекция</a>
   </div>
   <p class="empty" th:if="${collections.isEmpty()}">Пока нет ни одной коллекции.</p>
-  <div class="grid">
-    <div class="card" th:each="c : ${collections}">
-      <a class="card-link" th:href="@{/collections/{id}(id=${c.id()})}">
-        <img th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
-        <div th:unless="${c.hasImage()}" class="noimg">нет картинки</div>
-        <div class="body">
-          <div class="name" th:text="${c.name()}"></div>
-          <div class="type" th:text="${(c.type() == null or c.type().isEmpty() ? '—' : c.type()) + ' · объектов: ' + c.count()}"></div>
-          <div class="type" th:if="${c.kind() != null}" th:text="${c.kind()}"></div>
-        </div>
-      </a>
-    </div>
+  <div class="list">
+    <a class="row" th:each="c : ${collections}" th:href="@{/collections/{id}(id=${c.id()})}">
+      <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+      <div class="thumb" th:unless="${c.hasImage()}"></div>
+      <div>
+        <div class="name" th:text="${c.name()}"></div>
+        <div class="type" th:text="${c.type() == null or c.type().isEmpty() ? '—' : c.type()}"></div>
+      </div>
+    </a>
   </div>
 </main>
 </body>

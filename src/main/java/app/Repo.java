@@ -15,17 +15,17 @@ import org.springframework.web.server.ResponseStatusException;
 @Repository
 public class Repo {
 
-    private static final String COLS = "id, name, type, image_mime IS NOT NULL AS has_image";
-    private static final String COLLECTION_COLS = COLS + ", kind";
-    private static final String ITEM_COLS = COLS + ", collection_id, platform, format, status, price";
+    private static final String COLLECTION_COLS = "id, name, type, image_mime IS NOT NULL AS has_image, kind";
+    // У объектов нет типа и картинки (в старых базах столбцы items.type/image остаются, но не используются)
+    private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price";
 
     /** Допустимые значения вида коллекции. */
     public static final String PHYSICAL = "Физическая", DIGITAL = "Цифровая";
     public static final List<String> KINDS = List.of(PHYSICAL, DIGITAL);
 
     /**
-     * Есть ли у объектов коллекции этого вида платформа, формат и цена.
-     * У физической — нет (только статус прохождения); у коллекции без вида показываем все поля.
+     * Есть ли у объектов коллекции этого вида платформа и формат.
+     * У физической — нет; у коллекции без вида показываем все поля.
      */
     public static boolean hasDigitalFields(String kind) {
         return !PHYSICAL.equals(kind);
@@ -60,8 +60,8 @@ public class Repo {
         return (rs, i) -> new Entry(
                 rs.getLong("id"),
                 rs.getString("name"),
-                rs.getString("type"),
-                rs.getBoolean("has_image"),
+                isItem ? null : rs.getString("type"),
+                !isItem && rs.getBoolean("has_image"),
                 isItem ? rs.getLong("collection_id") : null,
                 withCount ? rs.getInt("cnt") : 0,
                 isItem ? null : rs.getString("kind"),
@@ -97,10 +97,10 @@ public class Repo {
         return one(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id = ?", mapper(true, false), id));
     }
 
-    /** Возвращает {image, image_mime} или 404. */
-    public Map<String, Object> image(String table, long id) {
+    /** Картинка коллекции: {image, image_mime} или 404. */
+    public Map<String, Object> collectionImage(long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT image, image_mime FROM " + table + " WHERE id = ? AND image IS NOT NULL", id);
+                "SELECT image, image_mime FROM collections WHERE id = ? AND image IS NOT NULL", id);
         if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return rows.get(0);
     }
@@ -116,48 +116,39 @@ public class Repo {
                 Long.class, collectionId);
     }
 
-    /** Сохраняет название, тип и (если загружена) картинку; removeImage удаляет картинку. */
-    public void save(String table, long id, String name, String type, MultipartFile image, boolean removeImage) {
-        if (name == null || name.isBlank())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Название обязательно");
-        jdbc.update("UPDATE " + table + " SET name = ?, type = ? WHERE id = ?", name.trim(),
-                type == null ? "" : type.trim(), id);
+    /** Сохраняет коллекцию: название, тип, вид и (если загружена) картинку; removeImage удаляет картинку. */
+    public void saveCollection(long id, String name, String type, String kind, MultipartFile image, boolean removeImage) {
+        requireName(name);
+        if (!KINDS.contains(kind))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите вид коллекции: Физическая или Цифровая");
+        jdbc.update("UPDATE collections SET name = ?, type = ?, kind = ? WHERE id = ?", name.trim(), trim(type), kind, id);
 
         if (image != null && !image.isEmpty()) {
             String mime = image.getContentType();
             if (mime == null || !mime.startsWith("image/"))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Файл должен быть картинкой");
             try {
-                jdbc.update("UPDATE " + table + " SET image = ?, image_mime = ? WHERE id = ?", image.getBytes(), mime, id);
+                jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", image.getBytes(), mime, id);
             } catch (IOException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось прочитать файл");
             }
         } else if (removeImage) {
-            jdbc.update("UPDATE " + table + " SET image = NULL, image_mime = NULL WHERE id = ?", id);
+            jdbc.update("UPDATE collections SET image = NULL, image_mime = NULL WHERE id = ?", id);
         }
-    }
-
-    /** Сохраняет вид коллекции: "Физическая" или "Цифровая". */
-    public void saveCollectionKind(long id, String kind) {
-        if (!KINDS.contains(kind))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите вид коллекции: Физическая или Цифровая");
-        jdbc.update("UPDATE collections SET kind = ? WHERE id = ?", kind, id);
     }
 
     /**
-     * Сохраняет поля, которые есть только у объектов. Набор полей зависит от вида коллекции:
-     * у физической — только статус, у цифровой — ещё платформа, формат и цена.
-     * Поля, которых у вида нет, не трогаем (данные не теряются при смене вида).
+     * Сохраняет объект. Название, статус и цена есть у всех объектов;
+     * платформа и формат — только в цифровой коллекции. В физической их не трогаем,
+     * чтобы данные не терялись при смене вида коллекции.
      */
-    public void saveItemDetails(long id, String kind, String platform, String format, String status, Integer price) {
-        if (!hasDigitalFields(kind)) {
-            jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
-            return;
-        }
+    public void saveItem(long id, String kind, String name, String platform, String format, String status, Integer price) {
+        requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
-        jdbc.update("UPDATE items SET platform = ?, format = ?, status = ?, price = ? WHERE id = ?",
-                trim(platform), trim(format), trim(status), price, id);
+        jdbc.update("UPDATE items SET name = ?, status = ?, price = ? WHERE id = ?", name.trim(), trim(status), price, id);
+        if (hasDigitalFields(kind))
+            jdbc.update("UPDATE items SET platform = ?, format = ? WHERE id = ?", trim(platform), trim(format), id);
     }
 
     public void delete(String table, long id) {
@@ -165,6 +156,11 @@ public class Repo {
     }
 
     // ---------- вспомогательное ----------
+
+    private static void requireName(String name) {
+        if (name == null || name.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Название обязательно");
+    }
 
     private static String trim(String s) {
         return s == null ? "" : s.trim();
