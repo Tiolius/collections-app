@@ -14,3 +14,7 @@ target/
 .idea/
 *.iml
 .vscode/
+
+# Инструкции для ассистента — только локально
+CLAUDE.md
+.claude/
