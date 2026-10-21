@@ -48,7 +48,9 @@ public class WebController {
 
     @GetMapping("/collections/{id}")
     public String collection(@PathVariable long id, Model m) {
-        m.addAttribute("c", repo.collection(id));
+        Entry c = repo.collection(id);
+        m.addAttribute("c", c);
+        m.addAttribute("digital", Repo.hasDigitalFields(c.kind()));
         m.addAttribute("items", repo.items(id));
         return "collection";
     }
@@ -88,7 +90,7 @@ public class WebController {
 
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@PathVariable long cid, Model m) {
-        repo.collection(cid);
+        m.addAttribute("digital", Repo.hasDigitalFields(repo.collection(cid).kind()));
         return form(m, null, true, null, "Новый объект", "/collections/" + cid);
     }
 
@@ -101,10 +103,10 @@ public class WebController {
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) MultipartFile image) {
-        repo.collection(cid);
+        Entry c = repo.collection(cid);
         long id = repo.createItem(cid);
         repo.save("items", id, name, type, image, false);
-        repo.saveItemDetails(id, platform, format, status, price);
+        repo.saveItemDetails(id, c.kind(), platform, format, status, price);
         return "redirect:/collections/" + cid;
     }
 
@@ -116,6 +118,7 @@ public class WebController {
     @GetMapping("/items/{id}/edit")
     public String editItemForm(@PathVariable long id, Model m) {
         Entry it = repo.item(id);
+        m.addAttribute("digital", Repo.hasDigitalFields(repo.collection(it.collectionId()).kind()));
         return form(m, it, true, it.hasImage() ? "/items/" + id + "/image" : null,
                 "Редактировать объект", "/collections/" + it.collectionId());
     }
@@ -132,7 +135,7 @@ public class WebController {
                            @RequestParam(name = "remove_image", required = false) String removeImage) {
         Entry it = repo.item(id);
         repo.save("items", id, name, type, image, removeImage != null);
-        repo.saveItemDetails(id, platform, format, status, price);
+        repo.saveItemDetails(id, repo.collection(it.collectionId()).kind(), platform, format, status, price);
         return "redirect:/collections/" + it.collectionId();
     }
 

@@ -20,7 +20,16 @@ public class Repo {
     private static final String ITEM_COLS = COLS + ", collection_id, platform, format, status, price";
 
     /** Допустимые значения вида коллекции. */
-    public static final List<String> KINDS = List.of("Физическая", "Цифровая");
+    public static final String PHYSICAL = "Физическая", DIGITAL = "Цифровая";
+    public static final List<String> KINDS = List.of(PHYSICAL, DIGITAL);
+
+    /**
+     * Есть ли у объектов коллекции этого вида платформа, формат и цена.
+     * У физической — нет (только статус прохождения); у коллекции без вида показываем все поля.
+     */
+    public static boolean hasDigitalFields(String kind) {
+        return !PHYSICAL.equals(kind);
+    }
 
     private final JdbcTemplate jdbc;
 
@@ -135,8 +144,16 @@ public class Repo {
         jdbc.update("UPDATE collections SET kind = ? WHERE id = ?", kind, id);
     }
 
-    /** Сохраняет поля, которые есть только у объектов. */
-    public void saveItemDetails(long id, String platform, String format, String status, Integer price) {
+    /**
+     * Сохраняет поля, которые есть только у объектов. Набор полей зависит от вида коллекции:
+     * у физической — только статус, у цифровой — ещё платформа, формат и цена.
+     * Поля, которых у вида нет, не трогаем (данные не теряются при смене вида).
+     */
+    public void saveItemDetails(long id, String kind, String platform, String format, String status, Integer price) {
+        if (!hasDigitalFields(kind)) {
+            jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
+            return;
+        }
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
         jdbc.update("UPDATE items SET platform = ?, format = ?, status = ?, price = ? WHERE id = ?",

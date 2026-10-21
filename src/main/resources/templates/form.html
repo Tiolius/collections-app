@@ -21,7 +21,7 @@
       </label>
     </th:block>
 
-    <th:block th:if="${isItem}">
+    <th:block th:if="${isItem and digital}">
       <label>Платформа</label>
       <input type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
       <datalist id="platforms">
@@ -38,14 +38,17 @@
         <option>Digital (GOG)</option><option>Digital (Epic)</option><option>Digital (PSN)</option>
         <option>Digital (Nintendo)</option><option>Digital (Origin)</option><option>Digital (Uplay)</option>
       </datalist>
+    </th:block>
 
-
+    <th:block th:if="${isItem}">
       <label>Статус прохождения</label>
       <input type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
       <datalist id="statuses">
         <option>Complete</option><option>Incomplete</option>
       </datalist>
+    </th:block>
 
+    <th:block th:if="${isItem and digital}">
       <label>Цена (₽)</label>
       <input type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
