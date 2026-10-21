@@ -1,6 +1,9 @@
 package app;
 
 import java.io.IOException;
+import java.text.Collator;
+import java.util.Comparator;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,10 +22,18 @@ public class Repo {
     private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price";
 
-    /** Типы коллекций (в порядке выпадающего списка). */
+    /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
+    public static Comparator<String> alphabetical() {
+        Collator c = Collator.getInstance(Locale.forLanguageTag("ru"));
+        c.setStrength(Collator.SECONDARY);
+        return c::compare;
+    }
+
+    /** Типы коллекций (выпадающий список — по алфавиту). */
     public static final String GAMES_DISC = "Игры (диски)", GAMES_DIGITAL = "Игры (цифровые)",
             MUSIC_DISC = "Музыка (диски)", BOOKS = "Книги";
-    public static final List<String> KINDS = List.of(GAMES_DISC, GAMES_DIGITAL, MUSIC_DISC, BOOKS);
+    public static final List<String> KINDS =
+            List.of(GAMES_DISC, GAMES_DIGITAL, MUSIC_DISC, BOOKS).stream().sorted(alphabetical()).toList();
 
     /** Поля объекта (кроме названия) в зависимости от типа коллекции. */
     private static final Map<String, Set<String>> KIND_FIELDS = Map.of(
@@ -65,14 +76,15 @@ public class Repo {
 
     // ---------- чтение ----------
 
-    public int countCollections() {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM collections", Integer.class);
-    }
-
-    /** Страница списка коллекций (по названию). */
-    public List<Entry> collections(int limit, int offset) {
-        return jdbc.query("SELECT " + COLLECTION_COLS + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt "
-                + "FROM collections c ORDER BY name COLLATE NOCASE, id LIMIT ? OFFSET ?", mapper(false, true), limit, offset);
+    /**
+     * Все коллекции по алфавиту. Сортируем в Java: SQLite не умеет сравнивать кириллицу без учёта регистра.
+     * Коллекций немного, поэтому страницу на главной вырезаем из этого списка.
+     */
+    public List<Entry> collections() {
+        List<Entry> list = jdbc.query("SELECT " + COLLECTION_COLS
+                + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt FROM collections c", mapper(false, true));
+        Comparator<String> abc = alphabetical();
+        return list.stream().sorted(Comparator.comparing(Entry::name, abc).thenComparing(Entry::id)).toList();
     }
 
     public Entry collection(long id) {

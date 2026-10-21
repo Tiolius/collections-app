@@ -33,10 +33,12 @@ public class WebController {
 
     @GetMapping("/")
     public String index(Model m, @RequestParam(defaultValue = "1") int page) {
-        int total = repo.countCollections();
+        List<Entry> all = repo.collections();
+        int total = all.size();
         int pages = Math.max(1, (total + COLLECTIONS_PER_PAGE - 1) / COLLECTIONS_PER_PAGE);
         page = Math.min(Math.max(page, 1), pages);
-        m.addAttribute("collections", repo.collections(COLLECTIONS_PER_PAGE, (page - 1) * COLLECTIONS_PER_PAGE));
+        int from = (page - 1) * COLLECTIONS_PER_PAGE;
+        m.addAttribute("collections", all.subList(from, Math.min(from + COLLECTIONS_PER_PAGE, total)));
         m.addAttribute("page", page);
         m.addAttribute("pages", pages);
         m.addAttribute("pageLinks", pageLinks(page, pages));
