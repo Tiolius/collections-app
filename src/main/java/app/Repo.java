@@ -19,7 +19,10 @@ import org.springframework.stereotype.Repository;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Вся работа с базой. table — "collections" или "items". */
+/**
+ * Вся работа с базой. table — "collections" или "items".
+ * Почти все методы принимают uid — id текущего пользователя: чужие коллекции, объекты и типы не видны (404).
+ */
 @Repository
 public class Repo {
 
@@ -94,38 +97,40 @@ public class Repo {
                 byKind.getOrDefault(k.id(), Map.of()))).toList();
     }
 
-    private static final String KIND_SELECT = "SELECT id, name, fields, "
-            + "(SELECT COUNT(*) FROM collections c WHERE c.kind = k.name) AS used FROM kinds k";
+    private static final String KIND_SELECT = "SELECT id, name, fields, (SELECT COUNT(*) FROM collections c "
+            + "WHERE c.kind = k.name AND c.user_id = k.user_id) AS used FROM kinds k WHERE k.user_id = ?";
 
-    /** Все типы по алфавиту. */
-    public List<Kind> kinds() {
-        return withColors(jdbc.query(KIND_SELECT, KIND_MAPPER)).stream()
+    /** Все типы пользователя по алфавиту. */
+    public List<Kind> kinds(long uid) {
+        return withColors(jdbc.query(KIND_SELECT, KIND_MAPPER, uid)).stream()
                 .sorted(Comparator.comparing(Kind::name, alphabetical())).toList();
     }
 
-    public Kind kind(long id) {
-        List<Kind> list = withColors(jdbc.query(KIND_SELECT + " WHERE id = ?", KIND_MAPPER, id));
+    public Kind kind(long uid, long id) {
+        List<Kind> list = withColors(jdbc.query(KIND_SELECT + " AND id = ?", KIND_MAPPER, uid, id));
         if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return list.get(0);
     }
 
     /** Цвета строк по статусу для типа: статус в нижнем регистре → цвет. */
-    public Map<String, String> statusColors(String kindName) {
+    public Map<String, String> statusColors(long uid, String kindName) {
         Map<String, String> res = new java.util.HashMap<>();
-        jdbc.query("SELECT s.status, s.color FROM kind_status_colors s JOIN kinds k ON k.id = s.kind_id WHERE k.name = ?",
-                rs -> { res.put(rs.getString("status").trim().toLowerCase(Locale.ROOT), rs.getString("color")); }, kindName);
+        jdbc.query("SELECT s.status, s.color FROM kind_status_colors s JOIN kinds k ON k.id = s.kind_id "
+                + "WHERE k.user_id = ? AND k.name = ?",
+                rs -> { res.put(rs.getString("status").trim().toLowerCase(Locale.ROOT), rs.getString("color")); }, uid, kindName);
         return res;
     }
 
     /** Статусы, которые уже встречаются у объектов коллекций этого типа (для подсказок в форме). */
-    public List<String> usedStatuses(String kindName) {
+    public List<String> usedStatuses(long uid, String kindName) {
         return jdbc.queryForList("SELECT DISTINCT i.status FROM items i JOIN collections c ON c.id = i.collection_id "
-                + "WHERE c.kind = ? AND i.status <> ''", String.class, kindName).stream().sorted(alphabetical()).toList();
+                + "WHERE c.user_id = ? AND c.kind = ? AND i.status <> ''", String.class, uid, kindName)
+                .stream().sorted(alphabetical()).toList();
     }
 
     /** Поля объектов коллекции этого типа. Если тип не найден — все поля, чтобы данные не прятались. */
-    public Set<String> itemFields(String kindName) {
-        List<Kind> list = jdbc.query(KIND_SELECT + " WHERE name = ?", KIND_MAPPER, kindName);
+    public Set<String> itemFields(long uid, String kindName) {
+        List<Kind> list = jdbc.query(KIND_SELECT + " AND name = ?", KIND_MAPPER, uid, kindName);
         return list.isEmpty() ? FIELDS.keySet() : list.get(0).fields();
     }
 
@@ -133,10 +138,10 @@ public class Repo {
      * Создаёт (id == null) или изменяет тип. При переименовании меняет тип и у его коллекций.
      * Возвращает id типа.
      */
-    public long saveKind(Long id, String name, List<String> fields, List<String> statuses, List<String> colors) {
+    public long saveKind(long uid, Long id, String name, List<String> fields, List<String> statuses, List<String> colors) {
         requireName(name);
         String n = name.trim();
-        for (Kind k : kinds())
+        for (Kind k : kinds(uid))
             if (alphabetical().compare(k.name(), n) == 0 && (id == null || k.id() != id))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Тип «" + k.name() + "» уже есть");
         String f = FIELDS.keySet().stream().filter(key -> fields != null && fields.contains(key))
@@ -144,11 +149,12 @@ public class Repo {
         Map<String, String> sc = parseStatusColors(statuses, colors);
         long kindId;
         if (id == null) {
-            kindId = jdbc.queryForObject("INSERT INTO kinds (name, fields) VALUES (?, ?) RETURNING id", Long.class, n, f);
+            kindId = jdbc.queryForObject("INSERT INTO kinds (user_id, name, fields) VALUES (?, ?, ?) RETURNING id",
+                    Long.class, uid, n, f);
         } else {
-            Kind old = kind(id);
+            Kind old = kind(uid, id);
             jdbc.update("UPDATE kinds SET name = ?, fields = ? WHERE id = ?", n, f, id);
-            jdbc.update("UPDATE collections SET kind = ? WHERE kind = ?", n, old.name());
+            jdbc.update("UPDATE collections SET kind = ? WHERE kind = ? AND user_id = ?", n, old.name(), uid);
             kindId = id;
         }
         jdbc.update("DELETE FROM kind_status_colors WHERE kind_id = ?", kindId);
@@ -176,12 +182,58 @@ public class Repo {
     }
 
     /** Удаляет тип, если ни одна коллекция его не использует. */
-    public void deleteKind(long id) {
-        Kind k = kind(id);
+    public void deleteKind(long uid, long id) {
+        Kind k = kind(uid, id);
         if (k.used() > 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Тип «" + k.name() + "» используется в коллекциях (" + k.used() + "), его нельзя удалить");
         jdbc.update("DELETE FROM kinds WHERE id = ?", id);
+    }
+
+    // ---------- пользователи ----------
+
+    /** Пользователь: id, имя, хеш пароля (см. Passwords). */
+    public record User(long id, String name, String passwordHash) {}
+
+    private static final RowMapper<User> USER_MAPPER =
+            (rs, i) -> new User(rs.getLong("id"), rs.getString("name"), rs.getString("password_hash"));
+
+    /** Пользователь по имени без учёта регистра (в т.ч. кириллицы) или null. */
+    public User userByName(String name) {
+        if (name == null) return null;
+        Comparator<String> abc = alphabetical();
+        return jdbc.query("SELECT id, name, password_hash FROM users", USER_MAPPER).stream()
+                .filter(u -> abc.compare(u.name(), name.trim()) == 0).findFirst().orElse(null);
+    }
+
+    public User user(long uid) {
+        List<User> list = jdbc.query("SELECT id, name, password_hash FROM users WHERE id = ?", USER_MAPPER, uid);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /** Начальные типы коллекций нового пользователя: название → поля. */
+    private static final Map<String, String> DEFAULT_KINDS = new LinkedHashMap<>();
+    static {
+        DEFAULT_KINDS.put("Игры (диски)", "status,price");
+        DEFAULT_KINDS.put("Игры (цифровые)", "platform,format,status,price");
+        DEFAULT_KINDS.put("Книги", "price");
+        DEFAULT_KINDS.put("Музыка (диски)", "price");
+    }
+
+    /** Создаёт пользователя с начальными типами коллекций. Возвращает id. */
+    public long createUser(String name, String password) {
+        if (name == null || name.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Укажите имя пользователя");
+        if (userByName(name) != null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Пользователь «" + name.trim() + "» уже есть");
+        long uid = jdbc.queryForObject("INSERT INTO users (name, password_hash) VALUES (?, ?) RETURNING id",
+                Long.class, name.trim(), Passwords.hash(password));
+        DEFAULT_KINDS.forEach((k, f) -> jdbc.update("INSERT INTO kinds (user_id, name, fields) VALUES (?, ?, ?)", uid, k, f));
+        return uid;
+    }
+
+    public void setPassword(long uid, String password) {
+        jdbc.update("UPDATE users SET password_hash = ? WHERE id = ?", Passwords.hash(password), uid);
     }
 
     // ---------- чтение ----------
@@ -190,15 +242,16 @@ public class Repo {
      * Все коллекции по алфавиту. Сортируем в Java: SQLite не умеет сравнивать кириллицу без учёта регистра.
      * Коллекций немного, поэтому страницу на главной вырезаем из этого списка.
      */
-    public List<Entry> collections() {
-        List<Entry> list = jdbc.query("SELECT " + COLLECTION_COLS
-                + ", (SELECT COUNT(*) FROM items i WHERE i.collection_id = c.id) AS cnt FROM collections c", mapper(false, true));
+    public List<Entry> collections(long uid) {
+        List<Entry> list = jdbc.query("SELECT " + COLLECTION_COLS + ", (SELECT COUNT(*) FROM items i "
+                + "WHERE i.collection_id = c.id) AS cnt FROM collections c WHERE c.user_id = ?", mapper(false, true), uid);
         Comparator<String> abc = alphabetical();
         return list.stream().sorted(Comparator.comparing(Entry::name, abc).thenComparing(Entry::id)).toList();
     }
 
-    public Entry collection(long id) {
-        return one(jdbc.query("SELECT " + COLLECTION_COLS + " FROM collections WHERE id = ?", mapper(false, false), id));
+    public Entry collection(long uid, long id) {
+        return one(jdbc.query("SELECT " + COLLECTION_COLS + " FROM collections WHERE id = ? AND user_id = ?",
+                mapper(false, false), id, uid));
     }
 
     /** Поля, по которым можно сортировать объекты: ключ из URL → столбец. */
@@ -222,22 +275,23 @@ public class Repo {
                 + " LIMIT ? OFFSET ?", mapper(true, false), collectionId, limit, offset);
     }
 
-    public Entry item(long id) {
-        return one(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id = ?", mapper(true, false), id));
+    public Entry item(long uid, long id) {
+        return one(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id = ? AND collection_id IN "
+                + "(SELECT id FROM collections WHERE user_id = ?)", mapper(true, false), id, uid));
     }
 
     /** Картинка коллекции: {image, image_mime} или 404. */
-    public Map<String, Object> collectionImage(long id) {
+    public Map<String, Object> collectionImage(long uid, long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT image, image_mime FROM collections WHERE id = ? AND image IS NOT NULL", id);
+                "SELECT image, image_mime FROM collections WHERE id = ? AND user_id = ? AND image IS NOT NULL", id, uid);
         if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return rows.get(0);
     }
 
     // ---------- изменение ----------
 
-    public long createCollection() {
-        return jdbc.queryForObject("INSERT INTO collections (name) VALUES ('') RETURNING id", Long.class);
+    public long createCollection(long uid) {
+        return jdbc.queryForObject("INSERT INTO collections (user_id, name) VALUES (?, '') RETURNING id", Long.class, uid);
     }
 
     public long createItem(long collectionId) {
@@ -246,9 +300,10 @@ public class Repo {
     }
 
     /** Сохраняет коллекцию: название, тип и (если загружена) картинку; removeImage удаляет картинку. */
-    public void saveCollection(long id, String name, String kind, MultipartFile image, boolean removeImage) {
+    public void saveCollection(long uid, long id, String name, String kind, MultipartFile image, boolean removeImage) {
         requireName(name);
-        if (kind == null || jdbc.queryForObject("SELECT COUNT(*) FROM kinds WHERE name = ?", Integer.class, kind) == 0)
+        if (kind == null || jdbc.queryForObject("SELECT COUNT(*) FROM kinds WHERE user_id = ? AND name = ?",
+                Integer.class, uid, kind) == 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите тип коллекции");
         jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
@@ -270,11 +325,12 @@ public class Repo {
      * Сохраняет объект: название и те поля, которые есть у типа коллекции (см. настройки типа).
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
-    public void saveItem(long id, String kind, String name, String platform, String format, String status, Integer price) {
+    public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
+                         Integer price) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
-        Set<String> f = itemFields(kind);
+        Set<String> f = itemFields(uid, kind);
         jdbc.update("UPDATE items SET name = ? WHERE id = ?", name.trim(), id);
         if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(platform), id);
         if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
@@ -282,6 +338,7 @@ public class Repo {
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
     }
 
+    /** Удаляет запись; владельца проверяет вызывающий код (collection/item с uid). */
     public void delete(String table, long id) {
         jdbc.update("DELETE FROM " + table + " WHERE id = ?", id); // объекты коллекции удаляются каскадно
     }

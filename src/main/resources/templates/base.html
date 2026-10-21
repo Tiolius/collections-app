@@ -10,8 +10,21 @@
   header { background: #2d3748; color: #fff; padding: 8px 24px; }
   header { display: flex; align-items: center; justify-content: space-between; }
   header a { color: #fff; text-decoration: none; font-weight: 600; }
+  header nav { display: flex; align-items: center; gap: 18px; }
+  header .user { opacity: .85; }
   header a.settings { font-weight: normal; opacity: .85; }
   header a.settings:hover { opacity: 1; }
+  header .logout { background: none; border: 1px solid rgba(255,255,255,.4); color: #fff; border-radius: 6px;
+                   padding: 0 10px; line-height: 20px; cursor: pointer; font-size: 13px; }
+  header .logout:hover { background: rgba(255,255,255,.1); }
+  /* Вход и регистрация */
+  main.auth { max-width: 520px; margin: 60px auto 0; }
+  main.auth h2 { margin-bottom: 12px; }
+  main.auth .form { grid-template-columns: 160px 1fr; }
+  .error { background: #fed7d7; color: #9b2c2c; padding: 8px 12px; border-radius: 6px; }
+  .ok { background: #c6f6d5; color: #22543d; padding: 8px 12px; border-radius: 6px; }
+  .form input[type=password] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
+  h3.section { margin: 28px 0 10px; }
   /* На всю ширину экрана; отступы по краям небольшие */
   main { padding: 16px 24px; }
   h2 { margin: 0; font-size: 22px; }
@@ -118,7 +131,11 @@
 <body>
 <header th:fragment="header">
   <a href="/">📦 Коллекции</a>
-  <a class="settings" href="/kinds" title="Типы коллекций и их поля">⚙ Настройки</a>
+  <nav th:if="${userName != null}">
+    <span class="user" th:text="${'👤 ' + userName}"></span>
+    <a class="settings" href="/kinds" title="Типы коллекций и смена пароля">⚙ Настройки</a>
+    <form class="inline" method="post" action="/logout"><button class="logout">Выйти</button></form>
+  </nav>
 </header>
 </body>
 </html>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main class="auth">
+  <h2>Вход</h2>
+  <p class="error" th:if="${error != null}" th:text="${error}"></p>
+  <form class="form" method="post">
+    <label for="f-name">Имя пользователя</label>
+    <input id="f-name" type="text" name="name" required autofocus autocomplete="username" th:value="${name}">
+
+    <label for="f-pw">Пароль</label>
+    <input id="f-pw" type="password" name="password" autocomplete="current-password">
+
+    <div class="full"><button class="btn">Войти</button></div>
+  </form>
+  <p class="muted">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+</main>
+</body>
+</html>

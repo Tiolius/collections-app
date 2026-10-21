@@ -6,15 +6,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.SessionAttribute;
 import org.springframework.web.multipart.MultipartFile;
 
 @Controller
@@ -26,14 +31,97 @@ public class WebController {
         this.repo = repo;
     }
 
+    // ---------- Вход, регистрация, пароль ----------
+    // Кто вошёл — хранится в сессии ("uid"); без входа страницы недоступны (см. WebConfig).
+
+    /** Минимальная длина нового пароля. */
+    private static final int MIN_PASSWORD = 4;
+
+    /** Имя вошедшего пользователя для шапки страниц. */
+    @ModelAttribute("userName")
+    public String userName(HttpSession session) {
+        Object uid = session.getAttribute("uid");
+        Repo.User u = uid == null ? null : repo.user((Long) uid);
+        return u == null ? null : u.name();
+    }
+
+    @GetMapping("/login")
+    public String loginForm() {
+        return "login";
+    }
+
+    @PostMapping("/login")
+    public String login(@RequestParam String name, @RequestParam(defaultValue = "") String password,
+                        HttpServletRequest request, Model m) {
+        Repo.User u = repo.userByName(name);
+        if (u == null || !Passwords.matches(password, u.passwordHash())) {
+            m.addAttribute("error", "Неверное имя пользователя или пароль");
+            m.addAttribute("name", name);
+            return "login";
+        }
+        signIn(request, u.id());
+        return "redirect:/";
+    }
+
+    @GetMapping("/register")
+    public String registerForm() {
+        return "register";
+    }
+
+    @PostMapping("/register")
+    public String register(@RequestParam String name, @RequestParam(defaultValue = "") String password,
+                           @RequestParam(defaultValue = "") String password2, HttpServletRequest request, Model m) {
+        String error = null;
+        if (name.isBlank()) error = "Укажите имя пользователя";
+        else if (repo.userByName(name) != null) error = "Пользователь «" + name.trim() + "» уже есть";
+        else if (password.length() < MIN_PASSWORD) error = "Пароль должен быть не короче " + MIN_PASSWORD + " символов";
+        else if (!password.equals(password2)) error = "Пароли не совпадают";
+        if (error != null) {
+            m.addAttribute("error", error);
+            m.addAttribute("name", name);
+            return "register";
+        }
+        signIn(request, repo.createUser(name, password));
+        return "redirect:/";
+    }
+
+    @PostMapping("/logout")
+    public String logout(HttpSession session) {
+        session.invalidate();
+        return "redirect:/login";
+    }
+
+    @PostMapping("/account/password")
+    public String changePassword(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String current,
+                                 @RequestParam(defaultValue = "") String password,
+                                 @RequestParam(defaultValue = "") String password2, Model m) {
+        String error = null;
+        if (!Passwords.matches(current, repo.user(uid).passwordHash())) error = "Текущий пароль указан неверно";
+        else if (password.length() < MIN_PASSWORD) error = "Новый пароль должен быть не короче " + MIN_PASSWORD + " символов";
+        else if (!password.equals(password2)) error = "Новые пароли не совпадают";
+        if (error != null) {
+            m.addAttribute("passwordError", error);
+            return kinds(uid, m);
+        }
+        repo.setPassword(uid, password);
+        return "redirect:/kinds?passwordChanged";
+    }
+
+    /** Вход: новая сессия (защита от подмены сессии) и id пользователя в ней. */
+    private static void signIn(HttpServletRequest request, long uid) {
+        HttpSession old = request.getSession(false);
+        if (old != null) old.invalidate();
+        request.getSession(true).setAttribute("uid", uid);
+    }
+
     // ---------- Коллекции ----------
 
     /** Коллекций на одной странице главной. */
     private static final int COLLECTIONS_PER_PAGE = 10;
 
     @GetMapping("/")
-    public String index(Model m, @RequestParam(defaultValue = "1") int page) {
-        List<Entry> all = repo.collections();
+    public String index(@SessionAttribute("uid") long uid, Model m, @RequestParam(defaultValue = "1") int page) {
+        List<Entry> all = repo.collections(uid);
         int total = all.size();
         int pages = Math.max(1, (total + COLLECTIONS_PER_PAGE - 1) / COLLECTIONS_PER_PAGE);
         page = Math.min(Math.max(page, 1), pages);
@@ -46,17 +134,17 @@ public class WebController {
     }
 
     @GetMapping("/collections/new")
-    public String newCollectionForm(Model m) {
-        return form(m, null, false, Set.of(), null, "Новая коллекция", "/");
+    public String newCollectionForm(@SessionAttribute("uid") long uid, Model m) {
+        return form(uid, m, null, false, Set.of(), null, "Новая коллекция", "/");
     }
 
     @Transactional
     @PostMapping("/collections/new")
-    public String createCollection(@RequestParam String name,
+    public String createCollection(@SessionAttribute("uid") long uid, @RequestParam String name,
                                    @RequestParam(required = false) String kind,
                                    @RequestParam(required = false) MultipartFile image) {
-        long id = repo.createCollection();
-        repo.saveCollection(id, name, kind, image, false);
+        long id = repo.createCollection(uid);
+        repo.saveCollection(uid, id, name, kind, image, false);
         return "redirect:/collections/" + id;
     }
 
@@ -67,14 +155,14 @@ public class WebController {
     private static final List<Integer> PAGE_SIZES = IntStream.rangeClosed(1, 8).map(i -> i * 25).boxed().toList();
 
     @GetMapping("/collections/{id}")
-    public String collection(@PathVariable long id, Model m,
+    public String collection(@SessionAttribute("uid") long uid, @PathVariable long id, Model m,
                              @RequestParam(defaultValue = "name") String sort,
                              @RequestParam(defaultValue = "asc") String dir,
                              @RequestParam(defaultValue = "1") int page,
                              @RequestParam(defaultValue = "50") int size) {
-        Entry c = repo.collection(id);
-        Set<String> fields = repo.itemFields(c.kind());
-        m.addAttribute("statusColors", repo.statusColors(c.kind()));
+        Entry c = repo.collection(uid, id);
+        Set<String> fields = repo.itemFields(uid, c.kind());
+        m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
 
         List<Col> cols = new ArrayList<>();
         cols.add(new Col("name", "Название", "title"));
@@ -126,32 +214,33 @@ public class WebController {
     }
 
     @GetMapping("/collections/{id}/image")
-    public ResponseEntity<byte[]> collectionImage(@PathVariable long id) {
-        Map<String, Object> row = repo.collectionImage(id);
+    public ResponseEntity<byte[]> collectionImage(@SessionAttribute("uid") long uid, @PathVariable long id) {
+        Map<String, Object> row = repo.collectionImage(uid, id);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
                 .body((byte[]) row.get("image"));
     }
 
     @GetMapping("/collections/{id}/edit")
-    public String editCollectionForm(@PathVariable long id, Model m) {
-        Entry c = repo.collection(id);
-        return form(m, c, false, Set.of(), c.hasImage() ? "/collections/" + id + "/image" : null,
+    public String editCollectionForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
+        Entry c = repo.collection(uid, id);
+        return form(uid, m, c, false, Set.of(), c.hasImage() ? "/collections/" + id + "/image" : null,
                 "Редактировать коллекцию", "/collections/" + id);
     }
 
     @PostMapping("/collections/{id}/edit")
-    public String editCollection(@PathVariable long id, @RequestParam String name,
+    public String editCollection(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String name,
                                  @RequestParam(required = false) String kind,
                                  @RequestParam(required = false) MultipartFile image,
                                  @RequestParam(name = "remove_image", required = false) String removeImage) {
-        repo.collection(id); // 404, если нет
-        repo.saveCollection(id, name, kind, image, removeImage != null);
+        repo.collection(uid, id); // 404, если нет
+        repo.saveCollection(uid, id, name, kind, image, removeImage != null);
         return "redirect:/collections/" + id;
     }
 
     @PostMapping("/collections/{id}/delete")
-    public String deleteCollection(@PathVariable long id) {
+    public String deleteCollection(@SessionAttribute("uid") long uid, @PathVariable long id) {
+        repo.collection(uid, id); // 404, если коллекция чужая
         repo.delete("collections", id);
         return "redirect:/";
     }
@@ -159,47 +248,47 @@ public class WebController {
     // ---------- Объекты ----------
 
     @GetMapping("/collections/{cid}/items/new")
-    public String newItemForm(@PathVariable long cid, Model m) {
-        Set<String> fields = repo.itemFields(repo.collection(cid).kind());
-        return form(m, null, true, fields, null, "Новый объект", "/collections/" + cid);
+    public String newItemForm(@SessionAttribute("uid") long uid, @PathVariable long cid, Model m) {
+        Set<String> fields = repo.itemFields(uid, repo.collection(uid, cid).kind());
+        return form(uid, m, null, true, fields, null, "Новый объект", "/collections/" + cid);
     }
 
     @Transactional
     @PostMapping("/collections/{cid}/items/new")
-    public String createItem(@PathVariable long cid, @RequestParam String name,
+    public String createItem(@SessionAttribute("uid") long uid, @PathVariable long cid, @RequestParam String name,
                              @RequestParam(required = false) String platform,
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price) {
-        Entry c = repo.collection(cid);
+        Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(id, c.kind(), name, platform, format, status, price);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price);
         return "redirect:/collections/" + cid;
     }
 
     @GetMapping("/items/{id}/edit")
-    public String editItemForm(@PathVariable long id, Model m, @RequestParam(required = false) String view) {
-        Entry it = repo.item(id);
-        Set<String> fields = repo.itemFields(repo.collection(it.collectionId()).kind());
+    public String editItemForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m, @RequestParam(required = false) String view) {
+        Entry it = repo.item(uid, id);
+        Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
         m.addAttribute("view", view);
-        return form(m, it, true, fields, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
+        return form(uid, m, it, true, fields, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
     }
 
     @PostMapping("/items/{id}/edit")
-    public String editItem(@PathVariable long id, @RequestParam String name,
+    public String editItem(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String name,
                            @RequestParam(required = false) String platform,
                            @RequestParam(required = false) String format,
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) String view) {
-        Entry it = repo.item(id);
-        repo.saveItem(id, repo.collection(it.collectionId()).kind(), name, platform, format, status, price);
+        Entry it = repo.item(uid, id);
+        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price);
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 
     @PostMapping("/items/{id}/delete")
-    public String deleteItem(@PathVariable long id, @RequestParam(required = false) String view) {
-        Entry it = repo.item(id);
+    public String deleteItem(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam(required = false) String view) {
+        Entry it = repo.item(uid, id);
         repo.delete("items", id);
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
@@ -207,58 +296,58 @@ public class WebController {
     // ---------- Настройки: типы коллекций ----------
 
     @GetMapping("/kinds")
-    public String kinds(Model m) {
-        m.addAttribute("kinds", repo.kinds());
+    public String kinds(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("kinds", repo.kinds(uid));
         m.addAttribute("fieldNames", Repo.FIELDS);
         return "kinds";
     }
 
     @GetMapping("/kinds/new")
-    public String newKindForm(Model m) {
-        return kindForm(m, null, "Новый тип коллекции");
+    public String newKindForm(@SessionAttribute("uid") long uid, Model m) {
+        return kindForm(uid, m, null, "Новый тип коллекции");
     }
 
     @Transactional
     @PostMapping("/kinds/new")
-    public String createKind(@RequestParam String name, @RequestParam(required = false) List<String> fields,
+    public String createKind(@SessionAttribute("uid") long uid, @RequestParam String name, @RequestParam(required = false) List<String> fields,
                              @RequestParam(name = "st", required = false) List<String> statuses,
                              @RequestParam(name = "stc", required = false) List<String> colors) {
-        repo.saveKind(null, name, fields, statuses, colors);
+        repo.saveKind(uid, null, name, fields, statuses, colors);
         return "redirect:/kinds";
     }
 
     @GetMapping("/kinds/{id}/edit")
-    public String editKindForm(@PathVariable long id, Model m) {
-        return kindForm(m, repo.kind(id), "Тип коллекции");
+    public String editKindForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
+        return kindForm(uid, m, repo.kind(uid, id), "Тип коллекции");
     }
 
     @Transactional
     @PostMapping("/kinds/{id}/edit")
-    public String editKind(@PathVariable long id, @RequestParam String name,
+    public String editKind(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String name,
                            @RequestParam(required = false) List<String> fields,
                            @RequestParam(name = "st", required = false) List<String> statuses,
                            @RequestParam(name = "stc", required = false) List<String> colors) {
-        repo.saveKind(id, name, fields, statuses, colors);
+        repo.saveKind(uid, id, name, fields, statuses, colors);
         return "redirect:/kinds";
     }
 
     @PostMapping("/kinds/{id}/delete")
-    public String deleteKind(@PathVariable long id) {
-        repo.deleteKind(id);
+    public String deleteKind(@SessionAttribute("uid") long uid, @PathVariable long id) {
+        repo.deleteKind(uid, id);
         return "redirect:/kinds";
     }
 
     /** Сколько пустых строк «статус — цвет» добавлять в форму типа. */
     private static final int EMPTY_STATUS_ROWS = 3;
 
-    private String kindForm(Model m, Kind kind, String title) {
+    private String kindForm(long uid, Model m, Kind kind, String title) {
         m.addAttribute("kind", kind);
         m.addAttribute("statusColors", kind == null ? Map.of() : kind.statusColors());
         m.addAttribute("emptyRows", IntStream.range(0, EMPTY_STATUS_ROWS).boxed().toList());
         // подсказки: стандартные статусы и те, что уже есть у объектов этого типа
         Set<String> hints = new java.util.TreeSet<>(Repo.alphabetical());
         hints.addAll(List.of("Complete", "Incomplete"));
-        if (kind != null) hints.addAll(repo.usedStatuses(kind.name()));
+        if (kind != null) hints.addAll(repo.usedStatuses(uid, kind.name()));
         m.addAttribute("statusHints", hints);
         m.addAttribute("fieldNames", Repo.FIELDS);
         m.addAttribute("title", title);
@@ -267,11 +356,11 @@ public class WebController {
 
     // ---------- вспомогательное ----------
 
-    private String form(Model m, Entry obj, boolean isItem, Set<String> fields, String imgUrl, String title, String back) {
+    private String form(long uid, Model m, Entry obj, boolean isItem, Set<String> fields, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
         m.addAttribute("isItem", isItem);
         m.addAttribute("fields", fields);
-        m.addAttribute("kinds", repo.kinds().stream().map(Kind::name).toList());
+        m.addAttribute("kinds", repo.kinds(uid).stream().map(Kind::name).toList());
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);
         m.addAttribute("back", back);
