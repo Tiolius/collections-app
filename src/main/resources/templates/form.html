@@ -13,6 +13,43 @@
     <label>Тип</label>
     <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
 
+    <th:block th:unless="${isItem}">
+      <label>Вид коллекции *</label>
+      <label class="radio" th:each="k : ${kinds}">
+        <input type="radio" name="kind" required th:value="${k}" th:checked="${obj != null and k == obj.kind()}">
+        <span th:text="${k}"></span>
+      </label>
+    </th:block>
+
+    <th:block th:if="${isItem}">
+      <label>Платформа</label>
+      <input type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
+      <datalist id="platforms">
+        <option>PC / Windows</option><option>Nintendo Switch</option><option>PlayStation Vita</option>
+        <option>PlayStation Portable</option><option>PlayStation 3</option><option>Nintendo 3DS</option>
+        <option>Wii U</option><option>GameCube</option><option>NES</option>
+        <option>Game Boy</option><option>Game Boy Advance</option>
+      </datalist>
+
+      <label>Формат</label>
+      <input type="text" name="format" list="formats" th:value="${obj != null ? obj.format() : ''}">
+      <datalist id="formats">
+        <option>Physical</option><option>Digital</option><option>Digital (Steam)</option>
+        <option>Digital (GOG)</option><option>Digital (Epic)</option><option>Digital (PSN)</option>
+        <option>Digital (Nintendo)</option><option>Digital (Origin)</option><option>Digital (Uplay)</option>
+      </datalist>
+
+
+      <label>Статус прохождения</label>
+      <input type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
+      <datalist id="statuses">
+        <option>Complete</option><option>Incomplete</option>
+      </datalist>
+
+      <label>Цена (₽)</label>
+      <input type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
+    </th:block>
+
     <label>Картинка</label>
     <th:block th:if="${imgUrl != null}">
       <img class="preview" th:src="${imgUrl}" alt="">

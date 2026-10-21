@@ -1,6 +1,16 @@
+# Данные пользователя: никогда не коммитить
 data/
-target/
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.xlsx
+*.xls
+*.csv
+
+target/
 .idea/
 *.iml
 .vscode/
