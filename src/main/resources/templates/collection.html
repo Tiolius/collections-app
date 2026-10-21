@@ -10,8 +10,7 @@
     <div>
       <h2 th:text="${c.name()}"></h2>
       <div class="muted">
-        <span th:text="${'Тип: ' + (c.type() == null or c.type().isEmpty() ? '—' : c.type())}"></span> ·
-        <span th:text="${'Вид: ' + (c.kind() == null ? '—' : c.kind())}"></span> ·
+        <span th:text="${'Тип: ' + (c.kind() == null ? '—' : c.kind())}"></span> ·
         <span th:text="${'Объектов: ' + total}"></span>
       </div>
     </div>
@@ -38,16 +37,19 @@
       </th:block>
     </span>
     <span class="spacer"></span>
-    <span class="muted">На странице:</span>
-    <th:block th:each="s : ${sizes}">
-      <b th:if="${s == size}" th:text="${s}"></b>
-      <a th:unless="${s == size}" th:text="${s}"
-         th:href="@{/collections/{id}(id=${c.id()},sort=${sort},dir=${dir},size=${s})}"></a>
-    </th:block>
+    <form method="get" class="inline" th:action="@{/collections/{id}(id=${c.id()})}">
+      <input type="hidden" name="sort" th:value="${sort}">
+      <input type="hidden" name="dir" th:value="${dir}">
+      <label class="muted" for="page-size">На странице:</label>
+      <select id="page-size" name="size" onchange="this.form.submit()">
+        <option th:each="s : ${sizes}" th:value="${s}" th:text="${s}" th:selected="${s == size}"></option>
+      </select>
+      <noscript><button class="btn">OK</button></noscript>
+    </form>
     <a href="#" class="muted" id="reset-widths" title="Вернуть исходную ширину столбцов">сбросить ширину столбцов</a>
   </div>
 
-  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (digital ? '' : ',phys')}">
+  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',')}">
     <thead><tr>
       <th th:each="col : ${cols}" th:class="${col.css()}">
         <a class="sort" th:title="${col.key() == 'price' ? 'Сортировать по цене' : null}" th:href="@{/collections/{id}(id=${c.id()},sort=${col.key()},dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'},size=${size})}"
@@ -58,10 +60,10 @@
     </tr></thead>
     <tbody><tr th:each="it : ${items}">
       <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
-      <td th:if="${digital}" th:text="${it.platform()}"></td>
-      <td th:if="${digital}" th:text="${it.format()}"></td>
-      <td th:text="${it.status()}"></td>
-      <td class="eye">
+      <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
+      <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
+      <td th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
+      <td class="eye" th:if="${fields.contains('price')}">
         <span class="icon tip" tabindex="0" aria-label="Цена" th:classappend="${it.price() == null} ? 'none'">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
           <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>

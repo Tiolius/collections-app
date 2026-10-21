@@ -3,6 +3,8 @@ package app;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,23 +36,24 @@ public class WebController {
 
     @GetMapping("/collections/new")
     public String newCollectionForm(Model m) {
-        return form(m, null, false, false, null, "Новая коллекция", "/");
+        return form(m, null, false, Set.of(), null, "Новая коллекция", "/");
     }
 
     @Transactional
     @PostMapping("/collections/new")
-    public String createCollection(@RequestParam String name, @RequestParam(required = false) String type,
+    public String createCollection(@RequestParam String name,
                                    @RequestParam(required = false) String kind,
                                    @RequestParam(required = false) MultipartFile image) {
         long id = repo.createCollection();
-        repo.saveCollection(id, name, type, kind, image, false);
+        repo.saveCollection(id, name, kind, image, false);
         return "redirect:/collections/" + id;
     }
 
     /** Столбец таблицы объектов: ключ сортировки, заголовок, css-класс. */
     public record Col(String key, String label, String css) {}
 
-    private static final List<Integer> PAGE_SIZES = List.of(25, 50, 100, 200);
+    /** Размеры страницы для выпадающего списка: 25, 50, … 200. */
+    private static final List<Integer> PAGE_SIZES = IntStream.rangeClosed(1, 8).map(i -> i * 25).boxed().toList();
 
     @GetMapping("/collections/{id}")
     public String collection(@PathVariable long id, Model m,
@@ -59,16 +62,14 @@ public class WebController {
                              @RequestParam(defaultValue = "1") int page,
                              @RequestParam(defaultValue = "50") int size) {
         Entry c = repo.collection(id);
-        boolean digital = Repo.hasDigitalFields(c.kind());
+        Set<String> fields = Repo.itemFields(c.kind());
 
         List<Col> cols = new ArrayList<>();
         cols.add(new Col("name", "Название", "title"));
-        if (digital) {
-            cols.add(new Col("platform", "Платформа", ""));
-            cols.add(new Col("format", "Формат", ""));
-        }
-        cols.add(new Col("status", "Статус", ""));
-        cols.add(new Col("price", "₽", "eye")); // сама цена скрыта, видна в подсказке у иконки глаза
+        if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
+        if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
+        if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
+        if (fields.contains("price")) cols.add(new Col("price", "₽", "eye")); // цена видна в подсказке у иконки глаза
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
@@ -79,7 +80,7 @@ public class WebController {
         page = Math.min(Math.max(page, 1), pages);
 
         m.addAttribute("c", c);
-        m.addAttribute("digital", digital);
+        m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
         m.addAttribute("items", repo.items(id, sort, desc, size, (page - 1) * size));
         m.addAttribute("sort", sort);
@@ -123,18 +124,17 @@ public class WebController {
     @GetMapping("/collections/{id}/edit")
     public String editCollectionForm(@PathVariable long id, Model m) {
         Entry c = repo.collection(id);
-        return form(m, c, false, false, c.hasImage() ? "/collections/" + id + "/image" : null,
+        return form(m, c, false, Set.of(), c.hasImage() ? "/collections/" + id + "/image" : null,
                 "Редактировать коллекцию", "/collections/" + id);
     }
 
     @PostMapping("/collections/{id}/edit")
     public String editCollection(@PathVariable long id, @RequestParam String name,
-                                 @RequestParam(required = false) String type,
                                  @RequestParam(required = false) String kind,
                                  @RequestParam(required = false) MultipartFile image,
                                  @RequestParam(name = "remove_image", required = false) String removeImage) {
         repo.collection(id); // 404, если нет
-        repo.saveCollection(id, name, type, kind, image, removeImage != null);
+        repo.saveCollection(id, name, kind, image, removeImage != null);
         return "redirect:/collections/" + id;
     }
 
@@ -148,8 +148,8 @@ public class WebController {
 
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@PathVariable long cid, Model m) {
-        boolean digital = Repo.hasDigitalFields(repo.collection(cid).kind());
-        return form(m, null, true, digital, null, "Новый объект", "/collections/" + cid);
+        Set<String> fields = Repo.itemFields(repo.collection(cid).kind());
+        return form(m, null, true, fields, null, "Новый объект", "/collections/" + cid);
     }
 
     @Transactional
@@ -168,9 +168,9 @@ public class WebController {
     @GetMapping("/items/{id}/edit")
     public String editItemForm(@PathVariable long id, Model m, @RequestParam(required = false) String view) {
         Entry it = repo.item(id);
-        boolean digital = Repo.hasDigitalFields(repo.collection(it.collectionId()).kind());
+        Set<String> fields = Repo.itemFields(repo.collection(it.collectionId()).kind());
         m.addAttribute("view", view);
-        return form(m, it, true, digital, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
+        return form(m, it, true, fields, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
     }
 
     @PostMapping("/items/{id}/edit")
@@ -194,10 +194,10 @@ public class WebController {
 
     // ---------- вспомогательное ----------
 
-    private String form(Model m, Entry obj, boolean isItem, boolean digital, String imgUrl, String title, String back) {
+    private String form(Model m, Entry obj, boolean isItem, Set<String> fields, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
         m.addAttribute("isItem", isItem);
-        m.addAttribute("digital", digital);
+        m.addAttribute("fields", fields);
         m.addAttribute("kinds", Repo.KINDS);
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);

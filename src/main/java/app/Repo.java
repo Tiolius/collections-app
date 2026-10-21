@@ -3,6 +3,7 @@ package app;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,20 +16,25 @@ import org.springframework.web.server.ResponseStatusException;
 @Repository
 public class Repo {
 
-    private static final String COLLECTION_COLS = "id, name, type, image_mime IS NOT NULL AS has_image, kind";
-    // У объектов нет типа и картинки (в старых базах столбцы items.type/image остаются, но не используются)
+    private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price";
 
-    /** Допустимые значения вида коллекции. */
-    public static final String PHYSICAL = "Физическая", DIGITAL = "Цифровая";
-    public static final List<String> KINDS = List.of(PHYSICAL, DIGITAL);
+    /** Типы коллекций (в порядке выпадающего списка). */
+    public static final String GAMES_DISC = "Игры (диски)", GAMES_DIGITAL = "Игры (цифровые)",
+            MUSIC_DISC = "Музыка (диски)", BOOKS = "Книги";
+    public static final List<String> KINDS = List.of(GAMES_DISC, GAMES_DIGITAL, MUSIC_DISC, BOOKS);
 
-    /**
-     * Есть ли у объектов коллекции этого вида платформа и формат.
-     * У физической — нет; у коллекции без вида показываем все поля.
-     */
-    public static boolean hasDigitalFields(String kind) {
-        return !PHYSICAL.equals(kind);
+    /** Поля объекта (кроме названия) в зависимости от типа коллекции. */
+    private static final Map<String, Set<String>> KIND_FIELDS = Map.of(
+            GAMES_DIGITAL, Set.of("platform", "format", "status", "price"), // как вкладка PC Collection
+            GAMES_DISC, Set.of("status", "price"),                          // как вкладки издателей
+            MUSIC_DISC, Set.of("price"),
+            BOOKS, Set.of("price"));
+    private static final Set<String> ALL_FIELDS = Set.of("platform", "format", "status", "price");
+
+    /** Какие поля есть у объектов коллекции этого типа (у коллекции без типа — все). */
+    public static Set<String> itemFields(String kind) {
+        return KIND_FIELDS.getOrDefault(kind, ALL_FIELDS);
     }
 
     private final JdbcTemplate jdbc;
@@ -45,9 +51,13 @@ public class Repo {
         addColumn("items", "format", "TEXT");
         addColumn("items", "status", "TEXT");
         addColumn("items", "price", "INTEGER");
+        // Старые названия типов коллекций
+        jdbc.update("UPDATE collections SET kind = ? WHERE kind = 'Физическая'", GAMES_DISC);
+        jdbc.update("UPDATE collections SET kind = ? WHERE kind = 'Цифровая'", GAMES_DIGITAL);
         // Столбцы, которые больше не используются: у объектов нет издателя, типа и картинки
         boolean dropped = false;
         for (String col : List.of("publisher", "type", "image", "image_mime")) dropped |= dropColumn("items", col);
+        dropped |= dropColumn("collections", "type"); // свободный текст «Тип» заменён на тип коллекции (kind)
         if (dropped) jdbc.execute("VACUUM"); // вернуть место, которое занимали удалённые картинки
     }
 
@@ -69,7 +79,6 @@ public class Repo {
         return (rs, i) -> new Entry(
                 rs.getLong("id"),
                 rs.getString("name"),
-                isItem ? null : rs.getString("type"),
                 !isItem && rs.getBoolean("has_image"),
                 isItem ? rs.getLong("collection_id") : null,
                 withCount ? rs.getInt("cnt") : 0,
@@ -141,12 +150,12 @@ public class Repo {
                 Long.class, collectionId);
     }
 
-    /** Сохраняет коллекцию: название, тип, вид и (если загружена) картинку; removeImage удаляет картинку. */
-    public void saveCollection(long id, String name, String type, String kind, MultipartFile image, boolean removeImage) {
+    /** Сохраняет коллекцию: название, тип и (если загружена) картинку; removeImage удаляет картинку. */
+    public void saveCollection(long id, String name, String kind, MultipartFile image, boolean removeImage) {
         requireName(name);
         if (!KINDS.contains(kind))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите вид коллекции: Физическая или Цифровая");
-        jdbc.update("UPDATE collections SET name = ?, type = ?, kind = ? WHERE id = ?", name.trim(), trim(type), kind, id);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите тип коллекции");
+        jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
         if (image != null && !image.isEmpty()) {
             String mime = image.getContentType();
@@ -163,17 +172,19 @@ public class Repo {
     }
 
     /**
-     * Сохраняет объект. Название, статус и цена есть у всех объектов;
-     * платформа и формат — только в цифровой коллекции. В физической их не трогаем,
-     * чтобы данные не терялись при смене вида коллекции.
+     * Сохраняет объект: название и те поля, которые есть у типа коллекции (itemFields).
+     * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long id, String kind, String name, String platform, String format, String status, Integer price) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
-        jdbc.update("UPDATE items SET name = ?, status = ?, price = ? WHERE id = ?", name.trim(), trim(status), price, id);
-        if (hasDigitalFields(kind))
-            jdbc.update("UPDATE items SET platform = ?, format = ? WHERE id = ?", trim(platform), trim(format), id);
+        Set<String> f = itemFields(kind);
+        jdbc.update("UPDATE items SET name = ? WHERE id = ?", name.trim(), id);
+        if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(platform), id);
+        if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
+        if (f.contains("status")) jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
+        if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
     }
 
     public void delete(String table, long id) {

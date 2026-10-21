@@ -1,10 +1,9 @@
 CREATE TABLE IF NOT EXISTS collections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    type TEXT,
     image BLOB,
     image_mime TEXT,
-    kind TEXT
+    kind TEXT -- тип коллекции, значения в Repo.KINDS
 );
 
 -- Новые столбцы добавлять и сюда, и в Repo.migrate() (для уже существующих баз)

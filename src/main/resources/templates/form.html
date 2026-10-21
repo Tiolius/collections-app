@@ -14,16 +14,11 @@
     <input id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
 
     <th:block th:unless="${isItem}">
-      <label for="f-type">Тип</label>
-      <input id="f-type" type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
-
-      <label>Вид коллекции *</label>
-      <div>
-        <label class="radio" th:each="k : ${kinds}">
-          <input type="radio" name="kind" required th:value="${k}" th:checked="${obj != null and k == obj.kind()}">
-          <span th:text="${k}"></span>
-        </label>
-      </div>
+      <label for="f-kind">Тип коллекции *</label>
+      <select id="f-kind" name="kind" required>
+        <option value="" th:selected="${obj == null or obj.kind() == null}" disabled>— выберите —</option>
+        <option th:each="k : ${kinds}" th:value="${k}" th:text="${k}" th:selected="${obj != null and k == obj.kind()}"></option>
+      </select>
 
       <label>Картинка</label>
       <div>
@@ -35,7 +30,7 @@
       </div>
     </th:block>
 
-    <th:block th:if="${isItem and digital}">
+    <th:block th:if="${isItem and fields.contains('platform')}">
       <label for="f-platform">Платформа</label>
       <input id="f-platform" type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
       <datalist id="platforms">
@@ -44,7 +39,9 @@
         <option>Wii U</option><option>GameCube</option><option>NES</option>
         <option>Game Boy</option><option>Game Boy Advance</option>
       </datalist>
+    </th:block>
 
+    <th:block th:if="${isItem and fields.contains('format')}">
       <label for="f-format">Формат</label>
       <input id="f-format" type="text" name="format" list="formats" th:value="${obj != null ? obj.format() : ''}">
       <datalist id="formats">
@@ -54,13 +51,15 @@
       </datalist>
     </th:block>
 
-    <th:block th:if="${isItem}">
+    <th:block th:if="${isItem and fields.contains('status')}">
       <label for="f-status">Статус прохождения</label>
       <input id="f-status" type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
       <datalist id="statuses">
         <option>Complete</option><option>Incomplete</option>
       </datalist>
+    </th:block>
 
+    <th:block th:if="${isItem and fields.contains('price')}">
       <label for="f-price">Цена (₽)</label>
       <input id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
