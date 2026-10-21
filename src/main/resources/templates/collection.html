@@ -46,7 +46,7 @@
       </select>
       <noscript><button class="btn">OK</button></noscript>
     </form>
-    <a href="#" class="muted" id="reset-widths" title="Вернуть исходную ширину столбцов">сбросить ширину столбцов</a>
+    <button type="button" class="btn light small" id="reset-widths" title="Вернуть исходную ширину столбцов">Сбросить ширину столбцов</button>
   </div>
 
   <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',')}">
