@@ -4,38 +4,37 @@
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
-  <p><a href="/">← Все коллекции</a></p>
-  <div class="head">
-    <img th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+  <div class="bar collhead">
+    <a href="/">← Все коллекции</a>
+    <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
     <div>
-      <h2 style="margin:0" th:text="${c.name()}"></h2>
-      <div class="type" th:text="${'Тип: ' + (c.type() == null or c.type().isEmpty() ? '—' : c.type())}"></div>
-      <div class="type" th:text="${'Вид: ' + (c.kind() == null ? '—' : c.kind())}"></div>
-      <div style="margin-top:8px">
-        <a class="btn gray" th:href="@{/collections/{id}/edit(id=${c.id()})}">Изменить</a>
-        <form class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
-              onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
-          <button class="btn red">Удалить</button>
-        </form>
+      <h2 th:text="${c.name()}"></h2>
+      <div class="muted">
+        <span th:text="${'Тип: ' + (c.type() == null or c.type().isEmpty() ? '—' : c.type())}"></span> ·
+        <span th:text="${'Вид: ' + (c.kind() == null ? '—' : c.kind())}"></span> ·
+        <span th:text="${'Объектов: ' + items.size()}"></span>
       </div>
     </div>
+    <span class="spacer"></span>
+    <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}">+ Новый объект</a>
+    <a class="btn gray" th:href="@{/collections/{id}/edit(id=${c.id()})}">Изменить коллекцию</a>
+    <form class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
+          onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
+      <button class="btn red">Удалить коллекцию</button>
+    </form>
   </div>
 
-  <div class="bar">
-    <h3>Объекты</h3>
-    <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}">+ Новый объект</a>
-  </div>
   <p class="empty" th:if="${items.isEmpty()}">В коллекции пока нет объектов.</p>
   <table class="items" th:unless="${items.isEmpty()}">
-    <tr>
+    <thead><tr>
       <th>Название</th>
       <th th:if="${digital}">Платформа</th>
       <th th:if="${digital}">Формат</th>
       <th>Статус</th>
       <th class="num">Цена, ₽</th>
       <th></th>
-    </tr>
-    <tr th:each="it : ${items}">
+    </tr></thead>
+    <tbody><tr th:each="it : ${items}">
       <td th:text="${it.name()}"></td>
       <td th:if="${digital}" th:text="${it.platform()}"></td>
       <td th:if="${digital}" th:text="${it.format()}"></td>
@@ -48,7 +47,7 @@
           <button class="btn red">Удалить</button>
         </form>
       </td>
-    </tr>
+    </tr></tbody>
   </table>
 </main>
 </body>

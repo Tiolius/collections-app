@@ -6,6 +6,8 @@
 <main>
   <div class="bar">
     <h2>Мои коллекции</h2>
+    <span class="muted" th:text="${'всего: ' + collections.size()}"></span>
+    <span class="spacer"></span>
     <a class="btn" href="/collections/new">+ Новая коллекция</a>
   </div>
   <p class="empty" th:if="${collections.isEmpty()}">Пока нет ни одной коллекции.</p>

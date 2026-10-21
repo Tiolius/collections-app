@@ -4,26 +4,39 @@
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
-  <p><a th:href="${back}">← Назад</a></p>
-  <h2 th:text="${title}"></h2>
+  <div class="bar">
+    <a th:href="${back}">← Назад</a>
+    <h2 th:text="${title}"></h2>
+  </div>
   <form class="form" method="post" enctype="multipart/form-data">
-    <label>Название *</label>
-    <input type="text" name="name" required th:value="${obj != null ? obj.name() : ''}">
+    <label for="f-name">Название *</label>
+    <input id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
 
     <th:block th:unless="${isItem}">
-      <label>Тип</label>
-      <input type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
+      <label for="f-type">Тип</label>
+      <input id="f-type" type="text" name="type" th:value="${obj != null ? obj.type() : ''}">
 
       <label>Вид коллекции *</label>
-      <label class="radio" th:each="k : ${kinds}">
-        <input type="radio" name="kind" required th:value="${k}" th:checked="${obj != null and k == obj.kind()}">
-        <span th:text="${k}"></span>
-      </label>
+      <div>
+        <label class="radio" th:each="k : ${kinds}">
+          <input type="radio" name="kind" required th:value="${k}" th:checked="${obj != null and k == obj.kind()}">
+          <span th:text="${k}"></span>
+        </label>
+      </div>
+
+      <label>Картинка</label>
+      <div>
+        <th:block th:if="${imgUrl != null}">
+          <img class="preview" th:src="${imgUrl}" alt="">
+          <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+        </th:block>
+        <input type="file" name="image" accept="image/*">
+      </div>
     </th:block>
 
     <th:block th:if="${isItem and digital}">
-      <label>Платформа</label>
-      <input type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
+      <label for="f-platform">Платформа</label>
+      <input id="f-platform" type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
       <datalist id="platforms">
         <option>PC / Windows</option><option>Nintendo Switch</option><option>PlayStation Vita</option>
         <option>PlayStation Portable</option><option>PlayStation 3</option><option>Nintendo 3DS</option>
@@ -31,8 +44,8 @@
         <option>Game Boy</option><option>Game Boy Advance</option>
       </datalist>
 
-      <label>Формат</label>
-      <input type="text" name="format" list="formats" th:value="${obj != null ? obj.format() : ''}">
+      <label for="f-format">Формат</label>
+      <input id="f-format" type="text" name="format" list="formats" th:value="${obj != null ? obj.format() : ''}">
       <datalist id="formats">
         <option>Physical</option><option>Digital</option><option>Digital (Steam)</option>
         <option>Digital (GOG)</option><option>Digital (Epic)</option><option>Digital (PSN)</option>
@@ -41,26 +54,17 @@
     </th:block>
 
     <th:block th:if="${isItem}">
-      <label>Статус прохождения</label>
-      <input type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
+      <label for="f-status">Статус прохождения</label>
+      <input id="f-status" type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
       <datalist id="statuses">
         <option>Complete</option><option>Incomplete</option>
       </datalist>
 
-      <label>Цена (₽)</label>
-      <input type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
+      <label for="f-price">Цена (₽)</label>
+      <input id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
-    <th:block th:unless="${isItem}">
-      <label>Картинка</label>
-      <th:block th:if="${imgUrl != null}">
-        <img class="preview" th:src="${imgUrl}" alt="">
-        <label style="font-weight:normal"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
-      </th:block>
-      <input type="file" name="image" accept="image/*">
-    </th:block>
-
-    <div style="margin-top:20px">
+    <div class="full">
       <button class="btn">Сохранить</button>
       <a class="btn gray" th:href="${back}">Отмена</a>
     </div>

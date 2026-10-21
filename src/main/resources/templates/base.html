@@ -6,36 +6,57 @@
 <title>Коллекции</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f6; color: #222; }
-  header { background: #2d3748; color: #fff; padding: 12px 20px; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f6; color: #222; font-size: 15px; }
+  header { background: #2d3748; color: #fff; padding: 8px 24px; }
   header a { color: #fff; text-decoration: none; font-weight: 600; }
-  main { max-width: 1000px; margin: 0 auto; padding: 20px; }
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-  .list { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); overflow: hidden; }
-  .list .row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; text-decoration: none; color: inherit; border-top: 1px solid #edf2f7; }
-  .list .row:first-child { border-top: none; }
-  .list .row:hover { background: #f7fafc; }
-  .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #e2e8f0; }
+  /* На всю ширину экрана; отступы по краям небольшие */
+  main { padding: 16px 24px; }
+  h2 { margin: 0; font-size: 22px; }
+  a { color: #2b6cb0; }
+  .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .bar .spacer { flex: 1; }
+  .muted, .type { color: #666; font-size: 14px; }
   .name { font-weight: 600; }
-  .type { color: #666; font-size: 14px; }
-  table.items { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-  table.items th, table.items td { padding: 8px 12px; text-align: left; border-top: 1px solid #edf2f7; font-size: 14px; }
-  table.items th { background: #edf2f7; border-top: none; }
-  table.items .num { text-align: right; }
-  table.items .actions { white-space: nowrap; text-align: right; }
-  table.items .btn { padding: 4px 10px; font-size: 13px; }
-  .btn { display: inline-block; padding: 7px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
+  .empty { color: #777; }
+
+  /* Главная: коллекции в несколько колонок (на 1920 — 5) */
+  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+  .list .row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: #fff; border-radius: 8px;
+               box-shadow: 0 1px 2px rgba(0,0,0,.08); text-decoration: none; color: inherit; min-width: 0; }
+  .list .row:hover { background: #ebf4ff; }
+  .list .row > div { min-width: 0; }
+  .list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #e2e8f0; display: block; }
+
+  /* Страница коллекции: шапка в одну строку, таблица на всю ширину */
+  .collhead .thumb { width: 56px; height: 56px; }
+  table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  table.items th, table.items td { padding: 5px 12px; text-align: left; border-top: 1px solid #edf2f7; font-size: 14px; }
+  table.items th { background: #edf2f7; border-top: none; position: sticky; top: 0; z-index: 1; }
+  table.items tr:hover td { background: #f7fafc; }
+  table.items .num { text-align: right; white-space: nowrap; }
+  table.items .actions { white-space: nowrap; text-align: right; width: 1%; }
+  table.items .btn { padding: 3px 10px; font-size: 13px; }
+
+  .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: #3182ce; color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
   .btn.gray { background: #718096; }
   .btn.red { background: #e53e3e; }
   form.inline { display: inline; }
-  .form { background: #fff; padding: 20px; border-radius: 8px; max-width: 500px; }
-  .form label { display: block; margin: 12px 0 4px; font-weight: 600; }
-  .form input[type=text], .form input[type=number] { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
-  .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin: 4px 16px 0 0; font-weight: normal; }
-  .preview { max-width: 200px; max-height: 200px; display: block; margin: 8px 0; border-radius: 6px; }
-  .head { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
-  .head img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; }
-  .empty { color: #777; }
+
+  /* Форма: подпись слева, поле справа */
+  .form { background: #fff; padding: 16px 20px; border-radius: 8px; max-width: 900px;
+          display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
+  .form > label { font-weight: 600; }
+  .form .full { grid-column: 1 / -1; }
+  .form input[type=text], .form input[type=number] { width: 100%; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
+  .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; }
+  .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; border-radius: 6px; }
+
+  @media (max-width: 700px) {
+    main { padding: 12px; }
+    .form { grid-template-columns: 1fr; }
+    .list { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
