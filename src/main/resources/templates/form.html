@@ -50,6 +50,13 @@
       <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
+    <th:block th:if="${isItem and fields.contains('available')}">
+      <label for="f-available">Наличие</label>
+      <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме»; у нового объекта — отмечена -->
+      <span><input type="hidden" name="available" value="0"><label class="radio"><input id="f-available" type="checkbox" name="available" value="1"
+             th:checked="${obj == null or obj.available()}"> есть</label></span>
+    </th:block>
+
     <th:block th:if="${isItem}">
       <label class="at-field" for="f-description">Описание</label>
       <textarea autocomplete="off" id="f-description" name="description" rows="8" maxlength="5000" th:text="${obj != null ? obj.description() : ''}"></textarea>

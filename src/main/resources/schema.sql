@@ -65,6 +65,22 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     PRIMARY KEY (user_id, service)
 );
 
+-- Наличие объекта (поле типа «Наличие»): здесь — объекты, которых нет в наличии; нет строки — объект есть
+CREATE TABLE IF NOT EXISTS item_absent (
+    item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE
+);
+
+-- Разовые обновления данных: имя выполненного обновления (чтобы не повторять его при каждом старте)
+CREATE TABLE IF NOT EXISTS data_updates (
+    name TEXT PRIMARY KEY
+);
+
+-- Поле «Наличие» включается у всех уже созданных типов коллекций один раз (потом его можно снять в настройках типа)
+UPDATE kinds SET fields = CASE WHEN fields = '' THEN 'available' ELSE fields || ',available' END
+WHERE NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'available-field')
+  AND (',' || fields || ',') NOT LIKE '%,available,%';
+INSERT OR IGNORE INTO data_updates (name) VALUES ('available-field');
+
 -- Цвет строки объекта в зависимости от статуса (настраивается в типе коллекции)
 CREATE TABLE IF NOT EXISTS kind_status_colors (
     kind_id INTEGER NOT NULL REFERENCES kinds(id) ON DELETE CASCADE,

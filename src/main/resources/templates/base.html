@@ -225,6 +225,11 @@
   table.items.fixed td.actions { overflow: visible; }
   /* Цена: иконка глаза, сама цена — в подсказке */
   table.items th.eye, table.items td.eye { text-align: center; }
+  /* Наличие: галочка — есть, крестик (бледный) — нет */
+  table.items th.flag, table.items td.flag { text-align: center; }
+  table.items td.flag .avail { display: inline-flex; vertical-align: middle; }
+  table.items td.flag .avail.yes { color: var(--link); }
+  table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
   /* Колонка «есть картинка»: узкая, иконка по центру */
   table.items th.pic-col, table.items td.pic-col { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
   table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
@@ -462,6 +467,11 @@
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
+      <th:block th:if="${fields.contains('available')}">
+        <label for="d-available">Наличие</label>
+        <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
+        <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
+      </th:block>
       <label for="d-description">Описание</label>
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
@@ -514,6 +524,8 @@
         ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
+        var avail = document.getElementById('d-available');
+        if (avail) avail.checked = row.dataset.available === '1';
         // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены
         current = row.dataset.image ? '/items/' + row.dataset.id + '/image' : null;
         currentSrc = current && current + '?t=' + Date.now();
