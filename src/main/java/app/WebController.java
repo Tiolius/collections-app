@@ -393,8 +393,14 @@ public class WebController {
                              @RequestParam(name = "f_price_min", required = false) String fPriceMin,
                              @RequestParam(name = "f_price_max", required = false) String fPriceMax,
                              @RequestParam(name = "f_available", required = false) String fAvailable,
-                             @RequestParam(defaultValue = "false") boolean dups) {
+                             @RequestParam(defaultValue = "false") boolean dups,
+                             HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
+        // Открыта без параметров (с главной и т. п.) — запомненный вид списка этой коллекции: сортировка, страница, фильтры
+        if (req.getQueryString() == null || req.getQueryString().isEmpty()) {
+            String saved = repo.collectionView(uid, id);
+            if (isView(saved)) return "redirect:" + collectionUrl(id, saved);
+        }
         Set<String> fields = repo.itemFields(uid, c.kind());
         m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
 
@@ -489,8 +495,10 @@ public class WebController {
         m.addAttribute("to", Math.min(page * size, total));
         m.addAttribute("pageLinks", pageLinks(page, pages));
         // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
-        m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size
-                + filterQs + modeQs);
+        String view = "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size + filterQs;
+        m.addAttribute("view", view + modeQs);
+        // Запомнить вид для этого пользователя и коллекции (режим «Дубли» не запоминается)
+        if (!dups) repo.setCollectionView(uid, id, view);
         return "collection";
     }
 
@@ -517,8 +525,11 @@ public class WebController {
      * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
      */
     private static String collectionUrl(long cid, String view) {
-        return "/collections/" + cid
-                + (view != null && view.matches("[A-Za-z0-9=&%+._*-]*") && !view.isEmpty() ? "?" + view : "");
+        return "/collections/" + cid + (isView(view) ? "?" + view : "");
+    }
+
+    private static boolean isView(String view) {
+        return view != null && !view.isEmpty() && view.matches("[A-Za-z0-9=&%+._*-]*");
     }
 
     /** Ключ для поиска дублей: название без учёта регистра и лишних пробелов. */

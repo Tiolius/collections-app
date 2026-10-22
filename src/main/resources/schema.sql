@@ -42,6 +42,15 @@ CREATE TABLE IF NOT EXISTS item_more_images (
     PRIMARY KEY (item_id, pos)
 );
 
+-- Запомненный вид таблицы объектов коллекции у пользователя: сортировка, страница, размер страницы, фильтры
+-- (строка параметров адреса, как в ссылках страницы); подставляется, если коллекция открыта без параметров
+CREATE TABLE IF NOT EXISTS collection_views (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    query TEXT NOT NULL,
+    PRIMARY KEY (user_id, collection_id)
+);
+
 -- Описание объекта (отдельная таблица: у старых баз создаётся сама, без изменения items)
 CREATE TABLE IF NOT EXISTS item_descriptions (
     item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,

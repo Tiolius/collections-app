@@ -254,6 +254,18 @@ public class Repo {
                 + "ON CONFLICT (user_id) DO UPDATE SET show_prices = excluded.show_prices", uid, show ? 1 : 0);
     }
 
+    /** Запомненный вид таблицы объектов коллекции (строка параметров адреса) или null. */
+    public String collectionView(long uid, long collectionId) {
+        List<String> v = jdbc.queryForList("SELECT query FROM collection_views WHERE user_id = ? AND collection_id = ?",
+                String.class, uid, collectionId);
+        return v.isEmpty() ? null : v.get(0);
+    }
+
+    public void setCollectionView(long uid, long collectionId, String query) {
+        jdbc.update("INSERT INTO collection_views (user_id, collection_id, query) VALUES (?, ?, ?) "
+                + "ON CONFLICT (user_id, collection_id) DO UPDATE SET query = excluded.query", uid, collectionId, query);
+    }
+
     /** Личный токен сервиса импорта (например, Discogs) или null. */
     public String token(long uid, String service) {
         List<String> v = jdbc.queryForList("SELECT token FROM user_tokens WHERE user_id = ? AND service = ?", String.class, uid, service);
