@@ -123,14 +123,21 @@ public class WebController {
     @PostMapping("/import/start")
     public String importStart(@SessionAttribute("uid") long uid, @RequestParam long collection,
                               @RequestParam(defaultValue = ImageImport.STEAM) String source,
-                              @RequestParam(defaultValue = "false") boolean onlyMissing) {
+                              @RequestParam(defaultValue = "false") boolean onlyMissing,
+                              @RequestParam(defaultValue = "false") boolean loadImages,
+                              @RequestParam(defaultValue = "false") boolean loadDescriptions) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
         if (source.equals(ImageImport.DISCOGS) && !images.discogsReady())
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Для Discogs нужен токен: задайте DISCOGS_TOKEN (см. README)");
-        images.start(uid, c, onlyMissing, source);
+        // Описания есть только в Steam
+        boolean descriptions = loadDescriptions && source.equals(ImageImport.STEAM);
+        if (!loadImages && !descriptions)
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Выберите, что загружать: картинки или описания");
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions);
         return "redirect:/import";
     }
 
@@ -146,7 +153,7 @@ public class WebController {
         ImageImport.Job j = images.job(uid);
         if (j == null) return Map.of("state", "none");
         return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
-                "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
+                "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
     // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
@@ -175,6 +182,8 @@ public class WebController {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
                 widths.add(f.equals("price") ? 12 : 22);
             }
+            headers.add("Описание");
+            widths.add(80);
             List<List<Object>> rows = new ArrayList<>();
             for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
                 List<Object> row = new ArrayList<>();
@@ -187,6 +196,7 @@ public class WebController {
                         case "price" -> it.price();
                         default -> null;
                     });
+                row.add(it.description());
                 rows.add(row);
             }
             sheets.add(new Xlsx.Sheet(c.name(), headers, rows, widths));
@@ -538,10 +548,11 @@ public class WebController {
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
-                             @RequestParam(required = false) MultipartFile image) {
+                             @RequestParam(required = false) MultipartFile image,
+                             @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false, description);
         return "redirect:/collections/" + cid;
     }
 
@@ -562,10 +573,11 @@ public class WebController {
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) MultipartFile image,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
+                           @RequestParam(required = false) String description,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                image, removeImage != null);
+                image, removeImage != null, description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 

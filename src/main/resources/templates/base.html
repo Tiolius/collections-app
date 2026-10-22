@@ -250,6 +250,10 @@
   input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
   .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
   .form input[name=name] { max-width: none; }
+  /* Описание объекта — многострочное поле во всю ширину колонки полей */
+  textarea { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); line-height: 1.4; }
+  textarea:focus { outline: none; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+  .form textarea { width: 100%; resize: vertical; }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; color: var(--text); }
   .form > label.top { align-self: start; padding-top: 24px; }
   .form > label.at-field { align-self: start; padding-top: 6px; }  /* поле с подсказкой под ним */
@@ -407,6 +411,8 @@
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
+      <label class="at-field" for="d-description">Описание</label>
+      <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <div class="full">
         <button class="btn">Сохранить</button>
         <button type="button" class="btn gray" data-close>Отмена</button>
@@ -450,7 +456,7 @@
         e.preventDefault();
         var row = a.closest('tr');
         form.action = '/items/' + row.dataset.id + '/edit';
-        ['name', 'platform', 'format', 'status', 'price'].forEach(function (f) {
+        ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
         // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены

@@ -112,7 +112,7 @@
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
-               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-image="${it.hasImage() ? '1' : null}">
+               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-image="${it.hasImage() ? '1' : null}">
       <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
       <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>

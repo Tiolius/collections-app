@@ -51,6 +51,11 @@
     </th:block>
 
     <th:block th:if="${isItem}">
+      <label class="at-field" for="f-description">Описание</label>
+      <textarea autocomplete="off" id="f-description" name="description" rows="8" maxlength="5000" th:text="${obj != null ? obj.description() : ''}"></textarea>
+    </th:block>
+
+    <th:block th:if="${isItem}">
       <label>Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">

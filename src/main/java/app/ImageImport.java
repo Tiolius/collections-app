@@ -22,8 +22,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Импорт картинок объектов («Настройки» → «Импорт») из Steam (игры) или Discogs (музыка).
- * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg).
+ * Импорт картинок и описаний объектов («Настройки» → «Импорт») из Steam (игры) или Discogs (музыка).
+ * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg),
+ * описание — краткое описание игры (по-русски, если есть). У Discogs описаний альбомов нет — только обложки.
  * Discogs: название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы, картинка — обложка.
  * Импорт идёт в фоне, по одному на всё приложение (лимиты сервисов — на адрес, а не на пользователя):
  * запросы к API не чаще заданного интервала, при отказе сервиса (429/403/5xx) — пауза и повтор.
@@ -67,16 +68,19 @@ public class ImageImport {
         public final long collectionId;
         public final String collectionName;
         public final String source;
+        public final boolean images, descriptions;
         public volatile String state = "queued"; // queued | running | done | cancelled | failed
-        public volatile int total, processed, loaded, notFound, errors;
+        public volatile int total, processed, loaded, described, notFound, errors; // loaded — картинок, described — описаний
         public volatile String current = "";
         public volatile String message = "";      // пауза из-за ограничений сервиса, причина остановки
         volatile boolean cancel;
 
-        Job(long collectionId, String collectionName, String source) {
+        Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions) {
             this.collectionId = collectionId;
             this.collectionName = collectionName;
             this.source = source;
+            this.images = images;
+            this.descriptions = descriptions;
         }
 
         public boolean active() {
@@ -122,17 +126,30 @@ public class ImageImport {
         return jobs.get(uid);
     }
 
-    /** Запускает импорт; false — у пользователя уже идёт импорт. Права на коллекцию и источник проверяет вызывающий код. */
-    public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source) {
+    /**
+     * Запускает импорт; false — у пользователя уже идёт импорт. Права на коллекцию и источник проверяет вызывающий код.
+     * onlyMissing — не трогать уже заполненное: картинку загружать только тем, у кого её нет, описание — так же.
+     */
+    public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source,
+                                      boolean images, boolean descriptions) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
-        Job job = new Job(collection.id(), collection.name(), source);
+        boolean descr = descriptions && source.equals(STEAM);
+        Job job = new Job(collection.id(), collection.name(), source, images, descr);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
-                .filter(e -> !onlyMissing || !e.hasImage()).toList();
+                .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
         jobs.put(uid, job);
-        worker.submit(() -> run(job, items));
+        worker.submit(() -> run(job, items, onlyMissing));
         return true;
+    }
+
+    private static boolean needImage(Job job, Entry e, boolean onlyMissing) {
+        return job.images && (!onlyMissing || !e.hasImage());
+    }
+
+    private static boolean needDescription(Job job, Entry e, boolean onlyMissing) {
+        return job.descriptions && (!onlyMissing || e.description() == null);
     }
 
     public void cancel(long uid) {
@@ -140,7 +157,7 @@ public class ImageImport {
         if (job != null) job.cancel = true;
     }
 
-    private void run(Job job, List<Entry> items) {
+    private void run(Job job, List<Entry> items, boolean onlyMissing) {
         job.state = "running";
         int errorsInRow = 0;
         try {
@@ -151,12 +168,19 @@ public class ImageImport {
                 }
                 job.current = item.name();
                 try {
-                    byte[] image = job.source.equals(DISCOGS) ? findDiscogs(job, item.name()) : findSteam(job, item.name());
-                    if (image == null) {
+                    boolean img = needImage(job, item, onlyMissing), descr = needDescription(job, item, onlyMissing);
+                    Found f = job.source.equals(DISCOGS) ? findDiscogs(job, item.name()) : findSteam(job, item.name(), img, descr);
+                    if (f == null) {
                         job.notFound++;
                     } else {
-                        repo.setItemImage(item.id(), image);
-                        job.loaded++;
+                        if (img && f.image() != null) {
+                            repo.setItemImage(item.id(), f.image());
+                            job.loaded++;
+                        }
+                        if (descr && f.description() != null) {
+                            repo.setItemDescription(item.id(), f.description());
+                            job.described++;
+                        }
                     }
                     errorsInRow = 0;
                 } catch (InterruptedException e) {
@@ -187,8 +211,14 @@ public class ImageImport {
 
     // ---------- Steam ----------
 
-    /** Картинка игры с таким же названием или null, если в Steam такой игры нет. */
-    private byte[] findSteam(Job job, String name) throws Exception {
+    /** Найденное: картинка и/или описание (null — нет). */
+    private record Found(byte[] image, String description) {}
+
+    /**
+     * Игра с таким же названием: картинка (если нужна) и краткое описание (если нужно); null — в Steam такой игры нет.
+     * Карточка игры (appdetails, по-русски) запрашивается, только если нужно описание или шапки нет рядом с картинкой из поиска.
+     */
+    private Found findSteam(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
         String key = norm(name);
         if (key.isEmpty()) return null;
         JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(name));
@@ -196,27 +226,51 @@ public class ImageImport {
         for (JsonNode it : res.path("items")) {
             if (!"app".equals(it.path("type").asText("app")) || !key.equals(norm(it.path("name").asText()))) continue;
             long appId = it.path("id").asLong();
-            // Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры
             String tiny = it.path("tiny_image").asText("");
-            byte[] img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
-            if (img == null) {
-                JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic&appids=" + appId);
-                String header = d == null ? "" : d.path(String.valueOf(appId)).path("data").path("header_image").asText("");
-                if (!header.isEmpty()) img = download(header);
+            JsonNode details = null;
+            String description = null;
+            if (wantDescription) {
+                details = appDetails(job, appId);
+                description = cleanDescription(details.path("short_description").asText(""));
             }
-            if (img == null && !tiny.isEmpty()) img = download(tiny);
-            if (img != null) return img;
+            byte[] img = null;
+            if (wantImage) {
+                // Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры
+                img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
+                if (img == null) {
+                    if (details == null) details = appDetails(job, appId);
+                    String header = details.path("header_image").asText("");
+                    if (!header.isEmpty()) img = download(header);
+                }
+                if (img == null && !tiny.isEmpty()) img = download(tiny);
+            }
+            return new Found(img, description);
         }
         return null;
+    }
+
+    /** Карточка игры Steam (data из appdetails) на русском; пустой узел, если её нет. */
+    private JsonNode appDetails(Job job, long appId) throws Exception {
+        JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic&l=russian&appids=" + appId);
+        return d == null ? json.createObjectNode() : d.path(String.valueOf(appId)).path("data");
+    }
+
+    /** Описание из Steam: без HTML-тегов и сущностей, не длиннее допустимого; пустое — null. */
+    static String cleanDescription(String html) {
+        String t = html.replaceAll("(?i)<br\\s*/?>", "\n").replaceAll("<[^>]+>", "")
+                .replace("&quot;", "\"").replace("&#39;", "'").replace("&apos;", "'").replace("&nbsp;", " ")
+                .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").trim();
+        if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
+        return t.isEmpty() ? null : t;
     }
 
     // ---------- Discogs ----------
 
     /**
-     * Обложка альбома или null: название объекта «Группа - Альбом» (без разделителя — не ищем).
+     * Обложка альбома (описаний у Discogs нет) или null: название объекта «Группа - Альбом» (без разделителя — не ищем).
      * Сначала главная версия альбома (master), если её нет — отдельные издания (release).
      */
-    private byte[] findDiscogs(Job job, String name) throws Exception {
+    private Found findDiscogs(Job job, String name) throws Exception {
         String[] aa = artistAlbum(name);
         if (aa == null) return null;
         String artist = aa[0], album = aa[1];
@@ -231,7 +285,7 @@ public class ImageImport {
                 String cover = r.path("cover_image").asText("");
                 if (cover.isEmpty() || cover.contains("spacer.gif")) continue; // у Discogs нет обложки — пустая заглушка
                 byte[] img = download(cover);
-                if (img != null) return img;
+                if (img != null) return new Found(img, null);
             }
         }
         return null;

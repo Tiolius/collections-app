@@ -28,7 +28,8 @@ public class Repo {
 
     private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price, "
-            + "EXISTS (SELECT 1 FROM item_images ii WHERE ii.item_id = items.id) AS has_image";
+            + "EXISTS (SELECT 1 FROM item_images ii WHERE ii.item_id = items.id) AS has_image, "
+            + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -66,7 +67,8 @@ public class Repo {
                 isItem ? rs.getString("platform") : null,
                 isItem ? rs.getString("format") : null,
                 isItem ? rs.getString("status") : null,
-                isItem ? price(rs) : null);
+                isItem ? price(rs) : null,
+                isItem ? rs.getString("description") : null);
     }
 
     /** Цена или null (getObject(.., Integer.class) драйвер SQLite не умеет для NULL). */
@@ -394,6 +396,19 @@ public class Repo {
         }
     }
 
+    /** Наибольшая длина описания объекта. */
+    public static final int MAX_DESCRIPTION = 5000;
+
+    /** Записывает описание объекта (пустое — удаляет); владельца проверяет вызывающий код. */
+    public void setItemDescription(long itemId, String text) {
+        String t = text == null ? "" : text.replace("\r\n", "\n").trim();
+        if (t.length() > MAX_DESCRIPTION)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Описание длиннее " + MAX_DESCRIPTION + " символов");
+        if (t.isEmpty()) jdbc.update("DELETE FROM item_descriptions WHERE item_id = ?", itemId);
+        else jdbc.update("INSERT INTO item_descriptions (item_id, text) VALUES (?, ?) ON CONFLICT (item_id) "
+                + "DO UPDATE SET text = excluded.text", itemId, t);
+    }
+
     /** Записывает картинку объекта (импорт); владельца и формат проверяет вызывающий код. */
     public void setItemImage(long itemId, byte[] bytes) {
         String mime = imageType(bytes);
@@ -437,7 +452,7 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, MultipartFile image, boolean removeImage) {
+                         Integer price, MultipartFile image, boolean removeImage, String description) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
@@ -447,7 +462,8 @@ public class Repo {
         if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
         if (f.contains("status")) jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
-        // Картинка есть у всех объектов, независимо от типа коллекции
+        // Описание и картинка есть у всех объектов, независимо от типа коллекции
+        if (description != null) setItemDescription(id, description);
         if (image != null && !image.isEmpty()) {
             byte[] bytes = readImage(image);
             jdbc.update("INSERT INTO item_images (item_id, image, image_mime) VALUES (?, ?, ?) ON CONFLICT (item_id) "
