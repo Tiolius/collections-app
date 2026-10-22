@@ -19,14 +19,16 @@
         </span>
       </div>
     </div>
-    <span class="spacer"></span>
-    <a class="icon big add" title="Новый объект" aria-label="Новый объект" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
-    <a class="icon big" title="Дубли" aria-label="Дубли" th:href="@{/collections/{id}(id=${c.id()},dups=1)}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
-    <a class="icon big" title="Изменить коллекцию" aria-label="Изменить коллекцию" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
-    <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
-          onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
-      <button class="icon big red" title="Удалить коллекцию" aria-label="Удалить коллекцию"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
-    </form>
+    <!-- Действия с коллекцией — всегда одной строкой (на телефоне переносятся целиком под название) -->
+    <div class="coll-actions">
+      <a class="icon big add" title="Новый объект" aria-label="Новый объект" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
+      <a class="icon big" title="Дубли" aria-label="Дубли" th:href="@{/collections/{id}(id=${c.id()},dups=1)}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
+      <a class="icon big" title="Изменить коллекцию" aria-label="Изменить коллекцию" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
+      <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
+            onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
+        <button class="icon big red" title="Удалить коллекцию" aria-label="Удалить коллекцию"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
+      </form>
+    </div>
   </div>
   <div class="bar collhead" th:if="${dups}">
     <a class="btn light back" th:href="@{/collections/{id}(id=${c.id()})}" title="К коллекции" aria-label="К коллекции"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
