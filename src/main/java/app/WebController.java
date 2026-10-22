@@ -31,22 +31,22 @@ public class WebController {
         this.repo = repo;
     }
 
-    // ---------- Вход, регистрация, пароль ----------
+    // ---------- Вход, пользователи, пароль ----------
     // Кто вошёл — хранится в сессии ("uid"); без входа страницы недоступны (см. WebConfig).
 
     /** Минимальная длина нового пароля. */
     private static final int MIN_PASSWORD = 4;
 
-    /** Имя вошедшего пользователя для шапки страниц. */
-    @ModelAttribute("userName")
-    public String userName(HttpSession session) {
+    /** Вошедший пользователь (или null) — для шапки страниц и прав администратора в шаблонах. */
+    @ModelAttribute("currentUser")
+    public Repo.User currentUser(HttpSession session) {
         Object uid = session.getAttribute("uid");
-        Repo.User u = uid == null ? null : repo.user((Long) uid);
-        return u == null ? null : u.name();
+        return uid == null ? null : repo.user((Long) uid);
     }
 
     @GetMapping("/login")
-    public String loginForm() {
+    public String loginForm(Model m) {
+        m.addAttribute("setup", repo.countUsers() == 0);
         return "login";
     }
 
@@ -57,32 +57,61 @@ public class WebController {
         if (u == null || !Passwords.matches(password, u.passwordHash())) {
             m.addAttribute("error", "Неверное имя пользователя или пароль");
             m.addAttribute("name", name);
-            return "login";
+            return loginForm(m);
         }
         signIn(request, u.id());
         return "redirect:/";
     }
 
-    @GetMapping("/register")
-    public String registerForm() {
-        return "register";
-    }
+    // Первый запуск (пользователей ещё нет): на странице входа создаётся администратор.
 
-    @PostMapping("/register")
-    public String register(@RequestParam String name, @RequestParam(defaultValue = "") String password,
-                           @RequestParam(defaultValue = "") String password2, HttpServletRequest request, Model m) {
-        String error = null;
-        if (name.isBlank()) error = "Укажите имя пользователя";
-        else if (repo.userByName(name) != null) error = "Пользователь «" + name.trim() + "» уже есть";
-        else if (password.length() < MIN_PASSWORD) error = "Пароль должен быть не короче " + MIN_PASSWORD + " символов";
-        else if (!password.equals(password2)) error = "Пароли не совпадают";
+    @PostMapping("/setup")
+    public String setup(@RequestParam String name, @RequestParam(defaultValue = "") String password,
+                        @RequestParam(defaultValue = "") String password2, HttpServletRequest request, Model m) {
+        if (repo.countUsers() > 0) return "redirect:/login";
+        String error = newUserError(name, password, password2);
         if (error != null) {
             m.addAttribute("error", error);
             m.addAttribute("name", name);
-            return "register";
+            return loginForm(m);
         }
-        signIn(request, repo.createUser(name, password));
+        signIn(request, repo.createUser(name, password, Repo.ADMIN));
         return "redirect:/";
+    }
+
+    /** Добавление пользователя — только администратор (в «Настройках»). */
+    @PostMapping("/users/new")
+    public String addUser(@SessionAttribute("uid") long uid, @RequestParam String name,
+                          @RequestParam(defaultValue = "") String password,
+                          @RequestParam(defaultValue = "") String password2,
+                          @RequestParam(defaultValue = Repo.USER) String role, Model m) {
+        requireAdmin(uid);
+        String error = newUserError(name, password, password2);
+        if (error == null && !Repo.ROLES.containsKey(role)) error = "Неизвестная роль";
+        if (error != null) {
+            m.addAttribute("userError", error);
+            m.addAttribute("newUserName", name);
+            m.addAttribute("newUserRole", role);
+            return kinds(uid, m);
+        }
+        repo.createUser(name, password, role);
+        return "redirect:/kinds?userAdded=" + java.net.URLEncoder.encode(name.trim(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /** Проверка данных нового пользователя; null — всё в порядке. */
+    private String newUserError(String name, String password, String password2) {
+        if (name.isBlank()) return "Укажите имя пользователя";
+        if (repo.userByName(name) != null) return "Пользователь «" + name.trim() + "» уже есть";
+        if (password.length() < MIN_PASSWORD) return "Пароль должен быть не короче " + MIN_PASSWORD + " символов";
+        if (!password.equals(password2)) return "Пароли не совпадают";
+        return null;
+    }
+
+    private void requireAdmin(long uid) {
+        Repo.User u = repo.user(uid);
+        if (u == null || !u.isAdmin())
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Доступно только администратору");
     }
 
     @PostMapping("/logout")
@@ -299,6 +328,10 @@ public class WebController {
     public String kinds(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("kinds", repo.kinds(uid));
         m.addAttribute("fieldNames", Repo.FIELDS);
+        if (repo.user(uid).isAdmin()) {
+            m.addAttribute("users", repo.users());
+            m.addAttribute("roles", Repo.ROLES);
+        }
         return "kinds";
     }
 

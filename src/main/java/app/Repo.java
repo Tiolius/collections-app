@@ -192,22 +192,46 @@ public class Repo {
 
     // ---------- пользователи ----------
 
-    /** Пользователь: id, имя, хеш пароля (см. Passwords). */
-    public record User(long id, String name, String passwordHash) {}
+    /** Роли пользователей: ключ (users.role) → название. Администратор может добавлять пользователей. */
+    public static final String ADMIN = "admin", USER = "user";
+    public static final Map<String, String> ROLES = new LinkedHashMap<>();
+    static {
+        ROLES.put(ADMIN, "Администратор");
+        ROLES.put(USER, "Пользователь");
+    }
 
-    private static final RowMapper<User> USER_MAPPER =
-            (rs, i) -> new User(rs.getLong("id"), rs.getString("name"), rs.getString("password_hash"));
+    /** Пользователь: id, имя, хеш пароля (см. Passwords), роль (ключ из ROLES). */
+    public record User(long id, String name, String passwordHash, String role) {
+        public boolean isAdmin() {
+            return ADMIN.equals(role);
+        }
+    }
+
+    private static final String USER_SELECT = "SELECT id, name, password_hash, role FROM users";
+
+    private static final RowMapper<User> USER_MAPPER = (rs, i) ->
+            new User(rs.getLong("id"), rs.getString("name"), rs.getString("password_hash"), rs.getString("role"));
+
+    public int countUsers() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
+    }
+
+    /** Все пользователи по алфавиту. */
+    public List<User> users() {
+        return jdbc.query(USER_SELECT, USER_MAPPER).stream()
+                .sorted(Comparator.comparing(User::name, alphabetical())).toList();
+    }
 
     /** Пользователь по имени без учёта регистра (в т.ч. кириллицы) или null. */
     public User userByName(String name) {
         if (name == null) return null;
         Comparator<String> abc = alphabetical();
-        return jdbc.query("SELECT id, name, password_hash FROM users", USER_MAPPER).stream()
+        return jdbc.query(USER_SELECT, USER_MAPPER).stream()
                 .filter(u -> abc.compare(u.name(), name.trim()) == 0).findFirst().orElse(null);
     }
 
     public User user(long uid) {
-        List<User> list = jdbc.query("SELECT id, name, password_hash FROM users WHERE id = ?", USER_MAPPER, uid);
+        List<User> list = jdbc.query(USER_SELECT + " WHERE id = ?", USER_MAPPER, uid);
         return list.isEmpty() ? null : list.get(0);
     }
 
@@ -221,13 +245,15 @@ public class Repo {
     }
 
     /** Создаёт пользователя с начальными типами коллекций. Возвращает id. */
-    public long createUser(String name, String password) {
+    public long createUser(String name, String password, String role) {
         if (name == null || name.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Укажите имя пользователя");
         if (userByName(name) != null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Пользователь «" + name.trim() + "» уже есть");
-        long uid = jdbc.queryForObject("INSERT INTO users (name, password_hash) VALUES (?, ?) RETURNING id",
-                Long.class, name.trim(), Passwords.hash(password));
+        if (!ROLES.containsKey(role))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неизвестная роль");
+        long uid = jdbc.queryForObject("INSERT INTO users (name, password_hash, role) VALUES (?, ?, ?) RETURNING id",
+                Long.class, name.trim(), Passwords.hash(password), role);
         DEFAULT_KINDS.forEach((k, f) -> jdbc.update("INSERT INTO kinds (user_id, name, fields) VALUES (?, ?, ?)", uid, k, f));
         return uid;
     }

@@ -25,6 +25,7 @@
   .ok { background: #c6f6d5; color: #22543d; padding: 8px 12px; border-radius: 6px; }
   .form input[type=password] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
   h3.section { margin: 28px 0 10px; }
+  table.users { max-width: 900px; }
   /* На всю ширину экрана; отступы по краям небольшие */
   main { padding: 16px 24px; }
   h2 { margin: 0; font-size: 22px; }
@@ -131,9 +132,10 @@
 <body>
 <header th:fragment="header">
   <a href="/">📦 Коллекции</a>
-  <nav th:if="${userName != null}">
-    <span class="user" th:text="${'👤 ' + userName}"></span>
-    <a class="settings" href="/kinds" title="Типы коллекций и смена пароля">⚙ Настройки</a>
+  <nav th:if="${currentUser != null}">
+    <span class="user" th:text="${'👤 ' + currentUser.name()}"
+          th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}"></span>
+    <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций и смена пароля'}">⚙ Настройки</a>
     <form class="inline" method="post" action="/logout"><button class="logout">Выйти</button></form>
   </nav>
 </header>

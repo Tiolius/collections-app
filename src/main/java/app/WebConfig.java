@@ -8,7 +8,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/** Без входа доступны только страницы входа и регистрации; остальное — переход на /login. */
+/** Без входа доступны только страница входа (и создание первого администратора); остальное — переход на /login. */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -22,6 +22,6 @@ public class WebConfig implements WebMvcConfigurer {
                 res.sendRedirect("/login");
                 return false;
             }
-        }).excludePathPatterns("/login", "/register", "/error");
+        }).excludePathPatterns("/login", "/setup", "/error");
     }
 }

@@ -1,10 +1,11 @@
 -- Схема базы. Выполняется при каждом старте; создаёт таблицы, если их нет.
 
--- Пользователи. password_hash — см. Passwords (PBKDF2)
+-- Пользователи. password_hash — см. Passwords (PBKDF2); role — admin (администратор) или user
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user'
 );
 
 CREATE TABLE IF NOT EXISTS collections (

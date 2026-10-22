@@ -60,6 +60,39 @@
 
     <div class="full"><button class="btn">Сменить пароль</button></div>
   </form>
+
+  <th:block th:if="${users != null}">
+    <h3 class="section">Пользователи</h3>
+    <p class="ok" th:if="${param.userAdded != null}" th:text="${'Пользователь «' + param.userAdded + '» добавлен.'}"></p>
+    <table class="items users">
+      <thead><tr><th>Имя</th><th class="title">Роль</th></tr></thead>
+      <tbody><tr th:each="u : ${users}">
+        <td th:text="${u.name()}"></td>
+        <td class="title" th:text="${roles.get(u.role())}"></td>
+      </tr></tbody>
+    </table>
+
+    <h3 class="section" style="font-size:16px">Добавить пользователя</h3>
+    <p class="error" th:if="${userError != null}" th:text="${userError}"></p>
+    <form class="form" method="post" action="/users/new">
+      <label for="f-uname">Имя пользователя</label>
+      <input id="f-uname" type="text" name="name" required autocomplete="off" th:value="${newUserName}">
+
+      <label for="f-urole">Роль</label>
+      <select id="f-urole" name="role">
+        <option th:each="r : ${roles}" th:value="${r.key}" th:text="${r.value}"
+                th:selected="${newUserRole != null ? r.key == newUserRole : r.key == 'user'}"></option>
+      </select>
+
+      <label for="f-upw">Пароль</label>
+      <input id="f-upw" type="password" name="password" autocomplete="new-password">
+
+      <label for="f-upw2">Повторите пароль</label>
+      <input id="f-upw2" type="password" name="password2" autocomplete="new-password">
+
+      <div class="full"><button class="btn">Добавить</button></div>
+    </form>
+  </th:block>
 </main>
 </body>
 </html>
