@@ -470,7 +470,7 @@
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
       <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
-           Щелчок по картинке или заглушке «Нет картинки» — выбор файла (поле скрыто).
+           Щелчок по картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
            Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div id="d-image" class="dlg-image">
         <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
@@ -479,7 +479,7 @@
           <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
         </th:block>
         <div class="viewer">
-          <label class="pic" id="d-pic" for="d-file-0" title="Нажмите, чтобы заменить картинку"><img alt=""></label>
+          <a class="pic" id="d-pic" target="_blank" rel="noopener" title="Открыть в полном размере"><img alt=""></a>
           <label class="no-image" id="d-noimg" for="d-file-0" title="Выбрать файл"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
           <b>Нет картинки</b><span>Нажмите, чтобы выбрать файл</span></label>
           <button type="button" class="nav prev" id="d-prev" title="Предыдущая картинка" aria-label="Предыдущая картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></svg></button>
@@ -554,8 +554,8 @@
       $('d-pic').hidden = !src;
       $('d-noimg').hidden = !!src;
       $('d-tools').hidden = !src;
-      if (src) document.querySelector('#d-pic img').src = src;
-      ['d-pic', 'd-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
+      if (src) { document.querySelector('#d-pic img').src = src; $('d-pic').href = src; } // выбранный файл — его превью
+      ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
       $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
       if (s.saved) $('d-open').href = s.saved;
       var many = slots.length > 1, filled = slots.filter(srcOf).length;
