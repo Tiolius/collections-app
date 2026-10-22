@@ -257,8 +257,6 @@
   dialog.modal .img-tools { display: flex; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
   dialog.modal .img-tools .spacer { flex: 1; }
-  dialog.modal #d-remove[aria-pressed="true"] { color: var(--red); background: var(--hover); }
-  dialog.modal .dlg-image.removed img { opacity: .3; }
   dialog.modal .dlg-image [hidden] { display: none !important; }
   /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
   dialog.modal .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
@@ -359,9 +357,8 @@
         <div class="img-tools" id="d-tools">
           <label class="icon" for="d-file" title="Заменить картинку" aria-label="Заменить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-313v-371L330-564l-43-43 193-193 193 193-43 43-120-120v371h-60ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg></label>
           <a class="icon" id="d-open" target="_blank" title="Открыть в полном размере" aria-label="Открыть в полном размере"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
-          <span class="muted" id="d-removed" hidden>Картинка будет удалена при сохранении</span>
           <span class="spacer"></span>
-          <button type="button" class="icon red" id="d-remove" aria-pressed="false"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
+          <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
     <div class="form">
@@ -398,11 +395,12 @@
     var dlg = document.getElementById('item-dialog');
     if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — карандаш откроет отдельную страницу
     var form = dlg.querySelector('form');
-    // Картинка справа: текущая с сервера (current), выбранный файл (chosen, виден до сохранения) или заглушка
-    var file = document.getElementById('d-file'), removeBtn = document.getElementById('d-remove'),
-        removeVal = document.getElementById('d-remove-val'), current = null, currentSrc = null, chosen = null;
+    // Картинка справа: текущая с сервера (current), выбранный файл (chosen, виден до сохранения) или заглушка.
+    // Корзина сразу показывает заглушку; картинка удаляется на сервере только при сохранении (скрытое remove_image)
+    var file = document.getElementById('d-file'), removeVal = document.getElementById('d-remove-val'),
+        current = null, currentSrc = null, chosen = null;
     function render() {
-      var src = chosen || currentSrc;
+      var src = chosen || (removeVal.disabled ? currentSrc : null);
       document.getElementById('d-pic').hidden = !src;
       document.getElementById('d-noimg').hidden = !!src;
       document.getElementById('d-tools').hidden = !src;
@@ -410,25 +408,16 @@
       var open = document.getElementById('d-open');
       open.hidden = !!chosen || !current;
       if (current) open.href = current;
-      removeBtn.title = chosen ? 'Убрать выбранный файл' : removeVal.disabled ? 'Удалить картинку' : 'Не удалять картинку';
-      removeBtn.setAttribute('aria-label', removeBtn.title);
     }
-    // Пометка «удалить при сохранении» (скрытое поле remove_image): картинка бледнеет, под ней подпись
-    function markRemove(on) {
-      removeVal.disabled = !on;
-      removeBtn.setAttribute('aria-pressed', on);
-      document.getElementById('d-image').classList.toggle('removed', on);
-      document.getElementById('d-removed').hidden = !on;
+    document.getElementById('d-remove').addEventListener('click', function () {
+      file.value = ''; chosen = null;
+      removeVal.disabled = !current; // была сохранённая картинка — удалить её при сохранении
       render();
-    }
-    // Корзина: выбранный файл — убрать его; картинка с сервера — пометить на удаление (повторно — отменить)
-    removeBtn.addEventListener('click', function () {
-      if (chosen) { file.value = ''; chosen = null; render(); }
-      else markRemove(removeVal.disabled);
     });
     file.addEventListener('change', function () {
       chosen = this.files[0] ? URL.createObjectURL(this.files[0]) : null;
-      markRemove(false);
+      if (chosen) removeVal.disabled = true; // новый файл заменит картинку — удалять не нужно
+      render();
     });
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
@@ -441,8 +430,8 @@
         // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены
         current = row.dataset.image ? '/items/' + row.dataset.id + '/image' : null;
         currentSrc = current && current + '?t=' + Date.now();
-        file.value = ''; chosen = null;
-        markRemove(false);
+        file.value = ''; chosen = null; removeVal.disabled = true;
+        render();
         dlg.showModal();
         form.elements.name.focus();
       });
