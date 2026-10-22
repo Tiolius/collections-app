@@ -197,7 +197,7 @@
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
-  table.items td.title a.edit-item { color: inherit; }
+  table.items td.title a.edit-item, table.items td.title a.edit-item:hover, table.items td.title a.edit-item:focus, table.items td.title a.edit-item:active { color: inherit; text-decoration: none; }
   /* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
   table.items tbody tr.gstart td { border-top: 2px solid var(--border); }
   /* Название забирает всё свободное место, остальные столбцы — по содержимому */
