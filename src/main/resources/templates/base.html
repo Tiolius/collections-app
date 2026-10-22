@@ -258,6 +258,15 @@
   dialog.modal #d-remove[hidden] { display: none; }
   dialog.modal #d-remove[aria-pressed="true"] { color: var(--red); background: var(--hover); }
   dialog.modal .dlg-image.removed img { opacity: .3; }
+  dialog.modal .dlg-image [hidden] { display: none !important; }
+  /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
+  dialog.modal .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+                           width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
+                           background: var(--panel); border: 2px dashed var(--border); }
+  dialog.modal .no-image .mi { width: 96px; height: 96px; opacity: .6; }
+  dialog.modal .no-image b { color: var(--text); }
+  dialog.modal .no-image:hover { border-color: var(--blue); color: var(--link); }
+  dialog.modal .no-image:hover .mi { opacity: 1; }
   dialog.modal .dlg-body { display: flex; align-items: flex-start; }
   dialog.modal .dlg-body > .form { flex: 1; }
   dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; }
@@ -268,7 +277,7 @@
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
     dialog.modal.wide .dlg-body > .form { flex: none; }
     dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; }
-    dialog.modal .dlg-image img { width: 100%; }
+    dialog.modal .dlg-image img, dialog.modal .no-image { width: 100%; }
   }
   /* Импорт: прогресс */
   .import-box { border: 1px solid var(--border); background: var(--form-bg); padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 900px; }
@@ -330,16 +339,19 @@
      Открывается карандашом в строке (a.edit-item), поля заполняются из data-атрибутов строки.
      Без поддержки <dialog> карандаш ведёт на отдельную страницу /items/{id}/edit -->
 <th:block th:fragment="itemDialog">
-  <dialog id="item-dialog" class="modal" aria-labelledby="item-dialog-title">
+  <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
     <div class="modal-head">
       <span id="item-dialog-title">Редактировать объект</span>
       <button type="button" class="icon" data-close title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
     </div>
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
-      <!-- Картинка объекта (если есть): справа от полей (CSS order), в области 800×600, целиком без обрезки -->
-      <div id="d-image" class="dlg-image" hidden>
-        <a target="_blank" title="Открыть в полном размере"><img alt=""></a>
+      <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
+           Нет картинки — заглушка того же размера; щелчок по ней открывает выбор файла -->
+      <div id="d-image" class="dlg-image">
+        <a id="d-image-link" target="_blank" title="Открыть в полном размере"><img alt=""></a>
+        <label class="no-image" id="d-noimg" for="d-file" title="Выбрать файл"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
+          <b>Нет картинки</b><span>Нажмите, чтобы выбрать файл</span></label>
         <div class="muted" id="d-removed" hidden>Картинка будет удалена при сохранении</div>
       </div>
     <div class="form">
@@ -393,6 +405,19 @@
       document.getElementById('d-removed').hidden = !on;
     }
     removeBtn.addEventListener('click', function () { markRemove(removeVal.disabled); });
+    // Картинка справа: src — что показать (null — заглушка), href — ссылка «в полном размере»
+    var link = document.getElementById('d-image-link'), noImg = document.getElementById('d-noimg'), current = null;
+    function showImage(src, href) {
+      link.hidden = !src; noImg.hidden = !!src;
+      if (src) link.querySelector('img').src = src;
+      if (href) link.href = href; else link.removeAttribute('href');
+    }
+    // Выбранный файл сразу виден вместо картинки (до сохранения); отмена выбора — возврат к текущей
+    form.elements.image.addEventListener('change', function () {
+      var f = this.files[0];
+      if (f) { showImage(URL.createObjectURL(f), null); markRemove(false); }
+      else showImage(current && current + '?t=' + Date.now(), current);
+    });
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
@@ -401,12 +426,10 @@
         ['name', 'platform', 'format', 'status', 'price'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
-        // Картинка: показываем текущую (если есть), поле выбора файла и галочку удаления — сброшены
-        var box = document.getElementById('d-image'), url = '/items/' + row.dataset.id + '/image';
-        box.hidden = !row.dataset.image;
-        dlg.classList.toggle('wide', !!row.dataset.image); // с картинкой окно шире: поля слева, картинка справа
-        if (row.dataset.image) { box.querySelector('img').src = url + '?t=' + Date.now(); box.querySelector('a').href = url; }
+        // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены
+        current = row.dataset.image ? '/items/' + row.dataset.id + '/image' : null;
         form.elements.image.value = '';
+        showImage(current && current + '?t=' + Date.now(), current);
         markRemove(false);
         removeBtn.hidden = !row.dataset.image;
         dlg.showModal();
