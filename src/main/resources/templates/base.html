@@ -271,7 +271,8 @@
                              background: var(--blue); color: var(--on-blue); font-weight: bold; }
   dialog.modal .modal-head .icon { color: var(--on-blue); }
   dialog.modal .modal-head .icon:hover { background: rgba(255,255,255,.15); color: var(--on-blue); }
-  dialog.modal .form { border: none; max-width: none; grid-template-columns: 160px 1fr; }
+  /* Подписи — по ширине самой длинной, небольшой отступ до поля */
+  dialog.modal .form { border: none; max-width: none; grid-template-columns: auto 1fr; column-gap: 12px; }
   .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); color: #222; line-height: 18px; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
   /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
@@ -294,15 +295,19 @@
   dialog.modal .no-image b { color: var(--text); }
   dialog.modal .no-image:hover { border-color: var(--blue); color: var(--link); }
   dialog.modal .no-image:hover .mi { opacity: 1; }
-  dialog.modal .dlg-body { display: flex; align-items: flex-start; }
+  dialog.modal .dlg-body { display: flex; align-items: stretch; }
   dialog.modal .dlg-body > .form { flex: 1; }
-  dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; }
+  /* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
+  dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
+  dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
+  dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
   dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: auto auto; align-items: start; gap: 8px; }
   dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
-    dialog.modal.wide .dlg-body > .form { flex: none; }
+    dialog.modal.wide .dlg-body > .form { flex: none; grid-template-rows: none; }
+    dialog.modal.wide #d-description { height: auto; resize: vertical; }
     dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; grid-template-columns: minmax(0, 1fr) auto; }
     dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка над полями */
     dialog.modal .dlg-image img, dialog.modal .no-image { width: 100%; }
@@ -397,7 +402,7 @@
           <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
-    <div class="form">
+    <div class="form" th:style="${'--rows:' + (1 + fields.size())}">
       <input type="hidden" name="view" th:value="${view}">
       <label for="d-name">Название *</label>
       <input autocomplete="off" id="d-name" type="text" name="name" required>
@@ -417,7 +422,7 @@
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
-      <label class="at-field" for="d-description">Описание</label>
+      <label for="d-description">Описание</label>
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
     </div>
