@@ -197,6 +197,7 @@
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
+  table.items td.title a.edit-item { color: inherit; }
   /* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
   table.items tbody tr.gstart td { border-top: 2px solid var(--border); }
   /* Название забирает всё свободное место, остальные столбцы — по содержимому */
@@ -358,8 +359,8 @@
 </th:block>
 
 <!-- Окно изменения объекта (страницы коллекции и дублей): нужны fields и view в модели.
-     Открывается карандашом в строке (a.edit-item), поля заполняются из data-атрибутов строки.
-     Без поддержки <dialog> карандаш ведёт на отдельную страницу /items/{id}/edit -->
+     Открывается щелчком по названию объекта в строке (a.edit-item), поля заполняются из data-атрибутов строки.
+     Без поддержки <dialog> название ведёт на отдельную страницу /items/{id}/edit -->
 <th:block th:fragment="itemDialog">
   <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
     <div class="modal-head">
@@ -416,7 +417,7 @@
   // Изменение объекта в модальном окне
   (function () {
     var dlg = document.getElementById('item-dialog');
-    if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — карандаш откроет отдельную страницу
+    if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — название откроет отдельную страницу
     var form = dlg.querySelector('form');
     // Картинка справа: текущая с сервера (current), выбранный файл (chosen, виден до сохранения) или заглушка.
     // Корзина сразу показывает заглушку; картинка удаляется на сервере только при сохранении (скрытое remove_image)

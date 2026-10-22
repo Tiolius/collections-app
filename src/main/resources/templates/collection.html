@@ -111,7 +111,8 @@
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
                th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-image="${it.hasImage() ? '1' : null}">
-      <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
+      <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
+      <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
       <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
       <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
       <td th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
@@ -125,9 +126,6 @@
       </td>
       <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" title="Есть картинка" aria-label="Есть картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></span></td>
       <td class="actions">
-        <a class="icon edit-item" title="Изменить" aria-label="Изменить" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}">
-          <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg>
-        </a>
         <form autocomplete="off" class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
               onsubmit="return confirm('Удалить объект?')">
           <input type="hidden" name="view" th:value="${view}">
