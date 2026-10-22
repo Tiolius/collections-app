@@ -318,7 +318,7 @@
 </head>
 <body>
 <header th:fragment="header">
-  <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.2 21.3 16.3 7.6l3 .5-2.1 13.7z"/></svg><span>Collections App</span></a>
+  <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.25 21.05 16.35 7.3l2.95.45-2.1 13.75z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
       <span class="user" th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}">
