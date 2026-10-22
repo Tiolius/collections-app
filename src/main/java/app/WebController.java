@@ -79,6 +79,21 @@ public class WebController {
         return "redirect:/";
     }
 
+    // ---------- Настройки: вкладки «Пароль» и «Пользователи» (вкладка «Типы коллекций» — /kinds) ----------
+
+    @GetMapping("/account")
+    public String account(@SessionAttribute("uid") long uid) {
+        return "account";
+    }
+
+    @GetMapping("/users")
+    public String users(@SessionAttribute("uid") long uid, Model m) {
+        requireAdmin(uid);
+        m.addAttribute("users", repo.users());
+        m.addAttribute("roles", Repo.ROLES);
+        return "users";
+    }
+
     /** Добавление пользователя — только администратор (в «Настройках»). */
     @PostMapping("/users/new")
     public String addUser(@SessionAttribute("uid") long uid, @RequestParam String name,
@@ -92,10 +107,10 @@ public class WebController {
             m.addAttribute("userError", error);
             m.addAttribute("newUserName", name);
             m.addAttribute("newUserRole", role);
-            return kinds(uid, m);
+            return users(uid, m);
         }
         repo.createUser(name, password, role);
-        return "redirect:/kinds?userAdded=" + java.net.URLEncoder.encode(name.trim(), java.nio.charset.StandardCharsets.UTF_8);
+        return "redirect:/users?userAdded=" + java.net.URLEncoder.encode(name.trim(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /** Проверка данных нового пользователя; null — всё в порядке. */
@@ -130,10 +145,10 @@ public class WebController {
         else if (!password.equals(password2)) error = "Новые пароли не совпадают";
         if (error != null) {
             m.addAttribute("passwordError", error);
-            return kinds(uid, m);
+            return "account";
         }
         repo.setPassword(uid, password);
-        return "redirect:/kinds?passwordChanged";
+        return "redirect:/account?passwordChanged";
     }
 
     /** Вход: новая сессия (защита от подмены сессии) и id пользователя в ней. */
@@ -328,10 +343,6 @@ public class WebController {
     public String kinds(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("kinds", repo.kinds(uid));
         m.addAttribute("fieldNames", Repo.FIELDS);
-        if (repo.user(uid).isAdmin()) {
-            m.addAttribute("users", repo.users());
-            m.addAttribute("roles", Repo.ROLES);
-        }
         return "kinds";
     }
 

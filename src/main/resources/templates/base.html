@@ -25,6 +25,12 @@
   .ok { background: #c6f6d5; color: #22543d; padding: 8px 12px; border-radius: 6px; }
   .form input[type=password] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
   h3.section { margin: 28px 0 10px; }
+  /* Вкладки «Настроек» */
+  nav.tabs { display: flex; gap: 4px; border-bottom: 2px solid #d5dde6; margin-bottom: 16px; }
+  nav.tabs a { padding: 8px 16px; color: #4a5568; text-decoration: none; border-radius: 6px 6px 0 0;
+               margin-bottom: -2px; border-bottom: 2px solid transparent; }
+  nav.tabs a:hover { background: #edf2f7; color: #2d3748; }
+  nav.tabs a.active { color: #2b6cb0; border-bottom-color: #3182ce; font-weight: 600; }
   table.users { max-width: 900px; }
   /* На всю ширину экрана; отступы по краям небольшие */
   main { padding: 16px 24px; }
@@ -135,9 +141,22 @@
   <nav th:if="${currentUser != null}">
     <span class="user" th:text="${'👤 ' + currentUser.name()}"
           th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}"></span>
-    <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций и смена пароля'}">⚙ Настройки</a>
+    <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций, пароль'}">⚙ Настройки</a>
     <form class="inline" method="post" action="/logout"><button class="logout">Выйти</button></form>
   </nav>
 </header>
+
+<!-- Шапка страницы «Настройки» с вкладками; active — kinds | account | users -->
+<th:block th:fragment="settingsHead(active)">
+  <div class="bar">
+    <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></a>
+    <h2>Настройки</h2>
+  </div>
+  <nav class="tabs">
+    <a href="/kinds" th:classappend="${active == 'kinds'} ? 'active'">Типы коллекций</a>
+    <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
+    <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
+  </nav>
+</th:block>
 </body>
 </html>

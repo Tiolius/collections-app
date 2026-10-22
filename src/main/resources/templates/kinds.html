@@ -4,14 +4,12 @@
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
+  <th:block th:replace="~{base :: settingsHead('kinds')}"></th:block>
   <div class="bar">
-    <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></a>
-    <h2>Настройки</h2>
+    <span class="muted">Тип коллекции задаёт, какие поля есть у её объектов. Название объекта есть всегда.</span>
     <span class="spacer"></span>
     <a class="btn" href="/kinds/new">+ Новый тип</a>
   </div>
-  <h3 class="section" style="margin-top:4px">Типы коллекций</h3>
-  <p class="muted">Тип коллекции задаёт, какие поля есть у её объектов. Название объекта есть всегда.</p>
   <p class="empty" th:if="${kinds.isEmpty()}">Типов пока нет.</p>
   <table class="items" th:unless="${kinds.isEmpty()}">
     <thead><tr>
@@ -45,54 +43,6 @@
     </tr></tbody>
   </table>
 
-  <h3 class="section">Пароль</h3>
-  <p class="ok" th:if="${param.passwordChanged != null}">Пароль изменён.</p>
-  <p class="error" th:if="${passwordError != null}" th:text="${passwordError}"></p>
-  <form class="form" method="post" action="/account/password">
-    <label for="f-cur">Текущий пароль</label>
-    <input id="f-cur" type="password" name="current" autocomplete="current-password">
-
-    <label for="f-new">Новый пароль</label>
-    <input id="f-new" type="password" name="password" autocomplete="new-password">
-
-    <label for="f-new2">Повторите новый пароль</label>
-    <input id="f-new2" type="password" name="password2" autocomplete="new-password">
-
-    <div class="full"><button class="btn">Сменить пароль</button></div>
-  </form>
-
-  <th:block th:if="${users != null}">
-    <h3 class="section">Пользователи</h3>
-    <p class="ok" th:if="${param.userAdded != null}" th:text="${'Пользователь «' + param.userAdded + '» добавлен.'}"></p>
-    <table class="items users">
-      <thead><tr><th>Имя</th><th class="title">Роль</th></tr></thead>
-      <tbody><tr th:each="u : ${users}">
-        <td th:text="${u.name()}"></td>
-        <td class="title" th:text="${roles.get(u.role())}"></td>
-      </tr></tbody>
-    </table>
-
-    <h3 class="section" style="font-size:16px">Добавить пользователя</h3>
-    <p class="error" th:if="${userError != null}" th:text="${userError}"></p>
-    <form class="form" method="post" action="/users/new" autocomplete="off">
-      <label for="f-uname">Имя пользователя</label>
-      <input id="f-uname" type="text" name="name" required autocomplete="off" th:value="${newUserName}">
-
-      <label for="f-urole">Роль</label>
-      <select id="f-urole" name="role">
-        <option th:each="r : ${roles}" th:value="${r.key}" th:text="${r.value}"
-                th:selected="${newUserRole != null ? r.key == newUserRole : r.key == 'user'}"></option>
-      </select>
-
-      <label for="f-upw">Пароль</label>
-      <input id="f-upw" type="password" name="password" autocomplete="new-password">
-
-      <label for="f-upw2">Повторите пароль</label>
-      <input id="f-upw2" type="password" name="password2" autocomplete="new-password">
-
-      <div class="full"><button class="btn">Добавить</button></div>
-    </form>
-  </th:block>
 </main>
 </body>
 </html>
