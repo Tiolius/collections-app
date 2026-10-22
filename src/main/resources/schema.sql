@@ -81,6 +81,13 @@ WHERE NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'available-field')
   AND (',' || fields || ',') NOT LIKE '%,available,%';
 INSERT OR IGNORE INTO data_updates (name) VALUES ('available-field');
 
+-- Статусы прохождения — выпадающий список (Repo.STATUSES): старые значения переименовываются один раз
+-- (Complete → Completed, Incomplete → Unfinished), вместе с цветами строк по статусу
+UPDATE items SET status = 'Completed' WHERE lower(trim(status)) = 'complete'
+  AND NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'statuses-list');
+UPDATE items SET status = 'Unfinished' WHERE lower(trim(status)) = 'incomplete'
+  AND NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'statuses-list');
+
 -- Цвет строки объекта в зависимости от статуса (настраивается в типе коллекции)
 CREATE TABLE IF NOT EXISTS kind_status_colors (
     kind_id INTEGER NOT NULL REFERENCES kinds(id) ON DELETE CASCADE,
@@ -88,3 +95,10 @@ CREATE TABLE IF NOT EXISTS kind_status_colors (
     color TEXT NOT NULL, -- #rrggbb
     PRIMARY KEY (kind_id, status)
 );
+
+-- (продолжение разового переименования статусов: цвета строк; затем обновление отмечается выполненным)
+UPDATE OR IGNORE kind_status_colors SET status = 'Completed' WHERE lower(trim(status)) = 'complete'
+  AND NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'statuses-list');
+UPDATE OR IGNORE kind_status_colors SET status = 'Unfinished' WHERE lower(trim(status)) = 'incomplete'
+  AND NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'statuses-list');
+INSERT OR IGNORE INTO data_updates (name) VALUES ('statuses-list');

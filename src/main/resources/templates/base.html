@@ -461,7 +461,10 @@
       </th:block>
       <th:block th:if="${fields.contains('status')}">
         <label for="d-status">Статус прохождения</label>
-        <input autocomplete="off" id="d-status" type="text" name="status">
+        <select id="d-status" name="status">
+          <option value="">—</option>
+          <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+        </select>
       </th:block>
       <th:block th:if="${fields.contains('price')}">
         <label for="d-price">Цена (₽)</label>
@@ -524,6 +527,16 @@
         ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
+        // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
+        var st = document.getElementById('d-status');
+        if (st) {
+          st.querySelectorAll('option.legacy').forEach(function (o) { o.remove(); });
+          var v = row.dataset.status || '';
+          if (!Array.prototype.some.call(st.options, function (o) { return o.value === v; })) {
+            var o = new Option(v, v); o.className = 'legacy'; st.add(o);
+          }
+          st.value = v;
+        }
         var avail = document.getElementById('d-available');
         if (avail) avail.checked = row.dataset.available === '1';
         // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены

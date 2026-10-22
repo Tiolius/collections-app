@@ -52,6 +52,9 @@ public class Repo {
         FIELDS.put("available", "Наличие"); // не столбец items: отметки «нет» — в таблице item_absent
     }
 
+    /** Значения поля «Статус прохождения» (выпадающий список); пусто — статус не указан. */
+    public static final List<String> STATUSES = List.of("Completed", "Unfinished");
+
     private final JdbcTemplate jdbc;
 
     public Repo(JdbcTemplate jdbc) {
@@ -484,7 +487,14 @@ public class Repo {
         jdbc.update("UPDATE items SET name = ? WHERE id = ?", name.trim(), id);
         if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(platform), id);
         if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
-        if (f.contains("status")) jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
+        if (f.contains("status")) {
+            // только значения из списка; прежнее значение не из списка можно оставить как есть
+            String st = trim(status);
+            String old = jdbc.queryForObject("SELECT status FROM items WHERE id = ?", String.class, id);
+            if (st != null && !st.isEmpty() && !STATUSES.contains(st) && !st.equals(old))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите статус из списка");
+            jdbc.update("UPDATE items SET status = ? WHERE id = ?", st, id);
+        }
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
         if (f.contains("available") && available != null) {
             if (available) jdbc.update("DELETE FROM item_absent WHERE item_id = ?", id);

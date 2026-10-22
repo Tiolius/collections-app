@@ -42,7 +42,12 @@
 
     <th:block th:if="${isItem and fields.contains('status')}">
       <label for="f-status">Статус прохождения</label>
-      <input autocomplete="off" id="f-status" type="text" name="status" th:value="${obj != null ? obj.status() : ''}">
+      <select id="f-status" name="status" th:with="cur=${obj != null and obj.status() != null ? obj.status() : ''}">
+        <option value="">—</option>
+        <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${s == cur}"></option>
+        <!-- старое значение не из списка — отдельным пунктом, чтобы не потерялось -->
+        <option th:if="${!cur.isEmpty() and !statuses.contains(cur)}" th:value="${cur}" th:text="${cur}" selected></option>
+      </select>
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('price')}">
