@@ -24,7 +24,7 @@
               th:text="${c.name() + ' (картинок: ' + imageCounts.getOrDefault(c.id(), 0) + ')'}"
               th:selected="${param.c != null and param.c[0] == '' + c.id()}"></option>
     </select>
-    <div class="full"><button class="btn red">Удалить все картинки</button></div>
+    <div class="full end"><button class="btn red">Удалить все картинки</button></div>
   </form>
 </main>
 </body>
