@@ -50,7 +50,7 @@
     --hover: #26303d; --icon: #8a9099; --placeholder: #33373e;
     --red: #c62828; --on-red: #fff;
     --error-bg: #5c2626; --error-text: #fde3e3; --ok-bg: #22432f; --ok-text: #e2f3dc;
-    --tip-bg: #e6e6e6; --tip-text: #222;
+    --tip-bg: #3a3f47; --tip-text: #e6e6e6;  /* тёмная подсказка, светлее фона страницы */
     --swatch-text: #222;
   }
 
@@ -249,7 +249,13 @@
                   background: var(--tip-bg); color: var(--tip-text); padding: 2px 8px; white-space: nowrap; z-index: 3; line-height: 20px;
                   font-weight: normal; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
+  :root[data-theme="dark"] .tip .tiptext { border: 1px solid var(--input-border); }  /* тёмная подсказка отделена рамкой */
   .tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
+  /* Справка: большая подсказка под иконкой, с переносами, абзацами */
+  .tip.help { display: inline-flex; vertical-align: middle; margin-left: 4px; color: var(--icon); cursor: help; }
+  .tip.help .tiptext { top: calc(100% + 6px); left: 0; right: auto; transform: none; width: min(560px, calc(100vw - 48px));
+                       white-space: normal; line-height: 1.5; padding: 8px 12px; text-align: left; }
+  .tip.help:hover .tiptext, .tip.help:focus .tiptext { display: flex; flex-direction: column; gap: 6px; }
   .icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
   .icon.small .mi { width: 16px; height: 16px; }
   .icon.small:hover { background: none; }
@@ -351,6 +357,10 @@
     main { padding: 12px; border: none; }
     header .logo { padding-left: 12px; border-left: none; }  /* на телефоне у страницы нет боковых линий */
     header .right { border-right: none; }
+    /* справка — во всю ширину формы, сразу под иконкой */
+    .form > label:has(.tip.help) { position: relative; }
+    .tip.help { position: static; }
+    .tip.help .tiptext { left: 0; right: 0; top: calc(100% + 4px); width: auto; }
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span { display: none; }
