@@ -10,9 +10,9 @@
     <div>
       <h2 th:text="${c.name()}"></h2>
       <div class="muted meta-line">
-        <span th:text="${'Тип: ' + (c.kind() == null ? '—' : c.kind())}"></span> <span>·</span>
+        <span th:text="${'Тип: ' + (c.kind() == null ? '—' : c.kind())}"></span> <span class="sep">·</span>
         <span th:text="${'Объектов: ' + totalAll}"></span>
-        <th:block th:if="${totalPrice != null and showPrices}"><span>·</span> <span th:text="${'Стоимость: ' + totalPrice + ' ₽'}"></span></th:block>
+        <th:block th:if="${totalPrice != null and showPrices}"><span class="sep">·</span> <span th:text="${'Стоимость: ' + totalPrice + ' ₽'}"></span></th:block>
         <span class="icon tip right small" tabindex="0" aria-label="Стоимость коллекции" th:if="${totalPrice != null and !showPrices}">
           <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
           <span class="tiptext" th:text="${'Стоимость коллекции: ' + totalPrice + ' ₽'}"></span>
@@ -77,7 +77,7 @@
 
   <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '') + ':pic'}">
     <thead><tr class="head">
-      <th th:each="col : ${cols}" th:class="${col.css()}">
+      <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
         <a class="sort" th:title="${col.key() == 'price' ? 'Сортировать по цене' : null}"
            th:href="|?sort=${col.key()}&dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'}&size=${size}${filterQs}${modeQs}|"
            th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
@@ -88,7 +88,7 @@
       <th class="actions"></th>
     </tr>
     <tr class="filters">
-      <th th:each="col : ${cols}" th:class="${col.css()}">
+      <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
         <input th:if="${col.key() == 'name'}" type="search" name="f_name" form="filter-form" placeholder="Поиск по названию…"
                autocomplete="off" th:value="${filters.get('name')}" th:classappend="${filters.containsKey('name')} ? 'active'">
         <select th:if="${filterOptions.containsKey(col.key())}" th:name="${'f_' + col.key()}" form="filter-form"
@@ -115,12 +115,12 @@
                th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-image="${it.hasImage() ? '1' : null}">
       <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
-      <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
-      <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
-      <td th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
-      <td class="num" th:if="${fields.contains('price') and showPrices}"
+      <td class="c-platform" th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
+      <td class="c-format" th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
+      <td class="c-status" th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
+      <td class="num c-price" th:if="${fields.contains('price') and showPrices}"
           th:text="${it.price() == null ? '' : #numbers.formatInteger(it.price(), 1, 'WHITESPACE') + ' ₽'}"></td>
-      <td class="eye" th:if="${fields.contains('price') and !showPrices}">
+      <td class="eye c-price" th:if="${fields.contains('price') and !showPrices}">
         <span class="icon tip" tabindex="0" aria-label="Цена" th:classappend="${it.price() == null} ? 'none'">
           <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
           <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>

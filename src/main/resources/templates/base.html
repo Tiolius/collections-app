@@ -235,7 +235,8 @@
   .icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
   .icon.small .mi { width: 16px; height: 16px; }
   .icon.small:hover { background: none; }
-  .meta-line { display: flex; align-items: center; gap: 4px; }  /* строка «Тип · Объектов · стоимость» на одной линии */
+  .meta-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .meta-line > span { white-space: nowrap; }  /* строка «Тип · Объектов · стоимость» на одной линии */
 
   /* Формы: подпись слева (жирная, сине-серая), поле справа */
   .form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;
@@ -328,6 +329,16 @@
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span { display: none; }
+    /* Таблица объектов на телефоне: название, статус, цена и корзина; платформа, формат и иконка картинки — в окне объекта */
+    table.items .c-platform, table.items .c-format, table.items .pic-col { display: none; }
+    table.items .grip, #reset-widths { display: none; }
+    table.items tr.filters select, table.items tr.filters .range input { min-width: 0; }
+    table.items tr.filters .range { flex-direction: column; gap: 2px; }
+    table.items td.title { overflow-wrap: anywhere; }
+    .collhead { flex-wrap: wrap; }
+    .collhead > div { flex: 1 1 200px; min-width: 0; }
+    .meta-line { column-gap: 12px; }
+    .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
   }
 </style>
 </head>
