@@ -279,6 +279,10 @@ public class WebController {
                 if (i == 0 || !dupKey(found.get(i).name()).equals(dupKey(found.get(i - 1).name())))
                     groupStarts.add(found.get(i).id());
         m.addAttribute("groupStarts", groupStarts);
+        // Общая стоимость — только если у типа коллекции есть поле «Цена»; формат «717 841»
+        if (fields.contains("price"))
+            m.addAttribute("totalPrice", String.format(java.util.Locale.forLanguageTag("ru"), "%,d", repo.totalPrice(id))
+                    .replace('\u00a0', ' '));
         m.addAttribute("dups", dups);
         m.addAttribute("dupGroups", dupGroups);
         m.addAttribute("modeQs", modeQs);

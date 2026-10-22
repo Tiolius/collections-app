@@ -207,6 +207,8 @@
   .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
                   background: var(--tip-bg); color: var(--tip-text); padding: 2px 8px; white-space: nowrap; z-index: 3; line-height: 20px; }
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
+  .tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
+  .title-line { display: flex; align-items: center; gap: 4px; }
 
   /* Формы: подпись слева (жирная, сине-серая), поле справа */
   .form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;

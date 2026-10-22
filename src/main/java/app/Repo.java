@@ -277,6 +277,11 @@ public class Repo {
     public static final Map<String, String> ITEM_SORT = Map.of(
             "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price");
 
+    /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
+    public long totalPrice(long collectionId) {
+        return jdbc.queryForObject("SELECT COALESCE(SUM(price), 0) FROM items WHERE collection_id = ?", Long.class, collectionId);
+    }
+
     public int countItems(long collectionId) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM items WHERE collection_id = ?", Integer.class, collectionId);
     }
