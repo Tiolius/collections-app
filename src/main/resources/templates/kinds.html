@@ -74,7 +74,7 @@
 
     <h3 class="section" style="font-size:16px">Добавить пользователя</h3>
     <p class="error" th:if="${userError != null}" th:text="${userError}"></p>
-    <form class="form" method="post" action="/users/new">
+    <form class="form" method="post" action="/users/new" autocomplete="off">
       <label for="f-uname">Имя пользователя</label>
       <input id="f-uname" type="text" name="name" required autocomplete="off" th:value="${newUserName}">
 
