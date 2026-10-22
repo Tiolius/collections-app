@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Коллекции</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script>
   // Тема из прошлого раза (localStorage) — до отрисовки, чтобы не мигала светлая
   try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
@@ -74,6 +75,8 @@
   header a:hover { text-decoration: none; }
   header .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: bold; }
   header .logo .mi { color: var(--orange); }
+  /* Логотип — книги на полке (контурная иконка, рисуется линией, а не заливкой) */
+  header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   header .right, header nav { display: flex; align-items: stretch; height: 100%; }
   header .user, header a.settings, header .theme, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
            padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
@@ -296,7 +299,7 @@
 </head>
 <body>
 <header th:fragment="header">
-  <a class="logo" href="/"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-80q-24.75 0-42.37-17.63Q120-115.25 120-140v-483q-17-6-28.5-21.39T80-680v-140q0-24.75 17.63-42.38Q115.25-880 140-880h680q24.75 0 42.38 17.62Q880-844.75 880-820v140q0 20.22-11.5 35.61T840-623v483q0 24.75-17.62 42.37Q804.75-80 780-80H180Zm0-540v480h600v-480H180Zm-40-60h680v-140H140v140Zm220 260h240v-60H360v60Zm120 40Z"/></svg><span>Collections App</span></a>
+  <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.2 21.3 16.3 7.6l3 .5-2.1 13.7z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
       <span class="user" th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}">
