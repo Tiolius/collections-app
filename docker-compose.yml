@@ -5,9 +5,6 @@ services:
     ports:
       # Только с этого компьютера. Для доступа из сети/интернета — см. README, «Публикация в интернете»
       - "127.0.0.1:47321:8000"
-    environment:
-      # Токен Discogs для импорта обложек (из файла .env, см. README)
-      - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
     volumes:
       - ./data:/data
     restart: unless-stopped

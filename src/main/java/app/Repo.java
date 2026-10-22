@@ -242,6 +242,22 @@ public class Repo {
                 + "ON CONFLICT (user_id) DO UPDATE SET show_prices = excluded.show_prices", uid, show ? 1 : 0);
     }
 
+    /** Личный токен сервиса импорта (например, Discogs) или null. */
+    public String token(long uid, String service) {
+        List<String> v = jdbc.queryForList("SELECT token FROM user_tokens WHERE user_id = ? AND service = ?", String.class, uid, service);
+        return v.isEmpty() ? null : v.get(0);
+    }
+
+    /** Сохраняет токен; пустой — удаляет. */
+    public void setToken(long uid, String service, String token) {
+        if (token == null || token.isBlank()) {
+            jdbc.update("DELETE FROM user_tokens WHERE user_id = ? AND service = ?", uid, service);
+            return;
+        }
+        jdbc.update("INSERT INTO user_tokens (user_id, service, token) VALUES (?, ?, ?) "
+                + "ON CONFLICT (user_id, service) DO UPDATE SET token = excluded.token", uid, service, token);
+    }
+
     /** Начальные типы коллекций нового пользователя: название → поля. */
     private static final Map<String, String> DEFAULT_KINDS = new LinkedHashMap<>();
     static {

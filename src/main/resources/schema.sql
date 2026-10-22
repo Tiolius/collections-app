@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS user_settings (
     show_prices INTEGER NOT NULL DEFAULT 0
 );
 
+-- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
+CREATE TABLE IF NOT EXISTS user_tokens (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    service TEXT NOT NULL,
+    token TEXT NOT NULL,
+    PRIMARY KEY (user_id, service)
+);
+
 -- Цвет строки объекта в зависимости от статуса (настраивается в типе коллекции)
 CREATE TABLE IF NOT EXISTS kind_status_colors (
     kind_id INTEGER NOT NULL REFERENCES kinds(id) ON DELETE CASCADE,

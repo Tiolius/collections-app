@@ -59,13 +59,11 @@ public class ImageImport {
     static final int MAX_ERRORS_IN_ROW = 10;
     static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-    /** Адреса сервисов (для проверки можно подменить на заглушку) и токен Discogs (переменная окружения DISCOGS_TOKEN). */
+    /** Адреса сервисов (для проверки можно подменить на заглушку). Токен Discogs — у каждого пользователя свой (вкладка «Импорт»). */
     @Value("${steam.store-url:https://store.steampowered.com}")
     private String steamUrl;
     @Value("${discogs.api-url:https://api.discogs.com}")
     private String discogsUrl;
-    @Value("${discogs.token:}")
-    private String discogsToken;
     @Value("${fantlab.api-url:https://api.fantlab.ru}")
     private String fantlabUrl;
     /** Сайт FantLab: пути к обложкам в ответах API — относительно него. */
@@ -85,8 +83,11 @@ public class ImageImport {
         public volatile String current = "";
         public volatile String message = "";      // пауза из-за ограничений сервиса, причина остановки
         volatile boolean cancel;
+        /** Личный токен Discogs пользователя (пусто — без токена); на страницу не попадает. */
+        private final String discogsToken;
 
-        Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions) {
+        Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions, String discogsToken) {
+            this.discogsToken = discogsToken == null ? "" : discogsToken.trim();
             this.collectionId = collectionId;
             this.collectionName = collectionName;
             this.source = source;
@@ -127,11 +128,6 @@ public class ImageImport {
         this.repo = repo;
     }
 
-    /** Есть ли токен Discogs: без него Discogs отдаёт результаты и Notes, но без обложек (и только 25 запросов в минуту). */
-    public boolean discogsReady() {
-        return !discogsToken.isBlank();
-    }
-
     /** Текущий или последний импорт пользователя (или null). */
     public Job job(long uid) {
         return jobs.get(uid);
@@ -140,14 +136,17 @@ public class ImageImport {
     /**
      * Запускает импорт; false — у пользователя уже идёт импорт. Права на коллекцию и источник проверяет вызывающий код.
      * onlyMissing — не трогать уже заполненное: картинку загружать только тем, у кого её нет, описание — так же.
+     * discogsToken — личный токен Discogs пользователя (null — нет): без него Discogs отдаёт результаты и Notes,
+     * но без обложек (и только 25 запросов в минуту).
      */
     public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source,
-                                      boolean images, boolean descriptions) {
+                                      boolean images, boolean descriptions, String discogsToken) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
+        boolean hasToken = discogsToken != null && !discogsToken.isBlank();
         // Без токена обложек у Discogs нет — только описания
-        boolean img = images && (!source.equals(DISCOGS) || discogsReady());
-        Job job = new Job(collection.id(), collection.name(), source, img, descriptions);
+        boolean img = images && (!source.equals(DISCOGS) || hasToken);
+        Job job = new Job(collection.id(), collection.name(), source, img, descriptions, discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -460,7 +459,8 @@ public class ImageImport {
     private JsonNode api(Job job, String url) throws Exception {
         boolean discogs = job.source.equals(DISCOGS);
         // Discogs без токена — 25 запросов в минуту
-        long interval = discogs ? (discogsReady() ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500))
+        boolean token = discogs && !job.discogsToken.isEmpty();
+        long interval = discogs ? (token ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500))
                 : job.source.equals(FANTLAB) ? fantlabIntervalMs : steamIntervalMs;
         for (int attempt = 0; ; attempt++) {
             synchronized (lastCall) {
@@ -470,7 +470,7 @@ public class ImageImport {
             }
             HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30))
                     .header("User-Agent", "CollectionsApp/" + appVersion).GET();
-            if (discogs && discogsReady()) req.header("Authorization", "Discogs token=" + discogsToken.trim());
+            if (token) req.header("Authorization", "Discogs token=" + job.discogsToken);
             HttpResponse<String> r = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
             int code = r.statusCode();
             if (code == 200) {
@@ -479,7 +479,7 @@ public class ImageImport {
             }
             if (code == 404) return null;
             if (discogs && code == 401)
-                throw new FatalImport("Discogs отклонил токен — проверьте DISCOGS_TOKEN (см. README). Импорт остановлен");
+                throw new FatalImport("Discogs отклонил токен — проверьте токен Discogs выше. Импорт остановлен");
             if ((code == 429 || code == 403 || code >= 500) && attempt < THROTTLE_RETRIES) {
                 job.message = job.sourceName() + " ограничил запросы — пауза " + throttlePauseMs / 1000 + " с";
                 Thread.sleep(throttlePauseMs);

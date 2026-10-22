@@ -50,7 +50,7 @@
       <label class="radio"><input type="radio" name="source" value="steam" checked> Steam (игры)</label>
       <label class="radio"><input type="radio" name="source" value="discogs"> Discogs (музыка, «Группа - Альбом»)</label>
       <label class="radio"><input type="radio" name="source" value="fantlab"> FantLab (книги)</label>
-      <div class="muted" th:unless="${discogsReady}">Без токена Discogs отдаёт только описания, без обложек: для обложек задайте DISCOGS_TOKEN (см. README, «Импорт обложек из Discogs»).</div>
+      <div class="muted" th:unless="${discogsReady}">Без токена Discogs отдаёт только описания, без обложек: для обложек укажите свой токен Discogs ниже.</div>
     </div>
 
     <label>Загружать</label>
@@ -63,6 +63,24 @@
     <label class="radio"><input type="checkbox" name="onlyMissing" value="true" checked> не заменять уже заполненные картинки и описания</label>
 
     <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить</button></div>
+  </form>
+
+  <!-- Личный токен Discogs: у каждого пользователя свой; сам токен на страницу не выводится -->
+  <h3 class="section">Токен Discogs</h3>
+  <p class="ok" th:if="${param.token != null and param.token[0] == 'saved'}">Токен Discogs сохранён.</p>
+  <p class="ok" th:if="${param.token != null and param.token[0] == 'deleted'}">Токен Discogs удалён.</p>
+  <p class="muted">Нужен для обложек из Discogs (без него — только описания). Получить: войдите на discogs.com → Settings → Developers → Generate new token.
+    Токен виден только вам и используется только для запросов к Discogs.</p>
+  <form autocomplete="off" class="form" method="post" action="/import/discogs-token">
+    <label for="f-token">Токен</label>
+    <div>
+      <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
+             th:placeholder="${discogsReady ? 'сохранён: …' + discogsTokenEnd + ' (введите новый, чтобы заменить)' : 'не задан'}">
+    </div>
+    <div class="full">
+      <button class="btn">Сохранить</button>
+      <button class="btn light danger" name="delete" value="true" th:if="${discogsReady}" formnovalidate>Удалить токен</button>
+    </div>
   </form>
 
 <script>

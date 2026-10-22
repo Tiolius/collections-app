@@ -116,8 +116,25 @@ public class WebController {
     public String importPage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
         m.addAttribute("job", images.job(uid));
-        m.addAttribute("discogsReady", images.discogsReady());
+        String token = repo.token(uid, ImageImport.DISCOGS);
+        m.addAttribute("discogsReady", token != null);
+        // сам токен на страницу не выводится — только последние 4 символа
+        m.addAttribute("discogsTokenEnd", token == null ? null : token.substring(Math.max(0, token.length() - 4)));
         return "import";
+    }
+
+    /** Личный токен Discogs пользователя: сохранить или удалить (кнопка «Удалить токен»). */
+    @PostMapping("/import/discogs-token")
+    public String discogsToken(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String token,
+                               @RequestParam(defaultValue = "false") boolean delete) {
+        token = delete ? "" : token.trim();
+        if (!delete && token.isEmpty()) return "redirect:/import"; // пустое поле — токен не меняется
+        // токен Discogs — латинские буквы и цифры; ограничение длины — с запасом
+        if (!token.isEmpty() && !token.matches("[A-Za-z0-9]{10,200}"))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Токен Discogs — латинские буквы и цифры (Discogs → Settings → Developers)");
+        repo.setToken(uid, ImageImport.DISCOGS, token);
+        return "redirect:/import?token=" + (token.isEmpty() ? "deleted" : "saved");
     }
 
     @PostMapping("/import/start")
@@ -130,12 +147,13 @@ public class WebController {
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
         // Обложки Discogs — только с токеном; без него — только описания
-        if (source.equals(ImageImport.DISCOGS) && !images.discogsReady()) loadImages = false;
+        String discogsToken = repo.token(uid, ImageImport.DISCOGS);
+        if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");
-        images.start(uid, c, onlyMissing, source, loadImages, descriptions);
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions, discogsToken);
         return "redirect:/import";
     }
 
