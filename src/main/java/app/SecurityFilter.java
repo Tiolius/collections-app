@@ -30,7 +30,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("X-Frame-Options", "DENY");
         res.setHeader("Referrer-Policy", "same-origin");
-        res.setHeader("Content-Security-Policy", req.getRequestURI().matches("/collections/\\d+/image") ? CSP_IMAGE : CSP);
+        res.setHeader("Content-Security-Policy", req.getRequestURI().matches("/(collections|items)/\\d+/image") ? CSP_IMAGE : CSP);
         if (req.isSecure()) res.setHeader("Strict-Transport-Security", "max-age=31536000");
         if ("POST".equals(req.getMethod()) && !sameOrigin(req)) {
             res.sendError(HttpServletResponse.SC_FORBIDDEN);

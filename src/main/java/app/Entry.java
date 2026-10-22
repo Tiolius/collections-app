@@ -2,7 +2,8 @@ package app;
 
 /**
  * Коллекция или объект.
- * Только у коллекций: hasImage, kind (название типа коллекции, kinds.name), count (число объектов в списке).
+ * hasImage — есть ли картинка (у коллекции и у объекта).
+ * Только у коллекций: kind (название типа коллекции, kinds.name), count (число объектов в списке).
  * Только у объектов: collectionId, platform, format, status, price.
  */
 public record Entry(long id, String name, boolean hasImage, Long collectionId, int count,

@@ -432,10 +432,11 @@ public class WebController {
                              @RequestParam(required = false) String platform,
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
-                             @RequestParam(required = false) Integer price) {
+                             @RequestParam(required = false) Integer price,
+                             @RequestParam(required = false) MultipartFile image) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false);
         return "redirect:/collections/" + cid;
     }
 
@@ -444,7 +445,8 @@ public class WebController {
         Entry it = repo.item(uid, id);
         Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
         m.addAttribute("view", view);
-        return form(uid, m, it, true, fields, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
+        return form(uid, m, it, true, fields, it.hasImage() ? "/items/" + id + "/image" : null,
+                "Редактировать объект", collectionUrl(it.collectionId(), view));
     }
 
     @PostMapping("/items/{id}/edit")
@@ -453,10 +455,23 @@ public class WebController {
                            @RequestParam(required = false) String format,
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
+                           @RequestParam(required = false) MultipartFile image,
+                           @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
-        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price);
+        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
+                image, removeImage != null);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */
+    @GetMapping("/items/{id}/image")
+    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id) {
+        Map<String, Object> row = repo.itemImage(uid, id);
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
+                .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
+                .body((byte[]) row.get("image"));
     }
 
     @PostMapping("/items/{id}/delete")

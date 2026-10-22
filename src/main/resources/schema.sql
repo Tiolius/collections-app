@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS items (
     price INTEGER
 );
 
+-- Картинка объекта (отдельная таблица: у старых баз создаётся сама, без изменения items)
+CREATE TABLE IF NOT EXISTS item_images (
+    item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    image BLOB NOT NULL,
+    image_mime TEXT NOT NULL
+);
+
 -- Типы коллекций пользователя (настраиваются на странице «Настройки»).
 -- fields — поля объектов через запятую, ключи из Repo.FIELDS. Начальные типы создаёт Repo.createUser
 CREATE TABLE IF NOT EXISTS kinds (

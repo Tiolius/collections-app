@@ -50,6 +50,17 @@
       <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
+    <th:block th:if="${isItem}">
+      <label>Картинка</label>
+      <div>
+        <th:block th:if="${imgUrl != null}">
+          <a th:href="${imgUrl}" target="_blank" title="Открыть в полном размере"><img class="preview" th:src="${imgUrl}" alt=""></a>
+          <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+        </th:block>
+        <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
+      </div>
+    </th:block>
+
     <div class="full">
       <button class="btn">Сохранить</button>
       <a class="btn gray" th:href="${back}">Отмена</a>
