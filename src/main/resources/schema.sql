@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS item_images (
     image_mime TEXT NOT NULL
 );
 
+-- Дополнительные картинки объекта (вторая и следующие, pos = 1..4; первая — в item_images); сами файлы — в DATA_DIR/images
+CREATE TABLE IF NOT EXISTS item_more_images (
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    pos INTEGER NOT NULL,
+    image_mime TEXT NOT NULL,
+    PRIMARY KEY (item_id, pos)
+);
+
 -- Описание объекта (отдельная таблица: у старых баз создаётся сама, без изменения items)
 CREATE TABLE IF NOT EXISTS item_descriptions (
     item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,

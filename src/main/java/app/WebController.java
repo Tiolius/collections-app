@@ -143,7 +143,8 @@ public class WebController {
                               @RequestParam(defaultValue = "false") boolean onlyMissing,
                               @RequestParam(defaultValue = "false") boolean loadImages,
                               @RequestParam(defaultValue = "false") boolean loadDescriptions,
-                              @RequestParam(defaultValue = "screenshot") String steamImage) {
+                              @RequestParam(defaultValue = "screenshot") String steamImage,
+                              @RequestParam(defaultValue = "5") int imageCount) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
@@ -154,7 +155,8 @@ public class WebController {
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");
-        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), discogsToken);
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
+                discogsToken);
         return "redirect:/import";
     }
 
@@ -572,11 +574,12 @@ public class WebController {
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) List<String> available,
-                             @RequestParam(required = false) MultipartFile image,
+                             @RequestParam Map<String, MultipartFile> files,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), image, false, description);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available),
+                newImages(files), Set.of(), description);
         return "redirect:/collections/" + cid;
     }
 
@@ -596,14 +599,36 @@ public class WebController {
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) List<String> available,
-                           @RequestParam(required = false) MultipartFile image,
+                           @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
+                           @RequestParam(name = "remove", required = false) List<Integer> remove,
                            @RequestParam(required = false) String description,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), image, removeImage != null, description);
+                available(available), newImages(files), removed(remove, removeImage != null), description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /**
+     * Новые картинки из формы: «image_N» — на место N (окно объекта), «image» — на место первой (страница объекта).
+     */
+    private static Map<Integer, MultipartFile> newImages(Map<String, MultipartFile> files) {
+        Map<Integer, MultipartFile> res = new java.util.HashMap<>();
+        MultipartFile first = files.get("image");
+        if (first != null && !first.isEmpty()) res.put(0, first);
+        for (int pos = 0; pos < ImageFiles.MAX_IMAGES; pos++) {
+            MultipartFile f = files.get("image_" + pos);
+            if (f != null && !f.isEmpty()) res.put(pos, f);
+        }
+        return res;
+    }
+
+    /** Какие картинки удалить: номера из «remove» (окно объекта), «remove_image» — первую (страница объекта). */
+    private static Set<Integer> removed(List<Integer> remove, boolean removeFirst) {
+        Set<Integer> res = new java.util.HashSet<>(remove == null ? List.of() : remove);
+        if (removeFirst) res.add(0);
+        return res;
     }
 
     /**
@@ -616,8 +641,9 @@ public class WebController {
 
     /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */
     @GetMapping("/items/{id}/image")
-    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id) {
-        Map<String, Object> row = repo.itemImage(uid, id);
+    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id,
+                                            @RequestParam(defaultValue = "0") int n) {
+        Map<String, Object> row = repo.itemImage(uid, id, n);
         return ResponseEntity.ok()
                 .cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
                 .contentType(MediaType.parseMediaType((String) row.get("image_mime")))

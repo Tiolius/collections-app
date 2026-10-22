@@ -37,6 +37,7 @@
     --red: #c62828; --on-red: #fff;
     --error-bg: #fde3e3; --error-text: #7a1010; --ok-bg: #e2f3dc; --ok-text: #234d14;
     --tip-bg: #333; --tip-text: #fff;
+    --overlay: rgba(0,0,0,.35); --overlay-hover: rgba(0,0,0,.55); --on-overlay: #fff;  /* кнопки и надписи поверх картинки */
     --swatch-text: #222;    /* текст на цветном ярлыке статуса (цвета статусов светлые в обеих темах) */
   }
   :root[data-theme="dark"] {
@@ -274,6 +275,7 @@
   input[readonly] { background: var(--panel); border-color: var(--line); cursor: default; }
   input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
   .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
+  .form select.narrow { width: auto; }
   .form input[name=name] { max-width: none; }
   /* Описание объекта — многострочное поле во всю ширину колонки полей */
   textarea { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); line-height: 1.4; }
@@ -313,7 +315,17 @@
   dialog.modal .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
   dialog.modal .img-tools .spacer { flex: none; height: 24px; }
-  dialog.modal .dlg-image > .pic, dialog.modal .dlg-image > .no-image { grid-column: 1; grid-row: 1; }
+  dialog.modal .dlg-image > .viewer { grid-column: 1; grid-row: 1; position: relative; }
+  /* Перелистывание картинок: полупрозрачные круглые кнопки у левого и правого края картинки (нажимается вся полоса края),
+     счётчик внизу справа */
+  dialog.modal .viewer .nav { position: absolute; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center;
+                              border: none; padding: 0; background: none; color: var(--on-overlay); cursor: pointer; }
+  dialog.modal .viewer .nav .mi { width: 44px; height: 44px; padding: 6px; border-radius: 50%; background: var(--overlay); }
+  dialog.modal .viewer .nav:hover .mi, dialog.modal .viewer .nav:focus-visible .mi { background: var(--overlay-hover); }
+  dialog.modal .viewer .nav.prev { left: 0; }
+  dialog.modal .viewer .nav.next { right: 0; }
+  dialog.modal .viewer .counter { position: absolute; right: 8px; bottom: 8px; padding: 1px 8px; background: var(--overlay-hover);
+                                  color: var(--on-overlay); pointer-events: none; }
   dialog.modal .dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
   dialog.modal .dlg-image [hidden] { display: none !important; }
   /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
@@ -453,13 +465,21 @@
            Щелчок по картинке или заглушке «Нет картинки» — выбор файла (поле скрыто).
            Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div id="d-image" class="dlg-image">
-        <input id="d-file" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-        <input type="hidden" name="remove_image" value="1" id="d-remove-val" disabled>
-        <label class="pic" id="d-pic" for="d-file" title="Нажмите, чтобы заменить картинку"><img alt=""></label>
-        <label class="no-image" id="d-noimg" for="d-file" title="Выбрать файл"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
+        <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
+        <th:block th:each="n : ${#numbers.sequence(0, 4)}">
+          <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
+        </th:block>
+        <div class="viewer">
+          <label class="pic" id="d-pic" for="d-file-0" title="Нажмите, чтобы заменить картинку"><img alt=""></label>
+          <label class="no-image" id="d-noimg" for="d-file-0" title="Выбрать файл"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
           <b>Нет картинки</b><span>Нажмите, чтобы выбрать файл</span></label>
+          <button type="button" class="nav prev" id="d-prev" title="Предыдущая картинка" aria-label="Предыдущая картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></svg></button>
+          <button type="button" class="nav next" id="d-next" title="Следующая картинка" aria-label="Следующая картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></svg></button>
+          <span class="counter" id="d-count"></span>
+        </div>
         <div class="img-tools" id="d-tools">
-          <label class="icon" for="d-file" title="Заменить картинку" aria-label="Заменить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-313v-371L330-564l-43-43 193-193 193 193-43 43-120-120v371h-60ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg></label>
+          <label class="icon" id="d-replace" for="d-file-0" title="Заменить картинку" aria-label="Заменить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-313v-371L330-564l-43-43 193-193 193 193-43 43-120-120v371h-60ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg></label>
           <a class="icon" id="d-open" target="_blank" title="Открыть в полном размере" aria-label="Открыть в полном размере"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
           <span class="spacer"></span>
           <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
@@ -512,30 +532,53 @@
     var dlg = document.getElementById('item-dialog');
     if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — название откроет отдельную страницу
     var form = dlg.querySelector('form');
-    // Картинка справа: текущая с сервера (current), выбранный файл (chosen, виден до сохранения) или заглушка.
-    // Корзина сразу показывает заглушку; картинка удаляется на сервере только при сохранении (скрытое remove_image)
-    var file = document.getElementById('d-file'), removeVal = document.getElementById('d-remove-val'),
-        current = null, currentSrc = null, chosen = null;
-    function render() {
-      var src = chosen || (removeVal.disabled ? currentSrc : null);
-      document.getElementById('d-pic').hidden = !src;
-      document.getElementById('d-noimg').hidden = !!src;
-      document.getElementById('d-tools').hidden = !src;
-      if (src) document.querySelector('#d-pic img').src = src;
-      var open = document.getElementById('d-open');
-      open.hidden = !!chosen || !current;
-      if (current) open.href = current;
+    // Картинки справа (до 5): у каждой — слот { saved: адрес сохранённой, chosen: выбранный файл, removed: удалить }.
+    // Последний слот пустой («Нет картинки») — чтобы добавить ещё одну, пока их меньше 5. Стрелки листают слоты.
+    // Корзина сразу показывает заглушку; на сервере картинки меняются только при сохранении (поля image_N и remove=N)
+    var MAX = 5, slots = [], cur = 0;
+    function $(id) { return document.getElementById(id); }
+    function srcOf(s) { return s.chosen || (s.saved && !s.removed ? s.saved : null); }
+    function addEmptySlot() {
+      if (slots.length < MAX && srcOf(slots[slots.length - 1])) slots.push({});
     }
-    document.getElementById('d-remove').addEventListener('click', function () {
-      file.value = ''; chosen = null;
-      removeVal.disabled = !current; // была сохранённая картинка — удалить её при сохранении
+    function render() {
+      var s = slots[cur], src = srcOf(s);
+      $('d-pic').hidden = !src;
+      $('d-noimg').hidden = !!src;
+      $('d-tools').hidden = !src;
+      if (src) document.querySelector('#d-pic img').src = src;
+      ['d-pic', 'd-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
+      $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
+      if (s.saved) $('d-open').href = s.saved;
+      var many = slots.length > 1, filled = slots.filter(srcOf).length;
+      $('d-prev').hidden = $('d-next').hidden = !many;
+      $('d-count').hidden = !many;
+      $('d-count').textContent = src ? (slots.slice(0, cur + 1).filter(srcOf).length + ' / ' + filled)
+          : s.removed ? 'будет удалена' : 'новая';
+    }
+    function go(step) { cur = (cur + step + slots.length) % slots.length; render(); }
+    $('d-prev').addEventListener('click', function () { go(-1); });
+    $('d-next').addEventListener('click', function () { go(1); });
+    dlg.addEventListener('keydown', function (e) { // стрелки клавиатуры — если курсор не в поле ввода
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || slots.length < 2) return;
+      if (e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { go(1); e.preventDefault(); }
+    });
+    $('d-remove').addEventListener('click', function () {
+      var s = slots[cur];
+      $('d-file-' + cur).value = ''; s.chosen = null;
+      if (s.saved) { s.removed = true; $('d-remove-' + cur).disabled = false; } // сохранённую — удалить при сохранении
       render();
     });
-    file.addEventListener('change', function () {
-      chosen = this.files[0] ? URL.createObjectURL(this.files[0]) : null;
-      if (chosen) removeVal.disabled = true; // новый файл заменит картинку — удалять не нужно
-      render();
-    });
+    for (var i = 0; i < MAX; i++) (function (n) {
+      $('d-file-' + n).addEventListener('change', function () {
+        var s = slots[n];
+        s.chosen = this.files[0] ? URL.createObjectURL(this.files[0]) : null;
+        if (s.chosen) { s.removed = false; $('d-remove-' + n).disabled = true; } // новый файл заменит картинку
+        addEmptySlot();
+        render();
+      });
+    })(i);
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
@@ -557,10 +600,14 @@
         }
         var avail = document.getElementById('d-available');
         if (avail) avail.checked = row.dataset.available === '1';
-        // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены
-        current = row.dataset.image ? '/items/' + row.dataset.id + '/image' : null;
-        currentSrc = current && current + '?t=' + Date.now();
-        file.value = ''; chosen = null; removeVal.disabled = true;
+        // Картинки: сохранённые (сколько есть) и пустой слот; выбор файлов и пометки удаления — сброшены
+        var count = +row.dataset.images || 0, t = Date.now();
+        slots = [];
+        for (var k = 0; k < count; k++) slots.push({ saved: '/items/' + row.dataset.id + '/image?n=' + k + '&t=' + t });
+        if (!slots.length) slots.push({});
+        addEmptySlot();
+        for (var j = 0; j < MAX; j++) { $('d-file-' + j).value = ''; $('d-remove-' + j).disabled = true; }
+        cur = 0;
         render();
         dlg.showModal();
         form.elements.name.focus();

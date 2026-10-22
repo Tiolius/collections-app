@@ -29,6 +29,8 @@ public class Repo {
     private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price, "
             + "EXISTS (SELECT 1 FROM item_images ii WHERE ii.item_id = items.id) AS has_image, "
+            + "(SELECT COUNT(*) FROM item_images ii WHERE ii.item_id = items.id) "
+            + "+ (SELECT COUNT(*) FROM item_more_images m WHERE m.item_id = items.id) AS image_count, "
             + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description, "
             + "NOT EXISTS (SELECT 1 FROM item_absent a WHERE a.item_id = items.id) AS available";
 
@@ -77,7 +79,8 @@ public class Repo {
                 isItem ? rs.getString("status") : null,
                 isItem ? price(rs) : null,
                 isItem ? rs.getString("description") : null,
-                isItem ? rs.getBoolean("available") : null);
+                isItem ? rs.getBoolean("available") : null,
+                isItem ? rs.getInt("image_count") : 0);
     }
 
     /** Цена или null (getObject(.., Integer.class) драйвер SQLite не умеет для NULL). */
@@ -382,22 +385,32 @@ public class Repo {
                 + "(SELECT id FROM collections WHERE user_id = ?)", mapper(true, false), id, uid));
     }
 
-    /** Картинка коллекции: {image, image_mime} или 404. */
+    /** Картинка коллекции (файл в папке картинок): {image, image_mime} или 404. */
     public Map<String, Object> collectionImage(long uid, long id) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT image, image_mime FROM collections WHERE id = ? AND user_id = ? AND image IS NOT NULL", id, uid);
-        if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        return rows.get(0);
-    }
-
-    /** Картинка объекта: {image, image_mime} или 404 (в т.ч. если объект чужой). */
-    public Map<String, Object> itemImage(long uid, long id) {
-        List<String> mime = jdbc.queryForList("SELECT ii.image_mime FROM item_images ii "
-                + "JOIN items i ON i.id = ii.item_id JOIN collections c ON c.id = i.collection_id "
-                + "WHERE ii.item_id = ? AND c.user_id = ?", String.class, id, uid);
-        byte[] bytes = mime.isEmpty() ? null : files.read(id, mime.get(0));
+        List<String> mime = jdbc.queryForList(
+                "SELECT image_mime FROM collections WHERE id = ? AND user_id = ? AND image_mime IS NOT NULL", String.class, id, uid);
+        byte[] bytes = mime.isEmpty() ? null : files.readCollection(id, mime.get(0));
         if (bytes == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return Map.of("image", bytes, "image_mime", mime.get(0));
+    }
+
+    /** Картинка объекта номер n (с нуля): {image, image_mime} или 404 (в т.ч. если объект чужой). */
+    public Map<String, Object> itemImage(long uid, long id, int n) {
+        item(uid, id); // чужой объект — 404
+        List<String> mimes = imageMimes(id);
+        byte[] bytes = n < 0 || n >= mimes.size() ? null : files.read(id, n, mimes.get(n));
+        if (bytes == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return Map.of("image", bytes, "image_mime", mimes.get(n));
+    }
+
+    /** Типы картинок объекта по порядку: первая — из item_images, следующие — из item_more_images. */
+    private List<String> imageMimes(long itemId) {
+        List<String> res = new java.util.ArrayList<>(
+                jdbc.queryForList("SELECT image_mime FROM item_images WHERE item_id = ?", String.class, itemId));
+        if (!res.isEmpty())
+            res.addAll(jdbc.queryForList("SELECT image_mime FROM item_more_images WHERE item_id = ? ORDER BY pos",
+                    String.class, itemId));
+        return res;
     }
 
     // ---------- изменение ----------
@@ -421,9 +434,12 @@ public class Repo {
 
         if (image != null && !image.isEmpty()) {
             byte[] bytes = readImage(image);
-            jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", bytes, imageType(bytes), id);
+            String mime = imageType(bytes);
+            jdbc.update("UPDATE collections SET image = NULL, image_mime = ? WHERE id = ?", mime, id);
+            files.writeCollection(id, bytes, mime);
         } else if (removeImage) {
             jdbc.update("UPDATE collections SET image = NULL, image_mime = NULL WHERE id = ?", id);
+            files.deleteCollection(id);
         }
     }
 
@@ -440,18 +456,23 @@ public class Repo {
                 + "DO UPDATE SET text = excluded.text", itemId, t);
     }
 
-    /** Записывает картинку объекта (импорт); владельца и формат проверяет вызывающий код. */
-    public void setItemImage(long itemId, byte[] bytes) {
-        String mime = imageType(bytes);
-        if (mime == null) throw new IllegalArgumentException("не картинка");
-        storeItemImage(itemId, bytes, mime);
-    }
-
-    /** Картинка объекта: отметка и тип — в базе (сначала она, чтобы очистка не стёрла новый файл), содержимое — в файле. */
-    private void storeItemImage(long itemId, byte[] bytes, String mime) {
-        jdbc.update("INSERT INTO item_images (item_id, image, image_mime) VALUES (?, X'', ?) ON CONFLICT (item_id) "
-                + "DO UPDATE SET image = X'', image_mime = excluded.image_mime", itemId, mime);
-        files.write(itemId, bytes, mime);
+    /**
+     * Заменяет все картинки объекта (до ImageFiles.MAX_IMAGES, по порядку; пустой список — удаляет все).
+     * Не картинки пропускаются. Владельца проверяет вызывающий код.
+     * Отметки и типы — в базе (сначала они, чтобы очистка не стёрла новый файл), содержимое — в файлах.
+     */
+    public void setItemImages(long itemId, List<byte[]> images) {
+        List<byte[]> list = images.stream().filter(b -> b != null && imageType(b) != null)
+                .limit(ImageFiles.MAX_IMAGES).toList();
+        jdbc.update("DELETE FROM item_images WHERE item_id = ?", itemId);
+        jdbc.update("DELETE FROM item_more_images WHERE item_id = ?", itemId);
+        files.deleteAll(itemId);
+        for (int pos = 0; pos < list.size(); pos++) {
+            String mime = imageType(list.get(pos));
+            if (pos == 0) jdbc.update("INSERT INTO item_images (item_id, image, image_mime) VALUES (?, X'', ?)", itemId, mime);
+            else jdbc.update("INSERT INTO item_more_images (item_id, pos, image_mime) VALUES (?, ?, ?)", itemId, pos, mime);
+            files.write(itemId, pos, list.get(pos), mime);
+        }
     }
 
     /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */
@@ -489,7 +510,8 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, Boolean available, MultipartFile image, boolean removeImage, String description) {
+                         Integer price, Boolean available, Map<Integer, MultipartFile> newImages, Set<Integer> removed,
+                         String description) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
@@ -512,12 +534,16 @@ public class Repo {
         }
         // Описание и картинка есть у всех объектов, независимо от типа коллекции
         if (description != null) setItemDescription(id, description);
-        if (image != null && !image.isEmpty()) {
-            byte[] bytes = readImage(image);
-            storeItemImage(id, bytes, imageType(bytes));
-        } else if (removeImage) {
-            jdbc.update("DELETE FROM item_images WHERE item_id = ?", id);
-            files.delete(id);
+        // Картинки: новый файл на месте pos заменяет картинку (или добавляет), removed — удалить; без пропусков по порядку
+        if (!newImages.isEmpty() || !removed.isEmpty()) {
+            List<String> mimes = imageMimes(id);
+            List<byte[]> result = new java.util.ArrayList<>();
+            for (int pos = 0; pos < ImageFiles.MAX_IMAGES; pos++) {
+                MultipartFile upload = newImages.get(pos);
+                if (upload != null && !upload.isEmpty()) result.add(readImage(upload));
+                else if (pos < mimes.size() && !removed.contains(pos)) result.add(files.read(id, pos, mimes.get(pos)));
+            }
+            setItemImages(id, result);
         }
     }
 
@@ -525,7 +551,7 @@ public class Repo {
     public void delete(String table, long id) {
         jdbc.update("DELETE FROM " + table + " WHERE id = ?", id); // объекты коллекции удаляются каскадно
         // файлы картинок: объекта — сразу, объектов коллекции — все, что остались без записи в базе
-        if (table.equals("items")) files.delete(id);
+        if (table.equals("items")) files.deleteAll(id);
         else files.removeOrphans();
     }
 
