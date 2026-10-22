@@ -199,14 +199,11 @@
   table.items td { height: 30px; line-height: 1.4; }
   table.items tbody tr:nth-child(even) td { background: var(--zebra); }
   /* Цвет строки по статусу (CSS-переменная --row-bg): бледная заливка (полосы зебры не перебивает)
-     и полоска полного цвета у левого края; при наведении строка чуть темнеет */
+     при наведении строка чуть темнеет */
   table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 40%, var(--paper)); }
   :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 18%, var(--paper)); }
-  table.items tbody tr[style] td:first-child { box-shadow: inset 4px 0 0 var(--row-bg); padding-left: 10px; }
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
-  table.items tbody tr[style]:hover td:first-child { box-shadow: inset 4px 0 0 var(--row-bg), inset 0 0 0 9999px rgba(0,0,0,.04); }
-  :root[data-theme="dark"] table.items tbody tr[style]:hover td:first-child { box-shadow: inset 4px 0 0 var(--row-bg), inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
   table.items td.title a.edit-item, table.items td.title a.edit-item:hover, table.items td.title a.edit-item:focus, table.items td.title a.edit-item:active { color: inherit; text-decoration: none; }
   /* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
