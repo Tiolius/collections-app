@@ -15,19 +15,19 @@
   }
 </script>
 <style>
-  /* ===== Оформление в «каталожном» стиле: Verdana, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
+  /* ===== Оформление в «каталожном» стиле: Tahoma, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
 
   /* Цвета. Светлая тема по умолчанию, тёмная — <html data-theme="dark"> (переключатель в шапке) */
   :root {
-    --page: #e9e9e9;        /* поля по бокам */
+    --page: #ddd;           /* поля по бокам */
     --paper: #fff;          /* основная область */
     --text: #222; --muted: #666;
-    --link: #1f5fbf;        /* ссылки, названия */
-    --blue: #2a7bd4; --on-blue: #fff;   /* шапки таблиц, основные кнопки, активная вкладка */
-    --orange: #e8730c;      /* акцент: активная страница, тип коллекции */
-    --label: #34568b;       /* подписи полей в формах */
-    --heading: #2a7bd4;     /* заголовки страниц */
-    --zebra: #f0f0f0;       /* чётные строки таблиц */
+    --link: #1c58a9;        /* ссылки, названия */
+    --blue: #316dbe; --on-blue: #fff;   /* шапки таблиц, основные кнопки, активная вкладка */
+    --orange: #e88a1c; --on-orange: #fff;  /* акцент: активная страница, тип коллекции */
+    --label: #333;          /* подписи полей в формах — тёмный текст, без отдельного синего */
+    --heading: #1c58a9;     /* заголовки страниц — как ссылки, спокойнее шапок таблиц */
+    --zebra: #f5f5f5;       /* чётные строки таблиц */
     --panel: #f3f3f3;       /* строка фильтров, полоса вкладок, поле только для чтения */
     --form-bg: #fafafa;
     --border: #d4d4d4; --input-border: #aaa; --line: #dcdcdc;
@@ -37,11 +37,12 @@
     --red: #c62828; --on-red: #fff;
     --error-bg: #fde3e3; --error-text: #7a1010; --ok-bg: #e2f3dc; --ok-text: #234d14;
     --tip-bg: #333; --tip-text: #fff;
+    --swatch-text: #222;    /* текст на цветном ярлыке статуса (цвета статусов светлые в обеих темах) */
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
     --page: #15171b; --paper: #1f2227; --text: #dddddd; --muted: #9aa0a8;
-    --link: #6aa8ff; --blue: #2a6cb8; --on-blue: #fff; --orange: #f08a2c; --label: #8fb3e8; --heading: #6aa8ff;
+    --link: #6aa8ff; --blue: #316dbe; --on-blue: #fff; --orange: #e88a1c; --on-orange: #fff; --label: #c8ccd2; --heading: #6aa8ff;
     --zebra: #262a30; --panel: #2a2e35; --form-bg: #23262c;
     --border: #3a3e46; --input-border: #5a606a; --line: #343840;
     --bar-from: #2c3037; --bar-to: #22252b; --bar-border: #3a3e46; --bar-sep: #3a3e46; --bar-hover: #34383f;
@@ -50,12 +51,13 @@
     --red: #c62828; --on-red: #fff;
     --error-bg: #5c2626; --error-text: #fde3e3; --ok-bg: #22432f; --ok-text: #e2f3dc;
     --tip-bg: #e6e6e6; --tip-text: #222;
+    --swatch-text: #222;
   }
 
-  /* Шрифт: Verdana везде (поля, списки и кнопки наследуют). Размер 13px везде, крупнее — только заголовки */
+  /* Шрифт: Tahoma (где его нет — Verdana/Liberation Sans) везде (поля, списки и кнопки наследуют). Размер 13px везде, крупнее — только заголовки */
   * { box-sizing: border-box; }
   input, select, button, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-  body { font-family: Verdana, Tahoma, Geneva, sans-serif; font-size: 13px; margin: 0; background: var(--page); color: var(--text); }
+  body { font-family: Tahoma, Verdana, "Liberation Sans", Geneva, sans-serif; font-size: 13px; margin: 0; background: var(--page); color: var(--text); }
   a { color: var(--link); text-decoration: none; }
   a:hover { text-decoration: underline; }
   h2 { margin: 0; font-size: 18px; color: var(--heading); }
@@ -94,6 +96,8 @@
   .btn .mi { width: 16px; height: 16px; margin-left: -2px; }
   .btn.gray, .btn.light { background: linear-gradient(var(--btn2-from), var(--btn2-to)); color: var(--link); border-color: var(--btn2-border); }
   .btn.red { background: var(--red); color: var(--on-red); }
+  /* Удаление — серая кнопка с красным текстом (не так бросается в глаза, как синяя «Сохранить») */
+  .btn.danger { color: var(--red); }
   .btn.back { width: 26px; padding: 0; background: none; border: none; color: var(--blue); }
   .btn.back .mi { width: 22px; height: 22px; margin: 0; }
   .btn.small { height: 24px; padding: 0 10px; }
@@ -156,12 +160,13 @@
   /* Номера страниц: квадратные ячейки, текущая — оранжевая */
   /* Блок с названием коллекции и кнопками — тонкая рамка и фон, как у форм */
   .collhead { border: 1px solid var(--border); padding: 8px 12px; background: var(--form-bg); }
+  .collhead .coll-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin-left: auto; }
   .collhead .thumb { width: 56px; height: 56px; }
   .pages { display: inline-flex; align-items: center; }
   .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
                        margin-left: -1px; border: 1px solid var(--line); color: var(--orange); font-weight: normal; }
   .pages a:hover { background: var(--hover); text-decoration: none; }
-  .pages b { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .pages b { background: var(--orange); border-color: var(--orange); color: var(--on-orange); }
   .pages .muted { padding: 0 4px; }
   .pager select { height: 24px; }
 
@@ -193,9 +198,10 @@
   table.items td.empty { text-align: center; padding: 16px; }
   table.items td { height: 30px; line-height: 1.4; }
   table.items tbody tr:nth-child(even) td { background: var(--zebra); }
-  /* Цвет строки по статусу (CSS-переменная --row-bg) важнее полос; при наведении строка чуть темнеет */
-  table.items tbody tr[style] td { background: var(--row-bg); }
-  :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 30%, var(--paper)); }
+  /* Цвет строки по статусу (CSS-переменная --row-bg): бледная заливка (полосы зебры не перебивает)
+     при наведении строка чуть темнеет */
+  table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 40%, var(--paper)); }
+  :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 18%, var(--paper)); }
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
@@ -235,7 +241,8 @@
   .icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
   .icon.small .mi { width: 16px; height: 16px; }
   .icon.small:hover { background: none; }
-  .meta-line { display: flex; align-items: center; gap: 4px; }  /* строка «Тип · Объектов · стоимость» на одной линии */
+  .meta-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .meta-line > span { white-space: nowrap; }  /* строка «Тип · Объектов · стоимость» на одной линии */
 
   /* Формы: подпись слева (жирная, сине-серая), поле справа */
   .form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;
@@ -250,6 +257,10 @@
   input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
   .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
   .form input[name=name] { max-width: none; }
+  /* Описание объекта — многострочное поле во всю ширину колонки полей */
+  textarea { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); line-height: 1.4; }
+  textarea:focus { outline: none; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+  .form textarea { width: 100%; resize: vertical; }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; color: var(--text); }
   .form > label.top { align-self: start; padding-top: 24px; }
   .form > label.at-field { align-self: start; padding-top: 6px; }  /* поле с подсказкой под ним */
@@ -267,34 +278,45 @@
                              background: var(--blue); color: var(--on-blue); font-weight: bold; }
   dialog.modal .modal-head .icon { color: var(--on-blue); }
   dialog.modal .modal-head .icon:hover { background: rgba(255,255,255,.15); color: var(--on-blue); }
-  dialog.modal .form { border: none; max-width: none; grid-template-columns: 160px 1fr; }
-  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); color: #222; line-height: 18px; }
+  /* Подписи — по ширине самой длинной, небольшой отступ до поля */
+  dialog.modal .form { border: none; max-width: none; grid-template-columns: auto 1fr; column-gap: 12px; }
+  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid var(--line); color: var(--swatch-text); line-height: 18px; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
   /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
   dialog.modal.wide { width: fit-content; }
+  dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 4px; padding: 10px 24px;
+                           border-top: 1px solid var(--border); background: var(--panel); }
   dialog.modal .pic { display: block; cursor: pointer; }
-  dialog.modal .img-tools { display: flex; align-items: center; gap: 4px; }
+  /* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
+  dialog.modal .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
-  dialog.modal .img-tools .spacer { flex: 1; }
+  dialog.modal .img-tools .spacer { flex: none; height: 24px; }
+  dialog.modal .dlg-image > .pic, dialog.modal .dlg-image > .no-image { grid-column: 1; grid-row: 1; }
+  dialog.modal .dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
   dialog.modal .dlg-image [hidden] { display: none !important; }
   /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
   dialog.modal .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-                           width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
+                           width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
                            background: var(--panel); border: 2px dashed var(--border); }
   dialog.modal .no-image .mi { width: 96px; height: 96px; opacity: .6; }
   dialog.modal .no-image b { color: var(--text); }
   dialog.modal .no-image:hover { border-color: var(--blue); color: var(--link); }
   dialog.modal .no-image:hover .mi { opacity: 1; }
-  dialog.modal .dlg-body { display: flex; align-items: flex-start; }
+  dialog.modal .dlg-body { display: flex; align-items: stretch; }
   dialog.modal .dlg-body > .form { flex: 1; }
-  dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; }
-  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; gap: 8px; }
-  dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; height: auto;
+  /* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
+  dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
+  dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
+  dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
+  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: auto auto; align-items: start; gap: 8px; }
+  dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
-    dialog.modal.wide .dlg-body > .form { flex: none; }
-    dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; }
+    dialog.modal.wide .dlg-body > .form { flex: none; grid-template-rows: none; }
+    dialog.modal.wide #d-description { height: auto; resize: vertical; }
+    dialog.modal .dlg-image { order: 2; padding: 0 16px 16px 24px; grid-template-columns: minmax(0, 1fr) auto; }  /* сначала поля, под ними картинка */
+    dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка под полями */
     dialog.modal .dlg-image img, dialog.modal .no-image { width: 100%; }
   }
   /* Экспорт: список коллекций с галочками в столбик */
@@ -313,12 +335,27 @@
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span { display: none; }
+    /* Таблица объектов на телефоне: название, статус, цена и корзина; платформа, формат и иконка картинки — в окне объекта */
+    table.items .c-platform, table.items .c-format, table.items .pic-col { display: none; }
+    table.items .grip, #reset-widths { display: none; }
+    table.items tr.filters select, table.items tr.filters .range input { min-width: 0; }
+    table.items tr.filters .range { flex-direction: column; gap: 2px; }
+    table.items td.title { overflow-wrap: anywhere; }
+    .collhead { flex-wrap: wrap; align-items: flex-start; }  /* на телефоне стрелка «назад» — по строке названия */
+    .collhead > .back { margin-top: -3px; }   /* (21px строка названия − 26px кнопка) / 2 */
+    .collhead > div { flex: 1 1 200px; min-width: 0; }
+    /* на телефоне иконки — отдельной строкой, начинаются ровно под названием (после стрелки 26px и промежутка 12px;
+       если у коллекции есть картинка — ещё 56px + 12px) */
+    .collhead > .coll-actions { margin-top: 0; margin-left: 36px; }  /* 38px минус внутренний отступ иконки */
+    .collhead:has(> .thumb) > .coll-actions { margin-left: 104px; }
+    .meta-line { column-gap: 12px; }
+    .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
   }
 </style>
 </head>
 <body>
 <header th:fragment="header">
-  <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.2 21.3 16.3 7.6l3 .5-2.1 13.7z"/></svg><span>Collections App</span></a>
+  <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.25 21.05 16.35 7.3l2.95.45-2.1 13.75z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
       <span class="user" th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}">
@@ -373,7 +410,7 @@
     <div class="dlg-body">
       <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
            Щелчок по картинке или заглушке «Нет картинки» — выбор файла (поле скрыто).
-           Под картинкой панель: заменить, открыть в полном размере, удалить -->
+           Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div id="d-image" class="dlg-image">
         <input id="d-file" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         <input type="hidden" name="remove_image" value="1" id="d-remove-val" disabled>
@@ -387,7 +424,7 @@
           <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
-    <div class="form">
+    <div class="form" th:style="${'--rows:' + (1 + fields.size())}">
       <input type="hidden" name="view" th:value="${view}">
       <label for="d-name">Название *</label>
       <input autocomplete="off" id="d-name" type="text" name="name" required>
@@ -407,11 +444,16 @@
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
-      <div class="full">
-        <button class="btn">Сохранить</button>
-        <button type="button" class="btn gray" data-close>Отмена</button>
-      </div>
+      <label for="d-description">Описание</label>
+      <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
+    </div>
+    <!-- Нижняя панель окна: слева «Удалить объект» (отправляет форму на /items/{id}/delete, адрес — formaction,
+         ставит скрипт), справа «Сохранить»; отмена — крестик в шапке (или Esc, щелчок мимо окна) -->
+    <div class="dlg-foot">
+      <button type="submit" class="btn light danger" id="d-delete" formnovalidate
+              onclick="return confirm('Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
+      <button class="btn">Сохранить</button>
     </div>
     </form>
   </dialog>
@@ -450,7 +492,8 @@
         e.preventDefault();
         var row = a.closest('tr');
         form.action = '/items/' + row.dataset.id + '/edit';
-        ['name', 'platform', 'format', 'status', 'price'].forEach(function (f) {
+        document.getElementById('d-delete').formAction = '/items/' + row.dataset.id + '/delete';
+        ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
         // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены

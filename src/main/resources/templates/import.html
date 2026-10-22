@@ -5,17 +5,22 @@
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
-  <h3 class="section">Картинки объектов из Steam</h3>
-  <p class="muted">Для каждого объекта коллекции ищется игра в Steam с таким же названием (без учёта регистра, знаков ™ ® © и пунктуации),
-    и в объект загружается её картинка. Steam ограничивает число запросов, поэтому на один объект уходит около 1,5 секунды
-    (1000 объектов — примерно 25 минут). Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
+  <h3 class="section">Картинки и описания объектов из Steam, Discogs или FantLab</h3>
+  <p class="muted"><b>Steam</b> — для игр: ищется игра с таким же названием, как у объекта (без учёта регистра, знаков ™ ® © и пунктуации),
+    картинка — шапка страницы игры, описание — краткое описание игры (по-русски, если есть). <b>Discogs</b> — для музыки: название объекта должно быть в виде «Группа - Альбом»,
+    ищется альбом с тем же названием у той же группы, картинка — обложка, описание — примечания альбома (Notes); объекты без « - » в названии пропускаются.
+    <b>FantLab</b> — для книг: название объекта «Автор - Книга» (как у дисков; без « - » ищется просто по названию), картинка — обложка, описание — аннотация
+    (FantLab — база фантастики, книги других жанров там есть не всегда).
+    Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд вместе с описанием) около 2 секунд для Discogs (до 4 секунд вместе с описанием) и около 3 секунд для FantLab.
+    Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
 
   <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
   <div class="import-box" id="import-job" th:if="${job != null and job.active()}">
-    <div><b th:text="${job.collectionName}"></b> — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
+    <div><b th:text="${job.collectionName}"></b> (<span th:text="${job.sourceName()}"></span>) — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
     <progress id="ij-bar" th:max="${job.total == 0 ? 1 : job.total}" th:value="${job.processed}"></progress>
     <div>Обработано <span id="ij-processed" th:text="${job.processed}"></span> из <span th:text="${job.total}"></span>
-      · загружено <span id="ij-loaded" th:text="${job.loaded}"></span>
+      · картинок <span id="ij-loaded" th:text="${job.loaded}"></span>
+      <th:block th:if="${job.descriptions}">· описаний <span id="ij-described" th:text="${job.described}"></span></th:block>
       · не найдено <span id="ij-notfound" th:text="${job.notFound}"></span>
       · ошибок <span id="ij-errors" th:text="${job.errors}"></span></div>
     <div class="muted" id="ij-current" th:text="${job.current}"></div>
@@ -27,25 +32,67 @@
   <th:block th:if="${job != null and !job.active()}">
     <p th:class="${job.state == 'failed' ? 'error' : 'ok'}">
       <span th:text="${job.state == 'done' ? 'Импорт завершён' : job.state == 'cancelled' ? 'Импорт остановлен' : job.message}"></span>
-      (<span th:text="${job.collectionName}"></span>): загружено картинок — <b th:text="${job.loaded}"></b>
-      из <span th:text="${job.total}"></span> объектов<span th:if="${job.processed < job.total}" th:text="${', обработано ' + job.processed}"></span>.
-      Не найдено в Steam — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
+      (<span th:text="${job.collectionName + ', ' + job.sourceName()}"></span>): загружено картинок — <b th:text="${job.loaded}"></b><th:block th:if="${job.descriptions}">, описаний — <b th:text="${job.described}"></b></th:block>
+      для <span th:text="${job.total}"></span> объектов<span th:if="${job.processed < job.total}" th:text="${', обработано ' + job.processed}"></span>.
+      Не найдено в <span th:text="${job.sourceName()}"></span> — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
     </p>
   </th:block>
 
-  <form autocomplete="off" class="form" method="post" action="/import/steam" th:unless="${job != null and job.active()}">
+  <form autocomplete="off" class="form" method="post" action="/import/start" th:unless="${job != null and job.active()}">
     <label for="f-coll">Коллекция</label>
     <select id="f-coll" name="collection" required>
       <option th:each="c : ${collections}" th:value="${c.id()}" th:text="${c.name() + ' (' + c.count() + ')'}"
               th:selected="${job != null and job.collectionId == c.id()}"></option>
     </select>
 
-    <span></span>
-    <label class="radio"><input type="checkbox" name="onlyMissing" value="true" checked> только объекты без картинки</label>
+    <label>Источник</label>
+    <div>
+      <label class="radio"><input type="radio" name="source" value="steam" checked> Steam (игры)</label>
+      <label class="radio"><input type="radio" name="source" value="discogs"> Discogs (музыка, «Группа - Альбом»)</label>
+      <label class="radio"><input type="radio" name="source" value="fantlab"> FantLab (книги)</label>
+      <div class="muted" th:unless="${discogsReady}">Без токена Discogs отдаёт только описания, без обложек: для обложек укажите свой токен Discogs ниже.</div>
+    </div>
 
-    <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить картинки из Steam</button></div>
+    <label>Загружать</label>
+    <div>
+      <label class="radio"><input type="checkbox" name="loadImages" value="true" id="f-images" checked th:attr="data-discogs-ready=${discogsReady}"> картинки</label>
+      <label class="radio"><input type="checkbox" name="loadDescriptions" value="true" id="f-descr" checked> описания</label>
+    </div>
+
+    <span></span>
+    <label class="radio"><input type="checkbox" name="onlyMissing" value="true" checked> не заменять уже заполненные картинки и описания</label>
+
+    <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить</button></div>
   </form>
 
+  <!-- Личный токен Discogs: у каждого пользователя свой; сам токен на страницу не выводится -->
+  <h3 class="section">Токен Discogs</h3>
+  <p class="ok" th:if="${param.token != null and param.token[0] == 'saved'}">Токен Discogs сохранён.</p>
+  <p class="ok" th:if="${param.token != null and param.token[0] == 'deleted'}">Токен Discogs удалён.</p>
+  <p class="muted">Нужен для обложек из Discogs (без него — только описания). Получить: войдите на discogs.com → Settings → Developers → Generate new token.
+    Токен виден только вам и используется только для запросов к Discogs.</p>
+  <form autocomplete="off" class="form" method="post" action="/import/discogs-token">
+    <label for="f-token">Токен</label>
+    <div>
+      <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
+             th:placeholder="${discogsReady ? 'сохранён: …' + discogsTokenEnd + ' (введите новый, чтобы заменить)' : 'не задан'}">
+    </div>
+    <div class="full">
+      <button class="btn">Сохранить</button>
+      <button class="btn light danger" name="delete" value="true" th:if="${discogsReady}" formnovalidate>Удалить токен</button>
+    </div>
+  </form>
+
+<script>
+  // Discogs без токена отдаёт только описания: галочка «картинки» для него неактивна
+  (function () {
+    var img = document.getElementById('f-images');
+    if (!img || img.dataset.discogsReady === 'true') return;
+    function sync() { img.disabled = document.querySelector('input[name=source]:checked').value === 'discogs'; }
+    document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+  })();
+</script>
 <script th:if="${job != null and job.active()}">
   // Прогресс импорта: раз в секунду спрашиваем состояние; когда импорт закончится — перезагружаем страницу (итог)
   (function () {
@@ -57,6 +104,7 @@
         $('ij-bar').max = Math.max(s.total, 1); $('ij-bar').value = s.processed;
         $('ij-processed').textContent = s.processed; $('ij-loaded').textContent = s.loaded;
         $('ij-notfound').textContent = s.notFound; $('ij-errors').textContent = s.errors;
+        if ($('ij-described')) $('ij-described').textContent = s.described;
         $('ij-current').textContent = s.current;
         $('ij-message').textContent = s.message; $('ij-message').hidden = !s.message;
         setTimeout(tick, 1000);

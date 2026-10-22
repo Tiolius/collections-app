@@ -34,6 +34,12 @@ CREATE TABLE IF NOT EXISTS item_images (
     image_mime TEXT NOT NULL
 );
 
+-- Описание объекта (отдельная таблица: у старых баз создаётся сама, без изменения items)
+CREATE TABLE IF NOT EXISTS item_descriptions (
+    item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    text TEXT NOT NULL
+);
+
 -- Типы коллекций пользователя (настраиваются на странице «Настройки»).
 -- fields — поля объектов через запятую, ключи из Repo.FIELDS. Начальные типы создаёт Repo.createUser
 CREATE TABLE IF NOT EXISTS kinds (
@@ -49,6 +55,14 @@ CREATE TABLE IF NOT EXISTS kinds (
 CREATE TABLE IF NOT EXISTS user_settings (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     show_prices INTEGER NOT NULL DEFAULT 0
+);
+
+-- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
+CREATE TABLE IF NOT EXISTS user_tokens (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    service TEXT NOT NULL,
+    token TEXT NOT NULL,
+    PRIMARY KEY (user_id, service)
 );
 
 -- Цвет строки объекта в зависимости от статуса (настраивается в типе коллекции)

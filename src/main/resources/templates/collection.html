@@ -10,23 +10,25 @@
     <div>
       <h2 th:text="${c.name()}"></h2>
       <div class="muted meta-line">
-        <span th:text="${'Тип: ' + (c.kind() == null ? '—' : c.kind())}"></span> <span>·</span>
+        <span th:text="${'Тип: ' + (c.kind() == null ? '—' : c.kind())}"></span> <span class="sep">·</span>
         <span th:text="${'Объектов: ' + totalAll}"></span>
-        <th:block th:if="${totalPrice != null and showPrices}"><span>·</span> <span th:text="${'Стоимость: ' + totalPrice + ' ₽'}"></span></th:block>
+        <th:block th:if="${totalPrice != null and showPrices}"><span class="sep">·</span> <span th:text="${'Стоимость: ' + totalPrice + ' ₽'}"></span></th:block>
         <span class="icon tip right small" tabindex="0" aria-label="Стоимость коллекции" th:if="${totalPrice != null and !showPrices}">
           <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
           <span class="tiptext" th:text="${'Стоимость коллекции: ' + totalPrice + ' ₽'}"></span>
         </span>
       </div>
     </div>
-    <span class="spacer"></span>
-    <a class="icon big add" title="Новый объект" aria-label="Новый объект" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
-    <a class="icon big" title="Дубли" aria-label="Дубли" th:href="@{/collections/{id}(id=${c.id()},dups=1)}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
-    <a class="icon big" title="Изменить коллекцию" aria-label="Изменить коллекцию" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
-    <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
-          onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
-      <button class="icon big red" title="Удалить коллекцию" aria-label="Удалить коллекцию"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
-    </form>
+    <!-- Действия с коллекцией — всегда одной строкой (на телефоне переносятся целиком под название) -->
+    <div class="coll-actions">
+      <a class="icon big add" title="Новый объект" aria-label="Новый объект" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
+      <a class="icon big" title="Дубли" aria-label="Дубли" th:href="@{/collections/{id}(id=${c.id()},dups=1)}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
+      <a class="icon big" title="Изменить коллекцию" aria-label="Изменить коллекцию" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
+      <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
+            onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
+        <button class="icon big red" title="Удалить коллекцию" aria-label="Удалить коллекцию"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
+      </form>
+    </div>
   </div>
   <div class="bar collhead" th:if="${dups}">
     <a class="btn light back" th:href="@{/collections/{id}(id=${c.id()})}" title="К коллекции" aria-label="К коллекции"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
@@ -77,7 +79,7 @@
 
   <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '') + ':pic'}">
     <thead><tr class="head">
-      <th th:each="col : ${cols}" th:class="${col.css()}">
+      <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
         <a class="sort" th:title="${col.key() == 'price' ? 'Сортировать по цене' : null}"
            th:href="|?sort=${col.key()}&dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'}&size=${size}${filterQs}${modeQs}|"
            th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
@@ -85,10 +87,9 @@
       </th>
       <!-- Картинка: иконка у объектов, у которых она есть -->
       <th class="pic-col" title="Картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></th>
-      <th class="actions"></th>
     </tr>
     <tr class="filters">
-      <th th:each="col : ${cols}" th:class="${col.css()}">
+      <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
         <input th:if="${col.key() == 'name'}" type="search" name="f_name" form="filter-form" placeholder="Поиск по названию…"
                autocomplete="off" th:value="${filters.get('name')}" th:classappend="${filters.containsKey('name')} ? 'active'">
         <select th:if="${filterOptions.containsKey(col.key())}" th:name="${'f_' + col.key()}" form="filter-form"
@@ -105,40 +106,30 @@
         </div>
       </th>
       <th class="pic-col"></th>
-      <th class="actions"></th>
     </tr></thead>
     <tbody><th:block th:each="it : ${items}" th:with="grp=${groupStarts.contains(it.id()) ? 'gstart' : null}">
     <tr th:fragment="itemRow" th:class="${grp}"
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
-               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-image="${it.hasImage() ? '1' : null}">
+               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-image="${it.hasImage() ? '1' : null}">
       <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
-      <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
-      <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
-      <td th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
-      <td class="num" th:if="${fields.contains('price') and showPrices}"
+      <td class="c-platform" th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
+      <td class="c-format" th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
+      <td class="c-status" th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
+      <td class="num c-price" th:if="${fields.contains('price') and showPrices}"
           th:text="${it.price() == null ? '' : #numbers.formatInteger(it.price(), 1, 'WHITESPACE') + ' ₽'}"></td>
-      <td class="eye" th:if="${fields.contains('price') and !showPrices}">
+      <td class="eye c-price" th:if="${fields.contains('price') and !showPrices}">
         <span class="icon tip" tabindex="0" aria-label="Цена" th:classappend="${it.price() == null} ? 'none'">
           <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
           <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>
         </span>
       </td>
       <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" title="Есть картинка" aria-label="Есть картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></span></td>
-      <td class="actions">
-        <form autocomplete="off" class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
-              onsubmit="return confirm('Удалить объект?')">
-          <input type="hidden" name="view" th:value="${view}">
-          <button class="icon red" title="Удалить" aria-label="Удалить">
-            <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg>
-          </button>
-        </form>
-      </td>
     </tr>
     </th:block>
-    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 2}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
+    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 1}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
     </tbody>
   </table>
   </th:block>

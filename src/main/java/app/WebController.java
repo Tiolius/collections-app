@@ -26,12 +26,12 @@ public class WebController {
 
     private final Repo repo;
     private final LoginGuard guard;
-    private final SteamImport steam;
+    private final ImageImport images;
 
-    public WebController(Repo repo, LoginGuard guard, SteamImport steam) {
+    public WebController(Repo repo, LoginGuard guard, ImageImport images) {
         this.repo = repo;
         this.guard = guard;
-        this.steam = steam;
+        this.images = images;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -111,34 +111,65 @@ public class WebController {
         return "redirect:/display?saved";
     }
 
-    // Вкладка «Импорт»: картинки объектов коллекции из Steam (в фоне, прогресс — /import/status)
+    // Вкладка «Импорт»: картинки объектов коллекции из Steam или Discogs (в фоне, прогресс — /import/status)
     @GetMapping("/import")
     public String importPage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
-        m.addAttribute("job", steam.job(uid));
+        m.addAttribute("job", images.job(uid));
+        String token = repo.token(uid, ImageImport.DISCOGS);
+        m.addAttribute("discogsReady", token != null);
+        // сам токен на страницу не выводится — только последние 4 символа
+        m.addAttribute("discogsTokenEnd", token == null ? null : token.substring(Math.max(0, token.length() - 4)));
         return "import";
     }
 
-    @PostMapping("/import/steam")
-    public String importSteam(@SessionAttribute("uid") long uid, @RequestParam long collection,
-                              @RequestParam(defaultValue = "false") boolean onlyMissing) {
-        steam.start(uid, repo.collection(uid, collection), onlyMissing); // чужая коллекция — 404
+    /** Личный токен Discogs пользователя: сохранить или удалить (кнопка «Удалить токен»). */
+    @PostMapping("/import/discogs-token")
+    public String discogsToken(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String token,
+                               @RequestParam(defaultValue = "false") boolean delete) {
+        token = delete ? "" : token.trim();
+        if (!delete && token.isEmpty()) return "redirect:/import"; // пустое поле — токен не меняется
+        // токен Discogs — латинские буквы и цифры; ограничение длины — с запасом
+        if (!token.isEmpty() && !token.matches("[A-Za-z0-9]{10,200}"))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Токен Discogs — латинские буквы и цифры (Discogs → Settings → Developers)");
+        repo.setToken(uid, ImageImport.DISCOGS, token);
+        return "redirect:/import?token=" + (token.isEmpty() ? "deleted" : "saved");
+    }
+
+    @PostMapping("/import/start")
+    public String importStart(@SessionAttribute("uid") long uid, @RequestParam long collection,
+                              @RequestParam(defaultValue = ImageImport.STEAM) String source,
+                              @RequestParam(defaultValue = "false") boolean onlyMissing,
+                              @RequestParam(defaultValue = "false") boolean loadImages,
+                              @RequestParam(defaultValue = "false") boolean loadDescriptions) {
+        Entry c = repo.collection(uid, collection); // чужая коллекция — 404
+        if (!ImageImport.SOURCES.containsKey(source))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
+        // Обложки Discogs — только с токеном; без него — только описания
+        String discogsToken = repo.token(uid, ImageImport.DISCOGS);
+        if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
+        boolean descriptions = loadDescriptions;
+        if (!loadImages && !descriptions)
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Выберите, что загружать: картинки или описания");
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions, discogsToken);
         return "redirect:/import";
     }
 
     @PostMapping("/import/cancel")
     public String importCancel(@SessionAttribute("uid") long uid) {
-        steam.cancel(uid);
+        images.cancel(uid);
         return "redirect:/import";
     }
 
     @GetMapping("/import/status")
     @org.springframework.web.bind.annotation.ResponseBody
     public Map<String, Object> importStatus(@SessionAttribute("uid") long uid) {
-        SteamImport.Job j = steam.job(uid);
+        ImageImport.Job j = images.job(uid);
         if (j == null) return Map.of("state", "none");
         return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
-                "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
+                "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
     // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
@@ -167,6 +198,8 @@ public class WebController {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
                 widths.add(f.equals("price") ? 12 : 22);
             }
+            headers.add("Описание");
+            widths.add(80);
             List<List<Object>> rows = new ArrayList<>();
             for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
                 List<Object> row = new ArrayList<>();
@@ -179,6 +212,7 @@ public class WebController {
                         case "price" -> it.price();
                         default -> null;
                     });
+                row.add(it.description());
                 rows.add(row);
             }
             sheets.add(new Xlsx.Sheet(c.name(), headers, rows, widths));
@@ -530,10 +564,11 @@ public class WebController {
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
-                             @RequestParam(required = false) MultipartFile image) {
+                             @RequestParam(required = false) MultipartFile image,
+                             @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false, description);
         return "redirect:/collections/" + cid;
     }
 
@@ -554,10 +589,11 @@ public class WebController {
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) MultipartFile image,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
+                           @RequestParam(required = false) String description,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                image, removeImage != null);
+                image, removeImage != null, description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 

@@ -51,6 +51,11 @@
     </th:block>
 
     <th:block th:if="${isItem}">
+      <label class="at-field" for="f-description">Описание</label>
+      <textarea autocomplete="off" id="f-description" name="description" rows="8" maxlength="5000" th:text="${obj != null ? obj.description() : ''}"></textarea>
+    </th:block>
+
+    <th:block th:if="${isItem}">
       <label>Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
@@ -64,6 +69,9 @@
     <div class="full">
       <button class="btn">Сохранить</button>
       <a class="btn gray" th:href="${back}">Отмена</a>
+      <!-- Удаление объекта (в таблице корзин нет) -->
+      <button type="submit" class="btn light danger" th:if="${isItem and obj != null}" formnovalidate
+              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return confirm('Удалить объект?')">Удалить объект</button>
     </div>
   </form>
 </main>
