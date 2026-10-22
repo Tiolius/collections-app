@@ -11,8 +11,11 @@
     <label for="f-cur">Текущий пароль</label>
     <input id="f-cur" type="password" name="current" autocomplete="new-password">
 
-    <label for="f-new">Новый пароль</label>
-    <input id="f-new" type="password" name="password" autocomplete="new-password">
+    <label class="at-field" for="f-new">Новый пароль</label>
+    <div>
+      <input id="f-new" type="password" name="password" autocomplete="new-password">
+      <div th:replace="~{base :: passwordHint}"></div>
+    </div>
 
     <label for="f-new2">Повторите новый пароль</label>
     <input id="f-new2" type="password" name="password2" autocomplete="new-password">

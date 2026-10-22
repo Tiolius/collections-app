@@ -233,6 +233,7 @@
   .form input[name=name] { max-width: none; }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; color: var(--text); }
   .form > label.top { align-self: start; padding-top: 24px; }
+  .form > label.at-field { align-self: start; padding-top: 6px; }  /* поле с подсказкой под ним */
   table.status-colors { border-collapse: collapse; }
   table.status-colors th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
   table.status-colors td { padding: 0 8px 6px 0; }
@@ -281,6 +282,10 @@
     </form>
   </div>
 </header>
+
+<!-- Подсказка под полем нового пароля (требования — Passwords.problem) -->
+<div th:fragment="passwordHint" class="muted hint">Не короче 12 символов, любые буквы, цифры, знаки и пробелы.
+  Удобно взять фразу из нескольких слов. Нельзя: имя пользователя, повторы, ряды клавиш и распространённые пароли.</div>
 
 <!-- Шапка страницы «Настройки» с вкладками; active — kinds | account | users -->
 <th:block th:fragment="settingsHead(active)">

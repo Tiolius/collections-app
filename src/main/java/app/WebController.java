@@ -35,9 +35,6 @@ public class WebController {
     // ---------- Вход, пользователи, пароль ----------
     // Кто вошёл — хранится в сессии ("uid"); без входа страницы недоступны (см. WebConfig).
 
-    /** Минимальная длина нового пароля. */
-    private static final int MIN_PASSWORD = 8;
-
     /** Атрибут сессии с хешем пароля на момент входа: после смены пароля старые сессии недействительны (WebConfig). */
     static final String SESSION_PW = "pw";
 
@@ -153,7 +150,8 @@ public class WebController {
     private String newUserError(String name, String password, String password2) {
         if (name.isBlank()) return "Укажите имя пользователя";
         if (repo.userByName(name) != null) return "Пользователь «" + name.trim() + "» уже есть";
-        if (password.length() < MIN_PASSWORD) return "Пароль должен быть не короче " + MIN_PASSWORD + " символов";
+        String weak = Passwords.problem(password, name);
+        if (weak != null) return weak;
         if (!password.equals(password2)) return "Пароли не совпадают";
         return null;
     }
@@ -183,9 +181,10 @@ public class WebController {
         else if (!Passwords.matches(current, repo.user(uid).passwordHash())) {
             guard.fail(key, LoginGuard.MAX_FAILS);
             error = "Текущий пароль указан неверно";
+        } else {
+            error = Passwords.problem(password, repo.user(uid).name());
+            if (error == null && !password.equals(password2)) error = "Новые пароли не совпадают";
         }
-        else if (password.length() < MIN_PASSWORD) error = "Новый пароль должен быть не короче " + MIN_PASSWORD + " символов";
-        else if (!password.equals(password2)) error = "Новые пароли не совпадают";
         if (error != null) {
             m.addAttribute("passwordError", error);
             return "account";
