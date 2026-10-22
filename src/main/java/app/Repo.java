@@ -288,17 +288,42 @@ public class Repo {
         return jdbc.queryForObject("SELECT COUNT(*) FROM items WHERE collection_id = ?", Integer.class, collectionId);
     }
 
+    /** Столбцы, по которым фильтр — выбор значения из списка (точное совпадение). */
+    public static final List<String> SELECT_FILTERS = List.of("platform", "format", "status");
+
     /**
-     * Страница объектов коллекции. sort — ключ из ITEM_SORT (иначе по названию).
-     * Пустые значения всегда в конце, при равенстве — по названию.
+     * Объекты коллекции с фильтрами и сортировкой (страницу вырезает вызывающий код).
+     * filters: "name" — часть названия без учёта регистра (в т.ч. кириллицы, поэтому проверяется в Java),
+     * ключи из SELECT_FILTERS — точное значение. sort — ключ из ITEM_SORT (иначе по названию);
+     * пустые значения всегда в конце, при равенстве — по названию.
      */
-    public List<Entry> items(long collectionId, String sort, boolean desc, int limit, int offset) {
+    public List<Entry> items(long collectionId, String sort, boolean desc, Map<String, String> filters) {
         String col = ITEM_SORT.getOrDefault(sort, "name");
         String order = "(" + col + " IS NULL OR " + col + " = ''), "
                 + col + (col.equals("price") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
                 + ", name COLLATE NOCASE, id";
-        return jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE collection_id = ? ORDER BY " + order
-                + " LIMIT ? OFFSET ?", mapper(true, false), collectionId, limit, offset);
+        StringBuilder where = new StringBuilder("collection_id = ?");
+        List<Object> args = new java.util.ArrayList<>(List.of(collectionId));
+        for (String f : SELECT_FILTERS)
+            if (filters.containsKey(f)) {
+                where.append(" AND ").append(f).append(" = ?"); // f — только из SELECT_FILTERS
+                args.add(filters.get(f));
+            }
+        List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
+                mapper(true, false), args.toArray());
+        String name = filters.get("name");
+        if (name == null) return list;
+        String needle = name.toLowerCase(RU);
+        return list.stream().filter(e -> e.name().toLowerCase(RU).contains(needle)).toList();
+    }
+
+    private static final Locale RU = Locale.forLanguageTag("ru");
+
+    /** Значения столбца у объектов коллекции — для выпадающего списка фильтра (по алфавиту, без пустых). */
+    public List<String> distinctValues(long collectionId, String column) {
+        if (!SELECT_FILTERS.contains(column)) throw new IllegalArgumentException(column);
+        return jdbc.queryForList("SELECT DISTINCT " + column + " FROM items WHERE collection_id = ? AND "
+                + column + " <> ''", String.class, collectionId).stream().sorted(alphabetical()).toList();
     }
 
     public Entry item(long uid, long id) {

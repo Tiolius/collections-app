@@ -203,7 +203,11 @@ public class WebController {
                              @RequestParam(defaultValue = "name") String sort,
                              @RequestParam(defaultValue = "asc") String dir,
                              @RequestParam(defaultValue = "1") int page,
-                             @RequestParam(defaultValue = "50") int size) {
+                             @RequestParam(defaultValue = "50") int size,
+                             @RequestParam(name = "f_name", required = false) String fName,
+                             @RequestParam(name = "f_platform", required = false) String fPlatform,
+                             @RequestParam(name = "f_format", required = false) String fFormat,
+                             @RequestParam(name = "f_status", required = false) String fStatus) {
         Entry c = repo.collection(uid, id);
         Set<String> fields = repo.itemFields(uid, c.kind());
         m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
@@ -219,14 +223,34 @@ public class WebController {
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
         boolean desc = "desc".equals(dir);
         if (!PAGE_SIZES.contains(size)) size = 50;
-        int total = repo.countItems(id);
+
+        // Фильтры по столбцам (только по тем, что есть у типа коллекции); пустые не учитываются
+        Map<String, String> filters = new java.util.LinkedHashMap<>();
+        putFilter(filters, "name", fName);
+        if (fields.contains("platform")) putFilter(filters, "platform", fPlatform);
+        if (fields.contains("format")) putFilter(filters, "format", fFormat);
+        if (fields.contains("status")) putFilter(filters, "status", fStatus);
+        Map<String, List<String>> filterOptions = new java.util.HashMap<>();
+        for (String f : Repo.SELECT_FILTERS)
+            if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
+        StringBuilder filterQs = new StringBuilder();
+        filters.forEach((k, v) -> filterQs.append("&f_").append(k).append("=")
+                .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8)));
+
+        List<Entry> found = repo.items(id, sort, desc, filters);
+        int total = found.size();
         int pages = Math.max(1, (total + size - 1) / size);
         page = Math.min(Math.max(page, 1), pages);
+        int fromIdx = (page - 1) * size;
 
         m.addAttribute("c", c);
         m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
-        m.addAttribute("items", repo.items(id, sort, desc, size, (page - 1) * size));
+        m.addAttribute("items", found.subList(fromIdx, Math.min(fromIdx + size, total)));
+        m.addAttribute("filters", filters);
+        m.addAttribute("filterOptions", filterOptions);
+        m.addAttribute("filterQs", filterQs.toString());
+        m.addAttribute("totalAll", filters.isEmpty() ? total : repo.countItems(id));
         m.addAttribute("sort", sort);
         m.addAttribute("dir", desc ? "desc" : "asc");
         m.addAttribute("page", page);
@@ -234,11 +258,12 @@ public class WebController {
         m.addAttribute("size", size);
         m.addAttribute("sizes", PAGE_SIZES);
         m.addAttribute("total", total);
-        m.addAttribute("from", (page - 1) * size + 1);
+        m.addAttribute("from", total == 0 ? 0 : fromIdx + 1);
         m.addAttribute("to", Math.min(page * size, total));
         m.addAttribute("pageLinks", pageLinks(page, pages));
         // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
-        m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size);
+        m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size
+                + filterQs);
         return "collection";
     }
 
@@ -252,9 +277,17 @@ public class WebController {
         return res;
     }
 
-    /** Адрес страницы коллекции с сохранённым видом списка (view — только из нашей же ссылки). */
+    private static void putFilter(Map<String, String> filters, String key, String value) {
+        if (value != null && !value.isBlank()) filters.put(key, value.trim());
+    }
+
+    /**
+     * Адрес страницы коллекции с сохранённым видом списка (сортировка, страница, фильтры).
+     * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
+     */
     private static String collectionUrl(long cid, String view) {
-        return "/collections/" + cid + (view != null && view.matches("[A-Za-z0-9=&]*") && !view.isEmpty() ? "?" + view : "");
+        return "/collections/" + cid
+                + (view != null && view.matches("[A-Za-z0-9=&%+._*-]*") && !view.isEmpty() ? "?" + view : "");
     }
 
     @GetMapping("/collections/{id}/image")
