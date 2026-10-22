@@ -26,10 +26,12 @@ public class WebController {
 
     private final Repo repo;
     private final LoginGuard guard;
+    private final SteamImport steam;
 
-    public WebController(Repo repo, LoginGuard guard) {
+    public WebController(Repo repo, LoginGuard guard, SteamImport steam) {
         this.repo = repo;
         this.guard = guard;
+        this.steam = steam;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -107,6 +109,36 @@ public class WebController {
     public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices) {
         repo.setShowPrices(uid, showPrices);
         return "redirect:/display?saved";
+    }
+
+    // Вкладка «Импорт»: картинки объектов коллекции из Steam (в фоне, прогресс — /import/status)
+    @GetMapping("/import")
+    public String importPage(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("collections", repo.collections(uid));
+        m.addAttribute("job", steam.job(uid));
+        return "import";
+    }
+
+    @PostMapping("/import/steam")
+    public String importSteam(@SessionAttribute("uid") long uid, @RequestParam long collection,
+                              @RequestParam(defaultValue = "false") boolean onlyMissing) {
+        steam.start(uid, repo.collection(uid, collection), onlyMissing); // чужая коллекция — 404
+        return "redirect:/import";
+    }
+
+    @PostMapping("/import/cancel")
+    public String importCancel(@SessionAttribute("uid") long uid) {
+        steam.cancel(uid);
+        return "redirect:/import";
+    }
+
+    @GetMapping("/import/status")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> importStatus(@SessionAttribute("uid") long uid) {
+        SteamImport.Job j = steam.job(uid);
+        if (j == null) return Map.of("state", "none");
+        return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
+                "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
     /** Версия приложения (из pom.xml, см. app.version в application.properties). */

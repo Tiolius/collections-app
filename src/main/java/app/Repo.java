@@ -394,6 +394,14 @@ public class Repo {
         }
     }
 
+    /** Записывает картинку объекта (импорт); владельца и формат проверяет вызывающий код. */
+    public void setItemImage(long itemId, byte[] bytes) {
+        String mime = imageType(bytes);
+        if (mime == null) throw new IllegalArgumentException("не картинка");
+        jdbc.update("INSERT INTO item_images (item_id, image, image_mime) VALUES (?, ?, ?) ON CONFLICT (item_id) "
+                + "DO UPDATE SET image = excluded.image, image_mime = excluded.image_mime", itemId, bytes, mime);
+    }
+
     /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */
     private static byte[] readImage(MultipartFile image) {
         byte[] bytes;
