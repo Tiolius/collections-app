@@ -268,7 +268,9 @@
   .form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;
           display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
   .form > label { font-weight: bold; color: var(--label); }
-  .form.compact { grid-template-columns: 160px 1fr; }  /* короткая подпись — поле ближе к ней */
+  /* короткая подпись: колонка по её ширине; отступ подпись → поле равен отступу поле → кнопка (.inline) */
+  .form.compact { --gap: 75px; grid-template-columns: auto 1fr; column-gap: var(--gap); }
+  .form.compact .inline { column-gap: var(--gap); }
   .form .full { grid-column: 1 / -1; }
   .form .full.split { display: flex; justify-content: space-between; align-items: center; }  /* кнопки по краям формы */
   .form .full.end { display: flex; justify-content: flex-end; }  /* кнопка у правого края формы */
