@@ -15,7 +15,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,23 +25,21 @@ import org.springframework.web.multipart.MultipartFile;
 public class WebController {
 
     private final Repo repo;
+    private final LoginGuard guard;
 
-    public WebController(Repo repo) {
+    public WebController(Repo repo, LoginGuard guard) {
         this.repo = repo;
+        this.guard = guard;
     }
 
     // ---------- Вход, пользователи, пароль ----------
     // Кто вошёл — хранится в сессии ("uid"); без входа страницы недоступны (см. WebConfig).
 
-    /** Минимальная длина нового пароля. */
-    private static final int MIN_PASSWORD = 4;
+    /** Атрибут сессии с хешем пароля на момент входа: после смены пароля старые сессии недействительны (WebConfig). */
+    static final String SESSION_PW = "pw";
 
-    /** Вошедший пользователь (или null) — для шапки страниц и прав администратора в шаблонах. */
-    @ModelAttribute("currentUser")
-    public Repo.User currentUser(HttpSession session) {
-        Object uid = session.getAttribute("uid");
-        return uid == null ? null : repo.user((Long) uid);
-    }
+    /** Хеш для проверки пароля несуществующего пользователя — чтобы по времени ответа нельзя было узнать имена. */
+    private static final String DUMMY_HASH = Passwords.hash("dummy-password");
 
     @GetMapping("/login")
     public String loginForm(Model m) {
@@ -53,12 +50,25 @@ public class WebController {
     @PostMapping("/login")
     public String login(@RequestParam String name, @RequestParam(defaultValue = "") String password,
                         HttpServletRequest request, Model m) {
+        // Защита от подбора: адрес + имя (5 попыток) и адрес по любым именам (30 попыток)
+        String ip = "ip:" + request.getRemoteAddr();
+        String ipName = ip + "|" + name.trim().toLowerCase(java.util.Locale.ROOT);
+        long locked = guard.lockedMinutes(ipName, ip);
+        if (locked > 0) {
+            m.addAttribute("error", "Слишком много неудачных попыток входа. Попробуйте через " + locked + " мин.");
+            m.addAttribute("name", name);
+            return loginForm(m);
+        }
         Repo.User u = repo.userByName(name);
-        if (u == null || !Passwords.matches(password, u.passwordHash())) {
+        boolean ok = Passwords.matches(password, u == null ? DUMMY_HASH : u.passwordHash()) && u != null;
+        if (!ok) {
+            guard.fail(ipName, LoginGuard.MAX_FAILS);
+            guard.fail(ip, LoginGuard.MAX_FAILS_PER_IP);
             m.addAttribute("error", "Неверное имя пользователя или пароль");
             m.addAttribute("name", name);
             return loginForm(m);
         }
+        guard.success(ipName);
         signIn(request, u.id());
         return "redirect:/";
     }
@@ -140,7 +150,8 @@ public class WebController {
     private String newUserError(String name, String password, String password2) {
         if (name.isBlank()) return "Укажите имя пользователя";
         if (repo.userByName(name) != null) return "Пользователь «" + name.trim() + "» уже есть";
-        if (password.length() < MIN_PASSWORD) return "Пароль должен быть не короче " + MIN_PASSWORD + " символов";
+        String weak = Passwords.problem(password, name);
+        if (weak != null) return weak;
         if (!password.equals(password2)) return "Пароли не совпадают";
         return null;
     }
@@ -161,24 +172,37 @@ public class WebController {
     @PostMapping("/account/password")
     public String changePassword(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String current,
                                  @RequestParam(defaultValue = "") String password,
-                                 @RequestParam(defaultValue = "") String password2, Model m) {
+                                 @RequestParam(defaultValue = "") String password2, HttpSession session, Model m) {
         String error = null;
-        if (!Passwords.matches(current, repo.user(uid).passwordHash())) error = "Текущий пароль указан неверно";
-        else if (password.length() < MIN_PASSWORD) error = "Новый пароль должен быть не короче " + MIN_PASSWORD + " символов";
-        else if (!password.equals(password2)) error = "Новые пароли не совпадают";
+        // Подбор текущего пароля тоже ограничен: 5 неудачных попыток — блокировка
+        String key = "pw:" + uid;
+        long locked = guard.lockedMinutes(key);
+        if (locked > 0) error = "Слишком много неудачных попыток. Попробуйте через " + locked + " мин.";
+        else if (!Passwords.matches(current, repo.user(uid).passwordHash())) {
+            guard.fail(key, LoginGuard.MAX_FAILS);
+            error = "Текущий пароль указан неверно";
+        } else {
+            error = Passwords.problem(password, repo.user(uid).name());
+            if (error == null && !password.equals(password2)) error = "Новые пароли не совпадают";
+        }
         if (error != null) {
             m.addAttribute("passwordError", error);
             return "account";
         }
+        guard.success(key);
         repo.setPassword(uid, password);
+        // Эта сессия остаётся, остальные сессии пользователя завершатся (хеш пароля изменился)
+        session.setAttribute(SESSION_PW, repo.user(uid).passwordHash());
         return "redirect:/account?passwordChanged";
     }
 
-    /** Вход: новая сессия (защита от подмены сессии) и id пользователя в ней. */
-    private static void signIn(HttpServletRequest request, long uid) {
+    /** Вход: новая сессия (защита от подмены сессии), id пользователя и хеш его пароля в ней. */
+    private void signIn(HttpServletRequest request, long uid) {
         HttpSession old = request.getSession(false);
         if (old != null) old.invalidate();
-        request.getSession(true).setAttribute("uid", uid);
+        HttpSession s = request.getSession(true);
+        s.setAttribute("uid", uid);
+        s.setAttribute(SESSION_PW, repo.user(uid).passwordHash());
     }
 
     // ---------- Коллекции ----------
