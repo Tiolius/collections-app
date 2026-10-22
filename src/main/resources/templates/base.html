@@ -40,6 +40,10 @@
   header .right { display: flex; align-items: center; gap: 18px; }
 
   * { box-sizing: border-box; }
+  /* Шрифты: один шрифт везде (поля, списки и кнопки по умолчанию берут шрифт браузера — наследуем).
+     Размеры: 15px — основной текст, шапка, формы, кнопки; 14px — таблицы и панель над таблицей;
+     крупнее — только заголовки страниц и разделов */
+  input, select, button, textarea { font-family: inherit; font-size: inherit; }
   body { font-family: system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); font-size: 15px; }
   header { background: var(--header-bg); color: #fff; padding: 8px 24px; }
   header { display: flex; align-items: center; justify-content: space-between; }
@@ -49,7 +53,7 @@
   header a.settings { font-weight: normal; opacity: .85; }
   header a.settings:hover { opacity: 1; }
   header .logout { background: none; border: 1px solid rgba(255,255,255,.4); color: #fff; border-radius: 6px;
-                   padding: 0 10px; line-height: 20px; cursor: pointer; font-size: 13px; }
+                   padding: 0 10px; line-height: 20px; cursor: pointer; }
   header .logout:hover { background: rgba(255,255,255,.1); }
   /* Вход и регистрация */
   main.auth { max-width: 520px; margin: 60px auto 0; }
@@ -57,7 +61,7 @@
   main.auth .form { grid-template-columns: 160px 1fr; }
   .error { background: var(--error-bg); color: var(--error-text); padding: 8px 12px; border-radius: 6px; }
   .ok { background: var(--ok-bg); color: var(--ok-text); padding: 8px 12px; border-radius: 6px; }
-  .form input[type=password] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 15px; }
+  .form input[type=password] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; }
   h3.section { margin: 28px 0 10px; }
   /* Вкладки «Настроек» */
   nav.tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 16px; }
@@ -72,7 +76,7 @@
   a { color: var(--link); }
   .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
   .bar .spacer { flex: 1; }
-  .muted, .type { color: var(--muted); font-size: 14px; }
+  .muted, .type { color: var(--muted); }
   .name { font-weight: 600; }
   .empty { color: var(--muted); }
 
@@ -82,8 +86,8 @@
                box-shadow: 0 1px 2px rgba(0,0,0,.08); text-decoration: none; color: inherit; min-width: 0; }
   .list .row:hover { background: var(--hover-accent); }
   .list .row > div { min-width: 0; }
-  .list .name { font-size: 18px; margin-bottom: 4px; }
-  .list .type { font-size: 15px; }
+  .list .name, .list .type { font-size: 16px; }
+  .list .name { margin-bottom: 4px; }
   .list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list .thumb { width: 128px; height: 128px; border-radius: 8px; }
   .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: var(--placeholder); display: block; }
@@ -91,12 +95,13 @@
   /* Страница коллекции: шапка в одну строку, таблица на всю ширину */
   .collhead .thumb { width: 56px; height: 56px; }
   table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-  table.items th, table.items td { padding: 5px 12px; text-align: left; border-top: 1px solid var(--surface-2); font-size: 14px; }
+  table.items { font-size: 14px; }
+  table.items th, table.items td { padding: 5px 12px; text-align: left; border-top: 1px solid var(--surface-2); }
   table.items th { background: var(--surface-2); border-top: none; position: relative; }
   /* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
   table.items thead { position: sticky; top: 0; z-index: 2; }
   table.items tr.filters th { background: var(--surface-3); padding: 4px 6px; border-top: 1px solid var(--line); font-weight: normal; }
-  table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0; font-size: 13px;
+  table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0;
       padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); }
   table.items tr.filters select { min-width: 8em; }
   table.items.fixed tr.filters select { min-width: 0; }
@@ -140,16 +145,16 @@
   .tip { position: relative; cursor: default; }
   .tip.none { color: var(--border); }
   .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
-                  background: var(--tip-bg); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 13px; white-space: nowrap; z-index: 2; }
+                  background: var(--tip-bg); color: #fff; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 2; }
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
 
-  .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: var(--accent); color: #fff; text-decoration: none; cursor: pointer; font-size: 14px; }
+  .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: var(--accent); color: #fff; text-decoration: none; cursor: pointer; line-height: 1.4; }
   .btn.gray { background: #718096; }
   .btn.red { background: #e53e3e; }
   .btn.light { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
   .btn.light:hover { background: var(--surface-2); }
   .btn.back { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; padding: 0; }
-  .btn.small { padding: 3px 10px; font-size: 13px; }
+  .btn.small { padding: 3px 10px; }
   form.inline { display: inline; }
 
   /* Форма: подпись слева, поле справа */
@@ -157,20 +162,20 @@
           display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
   .form > label { font-weight: 600; }
   .form .full { grid-column: 1 / -1; }
-  select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 15px; background: var(--surface); color: var(--text); }
+  select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
   .form select { width: 100%; max-width: 360px; }
-  .pager select { font-size: 14px; padding: 3px 6px; }
-  .form input[type=text], .form input[type=number] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 15px; }
+  .pager select { padding: 3px 6px; }
+  .form input[type=text], .form input[type=number] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; }
   .form input[name=name] { max-width: none; }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; }
   .form > label.top { align-self: start; padding-top: 30px; }
   table.status-colors { border-collapse: collapse; }
-  table.status-colors th { text-align: left; font-weight: normal; color: var(--muted); font-size: 13px; padding: 0 8px 4px 0; }
+  table.status-colors th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
   table.status-colors td { padding: 0 8px 6px 0; }
   table.status-colors input[type=text] { width: 260px; }
   .form input[type=color] { width: 48px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
-  .hint { font-size: 13px; margin-top: 2px; max-width: 560px; }
-  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 10px; font-size: 13px; border: 1px solid rgba(0,0,0,.08); color: #1a202c; }
+  .hint { margin-top: 2px; max-width: 560px; }
+  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 10px; border: 1px solid rgba(0,0,0,.08); color: #1a202c; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; border-radius: 6px; }
 
   @media (max-width: 700px) {
