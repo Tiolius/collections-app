@@ -74,11 +74,13 @@
   /* Шапка той же ширины, что и белая область страницы (main, до 1500px по центру): кнопки справа заканчиваются
      ровно на её правой границе, и вертикальная линия идёт из шапки вниз без излома */
   header { display: flex; align-items: center; justify-content: space-between; height: 34px;
-           padding-left: max(12px, calc((100% - 1500px) / 2 + 24px)); padding-right: max(0px, calc((100% - 1500px) / 2));
+           padding: 0 max(0px, calc((100% - 1500px) / 2));
            background: linear-gradient(var(--bar-from), var(--bar-to)); border-bottom: 1px solid var(--bar-border); color: var(--text); }
   header a { color: inherit; text-decoration: none; }
   header a:hover { text-decoration: none; }
-  header .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: bold; }
+  /* Логотип — ячейка с линиями слева (по левой границе белой области) и справа, как у кнопок справа */
+  header .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: bold; height: 100%; padding: 0 14px 0 24px;
+                 border-left: 1px solid var(--bar-sep); border-right: 1px solid var(--bar-sep); }
   header .logo .mi { color: var(--orange); }
   /* Логотип — книги на полке (контурная иконка, рисуется линией, а не заливкой) */
   header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
@@ -347,6 +349,8 @@
     main.settings > nav.tabs { grid-row: auto; margin-bottom: 14px; }
     main.settings > :not(:first-child):not(nav.tabs) { grid-column: 1; }
     main { padding: 12px; border: none; }
+    header .logo { padding-left: 12px; border-left: none; }  /* на телефоне у страницы нет боковых линий */
+    header .right { border-right: none; }
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span { display: none; }
@@ -392,7 +396,7 @@
   <script>
     // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
     (function () {
-      var items = document.querySelectorAll('header .right .user, header .right a.settings, header .right .theme, header .right .logout');
+      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.settings, header .right .theme, header .right .logout');
       function fit() {
         items.forEach(function (e) { e.style.width = ''; });
         items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });
