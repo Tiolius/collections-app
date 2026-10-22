@@ -86,6 +86,16 @@ public class WebController {
         return "account";
     }
 
+    /** Версия приложения (из pom.xml, см. app.version в application.properties). */
+    @org.springframework.beans.factory.annotation.Value("${app.version}")
+    private String appVersion;
+
+    @GetMapping("/about")
+    public String about(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("appVersion", appVersion);
+        return "about";
+    }
+
     @GetMapping("/users")
     public String users(@SessionAttribute("uid") long uid, Model m) {
         requireAdmin(uid);

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main>
+  <th:block th:replace="~{base :: settingsHead('about')}"></th:block>
+  <form autocomplete="off" class="form" onsubmit="return false">
+    <label for="f-version">Версия</label>
+    <input autocomplete="off" id="f-version" type="text" readonly th:value="${appVersion}">
+  </form>
+</main>
+</body>
+</html>

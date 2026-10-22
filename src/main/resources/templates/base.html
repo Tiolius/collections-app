@@ -209,6 +209,10 @@
       outline: none; border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
   .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
   .form input[name=name] { max-width: none; }
+  /* Поле только для чтения (M3 disabled-вид без серого текста) */
+  input[readonly] { background: var(--surface-mid); border-color: var(--outline-variant); cursor: default; }
+  input[readonly]:hover { border-color: var(--outline-variant); }
+  input[readonly]:focus { box-shadow: none; border-color: var(--outline); }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: 400; }
   .form > label.top { align-self: start; padding-top: 30px; }
   table.status-colors { border-collapse: collapse; }
@@ -263,6 +267,7 @@
     <a href="/kinds" th:classappend="${active == 'kinds'} ? 'active'">Типы коллекций</a>
     <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
+    <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>
   </nav>
 </th:block>
 </body>
