@@ -251,7 +251,20 @@
   dialog.modal .form { border: none; max-width: none; grid-template-columns: 160px 1fr; }
   .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); color: #222; line-height: 18px; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
-  dialog.modal .preview { max-width: 320px; max-height: 240px; }
+  /* Окно объекта с картинкой: картинка 800×600 слева (вписана целиком), поля справа */
+  dialog.modal.wide { width: fit-content; }
+  dialog.modal .dlg-body { display: flex; align-items: flex-start; }
+  dialog.modal .dlg-body > .form { flex: 1; }
+  dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; }
+  dialog.modal .dlg-image { padding: 16px 0 16px 24px; display: grid; gap: 8px; }
+  dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; height: auto;
+                                object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
+  @media (max-width: 1100px) {
+    dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
+    dialog.modal.wide .dlg-body > .form { flex: none; }
+    dialog.modal .dlg-image { padding: 16px 16px 0; }
+    dialog.modal .dlg-image img { width: 100%; }
+  }
   /* Импорт: прогресс */
   .import-box { border: 1px solid var(--border); background: var(--form-bg); padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 900px; }
   .import-box progress { width: 100%; height: 16px; accent-color: var(--blue); }
@@ -317,7 +330,14 @@
       <span id="item-dialog-title">Редактировать объект</span>
       <button type="button" class="icon" data-close title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
     </div>
-    <form autocomplete="off" class="form" method="post" enctype="multipart/form-data">
+    <form autocomplete="off" method="post" enctype="multipart/form-data">
+    <div class="dlg-body">
+      <!-- Картинка объекта (если есть): слева, в области 800×600, целиком без обрезки -->
+      <div id="d-image" class="dlg-image" hidden>
+        <a target="_blank" title="Открыть в полном размере"><img alt=""></a>
+        <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+      </div>
+    <div class="form">
       <input type="hidden" name="view" th:value="${view}">
       <label for="d-name">Название *</label>
       <input autocomplete="off" id="d-name" type="text" name="name" required>
@@ -337,18 +357,14 @@
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
-      <label class="at-field">Картинка</label>
-      <div>
-        <div id="d-image" hidden>
-          <a target="_blank" title="Открыть в полном размере"><img class="preview" alt=""></a>
-          <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
-        </div>
-        <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
-      </div>
+      <label for="d-file">Картинка</label>
+      <input id="d-file" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
       <div class="full">
         <button class="btn">Сохранить</button>
         <button type="button" class="btn gray" data-close>Отмена</button>
       </div>
+    </div>
+    </div>
     </form>
   </dialog>
 <script>
@@ -368,6 +384,7 @@
         // Картинка: показываем текущую (если есть), поле выбора файла и галочку удаления — сброшены
         var box = document.getElementById('d-image'), url = '/items/' + row.dataset.id + '/image';
         box.hidden = !row.dataset.image;
+        dlg.classList.toggle('wide', !!row.dataset.image); // с картинкой окно шире: картинка слева, поля справа
         if (row.dataset.image) { box.querySelector('img').src = url + '?t=' + Date.now(); box.querySelector('a').href = url; }
         form.elements.image.value = '';
         form.elements.remove_image.checked = false;
