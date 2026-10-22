@@ -66,10 +66,16 @@
     <select id="page-size" name="size" form="filter-form" onchange="this.form.requestSubmit()">
       <option th:each="s : ${sizes}" th:value="${s}" th:text="${s}" th:selected="${s == size}"></option>
     </select>
-    <button type="button" class="btn light small" id="reset-widths" title="Вернуть исходную ширину столбцов">Сбросить ширину столбцов</button>
+    <!-- После «На странице»: сбросить ширину столбцов и сбросить фильтры -->
+    <span class="pager-tools">
+      <button type="button" class="icon" id="reset-widths" title="Сбросить ширину столбцов" aria-label="Сбросить ширину столбцов"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M140-160q-24.75 0-42.37-17.63Q80-195.25 80-220v-520q0-24.75 17.63-42.38Q115.25-800 140-800h680q24.75 0 42.38 17.62Q880-764.75 880-740v520q0 24.75-17.62 42.37Q844.75-160 820-160H140Zm0-60h187v-520H140v520Zm247 0h186v-520H387v520Zm246 0h187v-520H633v520Zm-246 0v-520 520Z"/></svg></button>
+      <a th:unless="${filters.isEmpty()}" class="icon" title="Сбросить фильтры" aria-label="Сбросить фильтры"
+           th:href="|?sort=${sort}&dir=${dir}&size=${size}${modeQs}|"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></a>
+      <span th:if="${filters.isEmpty()}" class="icon disabled" title="Фильтры не заданы" aria-label="Фильтры не заданы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></span>
+    </span>
   </div>
 
-  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '')}">
+  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '') + ':pic'}">
     <thead><tr class="head">
       <th th:each="col : ${cols}" th:class="${col.css()}">
         <a class="sort" th:title="${col.key() == 'price' ? 'Сортировать по цене' : null}"
@@ -77,6 +83,8 @@
            th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
         <span class="grip" title="Потяните, чтобы изменить ширину"></span>
       </th>
+      <!-- Картинка: иконка у объектов, у которых она есть -->
+      <th class="pic-col" title="Картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></th>
       <th class="actions"></th>
     </tr>
     <tr class="filters">
@@ -96,11 +104,8 @@
                  autocomplete="off" th:value="${filters.get('price_max')}" th:classappend="${filters.containsKey('price_max')} ? 'active'">
         </div>
       </th>
-      <th class="actions">
-        <a th:unless="${filters.isEmpty()}" class="icon" title="Сбросить фильтры" aria-label="Сбросить фильтры"
-           th:href="|?sort=${sort}&dir=${dir}&size=${size}${modeQs}|"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></a>
-        <span th:if="${filters.isEmpty()}" class="icon disabled" title="Фильтры не заданы" aria-label="Фильтры не заданы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></span>
-      </th>
+      <th class="pic-col"></th>
+      <th class="actions"></th>
     </tr></thead>
     <tbody><th:block th:each="it : ${items}" th:with="grp=${groupStarts.contains(it.id()) ? 'gstart' : null}">
     <tr th:fragment="itemRow" th:class="${grp}"
@@ -108,7 +113,8 @@
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
                th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-image="${it.hasImage() ? '1' : null}">
-      <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
+      <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
+      <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
       <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
       <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
       <td th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
@@ -120,10 +126,8 @@
           <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>
         </span>
       </td>
+      <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" title="Есть картинка" aria-label="Есть картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></span></td>
       <td class="actions">
-        <a class="icon edit-item" title="Изменить" aria-label="Изменить" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}">
-          <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg>
-        </a>
         <form autocomplete="off" class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
               onsubmit="return confirm('Удалить объект?')">
           <input type="hidden" name="view" th:value="${view}">
@@ -134,7 +138,7 @@
       </td>
     </tr>
     </th:block>
-    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 1}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
+    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 2}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
     </tbody>
   </table>
   </th:block>
