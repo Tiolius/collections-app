@@ -268,6 +268,7 @@
           display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
   .form > label { font-weight: bold; color: var(--label); }
   .form .full { grid-column: 1 / -1; }
+  .form .full.split { display: flex; justify-content: space-between; align-items: center; }  /* кнопки по краям формы */
   input[type=text], input[type=number], input[type=password], input[type=search], select {
       height: 26px; padding: 0 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); }
   input[type=text]:focus, input[type=number]:focus, input[type=password]:focus, input[type=search]:focus, select:focus {

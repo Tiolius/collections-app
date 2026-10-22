@@ -104,7 +104,7 @@
       <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
              th:placeholder="${discogsReady ? 'сохранён: …' + discogsTokenEnd + ' (введите новый, чтобы заменить)' : 'не задан'}">
     </div>
-    <div class="full">
+    <div class="full split">  <!-- «Сохранить» слева, «Удалить токен» — у правого края формы -->
       <button class="btn">Сохранить</button>
       <button class="btn light danger" name="delete" value="true" th:if="${discogsReady}" formnovalidate>Удалить токен</button>
     </div>
