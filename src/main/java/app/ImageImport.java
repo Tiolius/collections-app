@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
  * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg),
  * описание — краткое описание игры (по-русски, если есть).
  * Discogs: картинка — обложка, описание — поле Notes альбома (главной версии, иначе её основного издания).
+ * FantLab (книги): название объекта — «Автор - Название» или просто «Название»; картинка — обложка, описание — аннотация.
  * Discogs: название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы, картинка — обложка.
  * Импорт идёт в фоне, по одному на всё приложение (лимиты сервисов — на адрес, а не на пользователя):
  * запросы к API не чаще заданного интервала, при отказе сервиса (429/403/5xx) — пауза и повтор.
@@ -33,12 +34,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class ImageImport {
 
-    public static final String STEAM = "steam", DISCOGS = "discogs";
+    public static final String STEAM = "steam", DISCOGS = "discogs", FANTLAB = "fantlab";
     /** Источники: ключ → название для страницы. */
     public static final Map<String, String> SOURCES = new LinkedHashMap<>();
     static {
         SOURCES.put(STEAM, "Steam");
         SOURCES.put(DISCOGS, "Discogs");
+        SOURCES.put(FANTLAB, "FantLab");
     }
 
     /** Паузы между запросами к API, мс: Steam — около 200 за 5 минут, Discogs — до 60 в минуту с токеном. */
@@ -46,6 +48,9 @@ public class ImageImport {
     private long steamIntervalMs;
     @Value("${discogs.api-interval-ms:1100}")
     private long discogsIntervalMs;
+    /** FantLab просит не чаще раза в 1,2 с (Crawl-delay в robots.txt). */
+    @Value("${fantlab.api-interval-ms:1200}")
+    private long fantlabIntervalMs;
     /** Пауза, если сервис ограничил запросы, мс, и сколько раз подряд её делать. */
     @Value("${import.throttle-pause-ms:60000}")
     private long throttlePauseMs;
@@ -61,6 +66,11 @@ public class ImageImport {
     private String discogsUrl;
     @Value("${discogs.token:}")
     private String discogsToken;
+    @Value("${fantlab.api-url:https://api.fantlab.ru}")
+    private String fantlabUrl;
+    /** Сайт FantLab: пути к обложкам в ответах API — относительно него. */
+    @Value("${fantlab.site-url:https://fantlab.ru}")
+    private String fantlabSite;
     @Value("${app.version}")
     private String appVersion;
 
@@ -171,7 +181,11 @@ public class ImageImport {
                 job.current = item.name();
                 try {
                     boolean img = needImage(job, item, onlyMissing), descr = needDescription(job, item, onlyMissing);
-                    Found f = job.source.equals(DISCOGS) ? findDiscogs(job, item.name(), img, descr) : findSteam(job, item.name(), img, descr);
+                    Found f = switch (job.source) {
+                        case DISCOGS -> findDiscogs(job, item.name(), img, descr);
+                        case FANTLAB -> findFantlab(job, item.name(), img, descr);
+                        default -> findSteam(job, item.name(), img, descr);
+                    };
                     if (f == null) {
                         job.notFound++;
                     } else {
@@ -345,6 +359,84 @@ public class ImageImport {
         return t.isEmpty() ? null : t;
     }
 
+    // ---------- FantLab ----------
+
+    /** Книга: «Автор - Книга» (как у дисков; автор проверяется), без « - » — просто «Название». null — не найдена. */
+    private Found findFantlab(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
+        String[] at = artistAlbum(name);
+        return at != null ? findFantlabWork(job, at[0], at[1], wantImage, wantDescription)
+                : findFantlabWork(job, null, name.trim(), wantImage, wantDescription);
+    }
+
+    private Found findFantlabWork(Job job, String author, String title, boolean wantImage, boolean wantDescription) throws Exception {
+        if (norm(title).isEmpty()) return null;
+        JsonNode res = api(job, fantlabUrl + "/search-works?page=1&q=" + enc(title));
+        if (res == null) return null;
+        // Произведения с тем же названием (русским или оригинальным) и, если указан, тем же автором — от самого популярного
+        // (по числу оценок): иначе вместо романа можно получить одноимённый сценарий или цикл
+        List<JsonNode> matches = new java.util.ArrayList<>();
+        for (JsonNode w : res.path("matches")) {
+            // Название: русское, оригинальное или одно из альтернативных переводов («Основание» = «Академия» Азимова)
+            boolean sameTitle = norm(w.path("rusname").asText("")).equals(norm(title)) || norm(w.path("name").asText("")).equals(norm(title));
+            for (String alt : w.path("altname").asText("").split(";"))
+                sameTitle |= !alt.isBlank() && norm(alt).equals(norm(title));
+            if (sameTitle && (author == null || sameAuthor(author, w.path("all_autor_rusname").asText("") + " " + w.path("all_autor_name").asText(""))))
+                matches.add(w);
+        }
+        matches.sort(java.util.Comparator.comparingLong((JsonNode w) -> w.path("markcount").asLong()).reversed());
+        for (JsonNode w : matches) {
+            JsonNode work = api(job, fantlabUrl + "/work/" + w.path("work_id").asLong());
+            if (work == null) continue;
+            long workId = w.path("work_id").asLong();
+            String image = work.path("image").asText("");
+            byte[] img = null;
+            if (wantImage) {
+                if (image.isEmpty()) image = editionCover(job, workId); // своей обложки нет — обложка одного из изданий
+                if (image != null && !image.isEmpty()) img = download(image.startsWith("/") ? fantlabSite + image : image);
+            }
+            String descr = wantDescription ? cleanFantlab(work.path("work_description").asText("")) : null;
+            if (img == null && descr == null) continue;
+            return new Found(img, descr);
+        }
+        return null;
+    }
+
+    /** Обложка из списка изданий (расширенная карточка): первое издание с картинкой, русское — в первую очередь; или null. */
+    private String editionCover(Job job, long workId) throws Exception {
+        JsonNode ext = api(job, fantlabUrl + "/work/" + workId + "/extended");
+        if (ext == null) return null;
+        long any = 0;
+        for (JsonNode block : ext.path("editions_blocks"))
+            for (JsonNode e : block.path("list")) {
+                if (e.path("pic_num").asInt() <= 0 || e.path("edition_id").asLong() <= 0) continue;
+                if ("ru".equals(e.path("lang_code").asText())) return "/images/editions/big/" + e.path("edition_id").asLong();
+                if (any == 0) any = e.path("edition_id").asLong();
+            }
+        return any == 0 ? null : "/images/editions/big/" + any;
+    }
+
+    /**
+     * Тот же автор: каждое слово из написанного пользователем совпадает началом (до 5 букв) со словом в именах авторов FantLab —
+     * «Стругацкие», «Стругацкий» и «Аркадий и Борис Стругацкие» подходят друг к другу.
+     */
+    static boolean sameAuthor(String given, String fantlabNames) {
+        List<String> names = List.of(norm(fantlabNames).split(" "));
+        for (String w : norm(given).split(" ")) {
+            if (w.length() < 2) continue;
+            String stem = w.substring(0, Math.min(5, w.length()));
+            if (names.stream().noneMatch(n -> n.startsWith(stem))) return false;
+        }
+        return true;
+    }
+
+    /** Аннотация FantLab без их разметки ([b], [i], [url=…], [spoiler] и т. п. — остаётся текст); пустая — null. */
+    static String cleanFantlab(String s) {
+        String t = s.replaceAll("\\[/?[a-zA-Z]+(=[^\\]]*)?\\]", "")
+                .replace("\r\n", "\n").replaceAll("[ \\t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();
+        if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
+        return t.isEmpty() ? null : t;
+    }
+
     /** «Группа - Альбом» → [группа, альбом] по первому « - » (или « – », « — »); иначе null. */
     static String[] artistAlbum(String s) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\s+[-–—]\\s+").matcher(s);
@@ -368,7 +460,8 @@ public class ImageImport {
     private JsonNode api(Job job, String url) throws Exception {
         boolean discogs = job.source.equals(DISCOGS);
         // Discogs без токена — 25 запросов в минуту
-        long interval = discogs ? (discogsReady() ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500)) : steamIntervalMs;
+        long interval = discogs ? (discogsReady() ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500))
+                : job.source.equals(FANTLAB) ? fantlabIntervalMs : steamIntervalMs;
         for (int attempt = 0; ; attempt++) {
             synchronized (lastCall) {
                 long wait = lastCall.getOrDefault(job.source, 0L) + interval - System.currentTimeMillis();
@@ -403,8 +496,9 @@ public class ImageImport {
         URI u = URI.create(url);
         String host = u.getHost() == null ? "" : u.getHost();
         boolean known = "https".equals(u.getScheme()) && (host.endsWith(".steamstatic.com")
-                || host.endsWith(".steampowered.com") || host.endsWith(".discogs.com"));
-        if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/")) return null;
+                || host.endsWith(".steampowered.com") || host.endsWith(".discogs.com")
+                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru"));
+        if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")) return null;
         HttpResponse<byte[]> r = http.send(HttpRequest.newBuilder(u).timeout(Duration.ofSeconds(30))
                 .header("User-Agent", "CollectionsApp/" + appVersion).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();
