@@ -164,9 +164,9 @@
   .collhead .thumb { width: 56px; height: 56px; }
   .pages { display: inline-flex; align-items: center; }
   .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
-                       margin-left: -1px; border: 1px solid var(--line); color: var(--orange); font-weight: normal; }
+                       margin-left: -1px; border: 1px solid var(--line); color: var(--link); font-weight: normal; }
   .pages a:hover { background: var(--hover); text-decoration: none; }
-  .pages b { background: var(--orange); border-color: var(--orange); color: var(--on-orange); }
+  .pages b { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
   .pages .muted { padding: 0 4px; }
   .pager select { height: 24px; }
 
@@ -225,6 +225,11 @@
   table.items.fixed td.actions { overflow: visible; }
   /* Цена: иконка глаза, сама цена — в подсказке */
   table.items th.eye, table.items td.eye { text-align: center; }
+  /* Наличие: галочка — есть, крестик (бледный) — нет */
+  table.items th.flag, table.items td.flag { text-align: center; }
+  table.items td.flag .avail { display: inline-flex; vertical-align: middle; }
+  table.items td.flag .avail.yes { color: var(--link); }
+  table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
   /* Колонка «есть картинка»: узкая, иконка по центру */
   table.items th.pic-col, table.items td.pic-col { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
   table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
@@ -233,9 +238,10 @@
   table.items td.pic-col .mi { width: 16px; height: 16px; }
   table.items.fixed td.eye { overflow: visible; }
   .tip { position: relative; cursor: default; }
-  .tip.none { opacity: .45; }
+  .tip.none > svg { opacity: .45; }  /* бледная только иконка: подсказка остаётся непрозрачной */
   .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
-                  background: var(--tip-bg); color: var(--tip-text); padding: 2px 8px; white-space: nowrap; z-index: 3; line-height: 20px; }
+                  background: var(--tip-bg); color: var(--tip-text); padding: 2px 8px; white-space: nowrap; z-index: 3; line-height: 20px;
+                  font-weight: normal; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
   .tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
   .icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
@@ -283,7 +289,11 @@
   .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid var(--line); color: var(--swatch-text); line-height: 18px; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
   /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
-  dialog.modal.wide { width: fit-content; }
+  /* Ширина окна задаётся от картинки (поля 480px + картинка + кнопки и отступы), а не по содержимому:
+     если чему-то не хватит места, ужмётся картинка, а окно не будет прокручиваться вбок */
+  dialog.modal.wide { width: min(calc(100vw - 32px), calc(var(--pic-w) + 560px)); overflow-x: hidden; }
+  /* Ширина области картинки (4:3): до 800px, но так, чтобы окно помещалось на экране без прокрутки */
+  dialog.modal { --pic-w: min(800px, calc(100vw - 600px), calc((100vh - 190px) * 4 / 3)); }
   dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 4px; padding: 10px 24px;
                            border-top: 1px solid var(--border); background: var(--panel); }
   dialog.modal .pic { display: block; cursor: pointer; }
@@ -296,7 +306,7 @@
   dialog.modal .dlg-image [hidden] { display: none !important; }
   /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
   dialog.modal .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-                           width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
+                           width: 100%; aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
                            background: var(--panel); border: 2px dashed var(--border); }
   dialog.modal .no-image .mi { width: 96px; height: 96px; opacity: .6; }
   dialog.modal .no-image b { color: var(--text); }
@@ -308,8 +318,9 @@
   dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
   dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
   dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
-  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: auto auto; align-items: start; gap: 8px; }
-  dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; height: auto;
+  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
+                          justify-content: center; align-items: start; gap: 8px; flex: 1 1 auto; min-width: 0; }
+  dialog.modal .dlg-image img { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
@@ -374,6 +385,18 @@
       </button>
     </form>
   </div>
+  <script>
+    // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
+    (function () {
+      var items = document.querySelectorAll('header .right .user, header .right a.settings, header .right .theme, header .right .logout');
+      function fit() {
+        items.forEach(function (e) { e.style.width = ''; });
+        items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });
+      }
+      fit();
+      addEventListener('resize', fit);
+    })();
+  </script>
 </header>
 
 <!-- Подсказка под полем нового пароля (требования — Passwords.problem) -->
@@ -438,11 +461,19 @@
       </th:block>
       <th:block th:if="${fields.contains('status')}">
         <label for="d-status">Статус прохождения</label>
-        <input autocomplete="off" id="d-status" type="text" name="status">
+        <select id="d-status" name="status">
+          <option value="">—</option>
+          <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+        </select>
       </th:block>
       <th:block th:if="${fields.contains('price')}">
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
+      </th:block>
+      <th:block th:if="${fields.contains('available')}">
+        <label for="d-available">Наличие</label>
+        <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
+        <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
       </th:block>
       <label for="d-description">Описание</label>
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
@@ -496,6 +527,18 @@
         ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
+        // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
+        var st = document.getElementById('d-status');
+        if (st) {
+          st.querySelectorAll('option.legacy').forEach(function (o) { o.remove(); });
+          var v = row.dataset.status || '';
+          if (!Array.prototype.some.call(st.options, function (o) { return o.value === v; })) {
+            var o = new Option(v, v); o.className = 'legacy'; st.add(o);
+          }
+          st.value = v;
+        }
+        var avail = document.getElementById('d-available');
+        if (avail) avail.checked = row.dataset.available === '1';
         // Картинка: текущая (если есть) или заглушка; выбор файла и пометка удаления — сброшены
         current = row.dataset.image ? '/items/' + row.dataset.id + '/image' : null;
         currentSrc = current && current + '?t=' + Date.now();

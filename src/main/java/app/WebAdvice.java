@@ -25,6 +25,12 @@ public class WebAdvice {
     }
 
     /** Вошедший пользователь (или null) — для шапки страниц и прав администратора в шаблонах. */
+    /** Значения статуса прохождения для выпадающих списков. */
+    @ModelAttribute("statuses")
+    public java.util.List<String> statuses() {
+        return Repo.STATUSES;
+    }
+
     @ModelAttribute("currentUser")
     public Repo.User currentUser(HttpSession session) {
         return session.getAttribute("uid") instanceof Long uid ? repo.user(uid) : null;

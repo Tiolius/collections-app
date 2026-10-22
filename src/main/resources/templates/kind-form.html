@@ -26,16 +26,24 @@
       <table class="status-colors">
         <tr><th>Статус</th><th>Цвет</th></tr>
         <tr th:each="e : ${statusColors}">
-          <td><input autocomplete="off" type="text" name="st" th:value="${e.key}"></td>
+          <td><select name="st">
+            <option value="">—</option>
+            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${#strings.equalsIgnoreCase(s, e.key)}"></option>
+            <!-- старое значение не из списка — отдельным пунктом -->
+            <option th:if="${!#lists.contains(statusesLower, #strings.toLowerCase(e.key))}" th:value="${e.key}" th:text="${e.key}" selected></option>
+          </select></td>
           <td><input type="color" name="stc" th:value="${e.value}"></td>
         </tr>
         <tr th:each="i : ${emptyRows}">
-          <td><input autocomplete="off" type="text" name="st" placeholder="статус"></td>
+          <td><select name="st">
+            <option value="">—</option>
+            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+          </select></td>
           <td><input type="color" name="stc" value="#fefcbf"></td>
         </tr>
       </table>
-      <div class="muted hint">Строки объектов с этим статусом закрашиваются выбранным цветом (регистр букв не важен).
-        Чтобы убрать цвет, очистите статус. Нужно больше строк — сохраните, и появятся новые пустые.
+      <div class="muted hint">Строки объектов с этим статусом закрашиваются выбранным цветом.
+        Чтобы убрать цвет, выберите «—».
         Работает, если у типа отмечено поле «Статус прохождения».</div>
     </div>
 

@@ -42,12 +42,24 @@
 
     <th:block th:if="${isItem and fields.contains('status')}">
       <label for="f-status">Статус прохождения</label>
-      <input autocomplete="off" id="f-status" type="text" name="status" th:value="${obj != null ? obj.status() : ''}">
+      <select id="f-status" name="status" th:with="cur=${obj != null and obj.status() != null ? obj.status() : ''}">
+        <option value="">—</option>
+        <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${s == cur}"></option>
+        <!-- старое значение не из списка — отдельным пунктом, чтобы не потерялось -->
+        <option th:if="${!cur.isEmpty() and !statuses.contains(cur)}" th:value="${cur}" th:text="${cur}" selected></option>
+      </select>
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('price')}">
       <label for="f-price">Цена (₽)</label>
       <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
+    </th:block>
+
+    <th:block th:if="${isItem and fields.contains('available')}">
+      <label for="f-available">Наличие</label>
+      <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме»; у нового объекта — отмечена -->
+      <span><input type="hidden" name="available" value="0"><label class="radio"><input id="f-available" type="checkbox" name="available" value="1"
+             th:checked="${obj == null or obj.available()}"> есть</label></span>
     </th:block>
 
     <th:block th:if="${isItem}">

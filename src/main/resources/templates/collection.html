@@ -98,6 +98,12 @@
           <option th:each="v : ${filterOptions.get(col.key())}" th:value="${v}" th:text="${v}"
                   th:selected="${v == filters.get(col.key())}"></option>
         </select>
+        <select th:if="${col.key() == 'available'}" name="f_available" form="filter-form"
+                onchange="this.form.requestSubmit()" th:classappend="${filters.containsKey('available')} ? 'active'">
+          <option value="">Все</option>
+          <option value="1" th:selected="${filters.get('available') == '1'}">Есть</option>
+          <option value="0" th:selected="${filters.get('available') == '0'}">Нет</option>
+        </select>
         <div th:if="${col.key() == 'price'}" class="range">
           <input type="number" name="f_price_min" form="filter-form" min="0" step="1" placeholder="от" title="Цена от (Enter — применить)"
                  autocomplete="off" th:value="${filters.get('price_min')}" th:classappend="${filters.containsKey('price_min')} ? 'active'">
@@ -112,7 +118,7 @@
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
-               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-image="${it.hasImage() ? '1' : null}">
+               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-available="${it.available() ? '1' : '0'}" th:data-image="${it.hasImage() ? '1' : null}">
       <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
       <td class="c-platform" th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
@@ -125,6 +131,10 @@
           <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
           <span class="tiptext" th:text="${it.price() == null ? 'Цена не указана' : 'Цена: ' + it.price() + ' ₽'}"></span>
         </span>
+      </td>
+      <td class="flag c-available" th:if="${fields.contains('available')}">
+        <span th:if="${it.available()}" class="avail yes" title="Есть" aria-label="Есть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg></span>
+        <span th:unless="${it.available()}" class="avail no" title="Нет" aria-label="Нет"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></span>
       </td>
       <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" title="Есть картинка" aria-label="Есть картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></span></td>
     </tr>

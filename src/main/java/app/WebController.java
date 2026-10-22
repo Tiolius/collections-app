@@ -196,7 +196,7 @@ public class WebController {
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
-                widths.add(f.equals("price") ? 12 : 22);
+                widths.add(f.equals("price") || f.equals("available") ? 12 : 22);
             }
             headers.add("Описание");
             widths.add(80);
@@ -210,6 +210,7 @@ public class WebController {
                         case "format" -> it.format();
                         case "status" -> it.status();
                         case "price" -> it.price();
+                        case "available" -> it.available() ? "Есть" : "Нет";
                         default -> null;
                     });
                 row.add(it.description());
@@ -388,6 +389,7 @@ public class WebController {
                              @RequestParam(name = "f_status", required = false) String fStatus,
                              @RequestParam(name = "f_price_min", required = false) String fPriceMin,
                              @RequestParam(name = "f_price_max", required = false) String fPriceMax,
+                             @RequestParam(name = "f_available", required = false) String fAvailable,
                              @RequestParam(defaultValue = "false") boolean dups) {
         Entry c = repo.collection(uid, id);
         Set<String> fields = repo.itemFields(uid, c.kind());
@@ -402,6 +404,7 @@ public class WebController {
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
         if (fields.contains("price")) cols.add(showPrices ? new Col("price", "Цена", "num") : new Col("price", "₽", "eye"));
+        if (fields.contains("available")) cols.add(new Col("available", "Наличие", "flag"));
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
@@ -419,6 +422,9 @@ public class WebController {
             putPriceFilter(filters, "price_min", fPriceMin);
             putPriceFilter(filters, "price_max", fPriceMax);
         }
+        // Наличие: «1» — есть, «0» — нет
+        if (fields.contains("available") && ("1".equals(fAvailable) || "0".equals(fAvailable)))
+            filters.put("available", fAvailable);
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
@@ -564,11 +570,12 @@ public class WebController {
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
+                             @RequestParam(required = false) List<String> available,
                              @RequestParam(required = false) MultipartFile image,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false, description);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), image, false, description);
         return "redirect:/collections/" + cid;
     }
 
@@ -587,14 +594,23 @@ public class WebController {
                            @RequestParam(required = false) String format,
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
+                           @RequestParam(required = false) List<String> available,
                            @RequestParam(required = false) MultipartFile image,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(required = false) String description,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                image, removeImage != null, description);
+                available(available), image, removeImage != null, description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /**
+     * Галочка «Наличие»: в форме перед ней скрытое поле available=0, отмеченная галочка добавляет available=1.
+     * Нет ни одного значения — поля нет в форме, наличие не меняется.
+     */
+    private static Boolean available(List<String> values) {
+        return values == null ? null : values.contains("1");
     }
 
     /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */
@@ -658,13 +674,15 @@ public class WebController {
         return "redirect:/kinds";
     }
 
-    /** Сколько пустых строк «статус — цвет» добавлять в форму типа. */
-    private static final int EMPTY_STATUS_ROWS = 3;
-
     private String kindForm(long uid, Model m, Kind kind, String title) {
+        Map<String, String> colors = kind == null ? Map.of() : kind.statusColors();
         m.addAttribute("kind", kind);
-        m.addAttribute("statusColors", kind == null ? Map.of() : kind.statusColors());
-        m.addAttribute("emptyRows", IntStream.range(0, EMPTY_STATUS_ROWS).boxed().toList());
+        m.addAttribute("statusColors", colors);
+        // пустые строки «статус — цвет»: по одной на каждый статус из списка, у которого ещё нет цвета
+        List<String> lower = Repo.STATUSES.stream().map(s -> s.toLowerCase(java.util.Locale.ROOT)).toList();
+        long colored = colors.keySet().stream().filter(s -> lower.contains(s.toLowerCase(java.util.Locale.ROOT))).count();
+        m.addAttribute("statusesLower", lower);
+        m.addAttribute("emptyRows", IntStream.range(0, (int) Math.max(0, Repo.STATUSES.size() - colored)).boxed().toList());
         m.addAttribute("fieldNames", Repo.FIELDS);
         m.addAttribute("title", title);
         return "kind-form";

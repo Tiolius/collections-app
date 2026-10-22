@@ -29,7 +29,8 @@ public class Repo {
     private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price, "
             + "EXISTS (SELECT 1 FROM item_images ii WHERE ii.item_id = items.id) AS has_image, "
-            + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description";
+            + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description, "
+            + "NOT EXISTS (SELECT 1 FROM item_absent a WHERE a.item_id = items.id) AS available";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -48,7 +49,11 @@ public class Repo {
         FIELDS.put("format", "Формат");
         FIELDS.put("status", "Статус прохождения");
         FIELDS.put("price", "Цена");
+        FIELDS.put("available", "Наличие"); // не столбец items: отметки «нет» — в таблице item_absent
     }
+
+    /** Значения поля «Статус прохождения» (выпадающий список); пусто — статус не указан. */
+    public static final List<String> STATUSES = List.of("Completed", "Unfinished");
 
     private final JdbcTemplate jdbc;
 
@@ -68,7 +73,8 @@ public class Repo {
                 isItem ? rs.getString("format") : null,
                 isItem ? rs.getString("status") : null,
                 isItem ? price(rs) : null,
-                isItem ? rs.getString("description") : null);
+                isItem ? rs.getString("description") : null,
+                isItem ? rs.getBoolean("available") : null);
     }
 
     /** Цена или null (getObject(.., Integer.class) драйвер SQLite не умеет для NULL). */
@@ -261,10 +267,10 @@ public class Repo {
     /** Начальные типы коллекций нового пользователя: название → поля. */
     private static final Map<String, String> DEFAULT_KINDS = new LinkedHashMap<>();
     static {
-        DEFAULT_KINDS.put("Игры (диски)", "status,price");
-        DEFAULT_KINDS.put("Игры (цифровые)", "platform,format,status,price");
-        DEFAULT_KINDS.put("Книги", "price");
-        DEFAULT_KINDS.put("Музыка (диски)", "price");
+        DEFAULT_KINDS.put("Игры (диски)", "status,price,available");
+        DEFAULT_KINDS.put("Игры (цифровые)", "platform,format,status,price,available");
+        DEFAULT_KINDS.put("Книги", "price,available");
+        DEFAULT_KINDS.put("Музыка (диски)", "price,available");
     }
 
     /** Создаёт пользователя с начальными типами коллекций. Возвращает id. */
@@ -305,7 +311,8 @@ public class Repo {
 
     /** Поля, по которым можно сортировать объекты: ключ из URL → столбец. */
     public static final Map<String, String> ITEM_SORT = Map.of(
-            "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price");
+            "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price",
+            "available", "available");
 
     /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
     public long totalPrice(long collectionId) {
@@ -328,7 +335,7 @@ public class Repo {
     public List<Entry> items(long collectionId, String sort, boolean desc, Map<String, String> filters) {
         String col = ITEM_SORT.getOrDefault(sort, "name");
         String order = "(" + col + " IS NULL OR " + col + " = ''), "
-                + col + (col.equals("price") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
+                + col + (col.equals("price") || col.equals("available") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
                 + ", name COLLATE NOCASE, id";
         StringBuilder where = new StringBuilder("collection_id = ?");
         List<Object> args = new java.util.ArrayList<>(List.of(collectionId));
@@ -346,6 +353,10 @@ public class Repo {
             where.append(" AND price <= ?");
             args.add(Long.parseLong(filters.get("price_max")));
         }
+        // Наличие: "1" — есть, "0" — нет
+        if (filters.containsKey("available"))
+            where.append("1".equals(filters.get("available")) ? " AND NOT" : " AND")
+                    .append(" EXISTS (SELECT 1 FROM item_absent a WHERE a.item_id = items.id)");
         List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
                 mapper(true, false), args.toArray());
         String name = filters.get("name");
@@ -468,7 +479,7 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, MultipartFile image, boolean removeImage, String description) {
+                         Integer price, Boolean available, MultipartFile image, boolean removeImage, String description) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
@@ -476,8 +487,19 @@ public class Repo {
         jdbc.update("UPDATE items SET name = ? WHERE id = ?", name.trim(), id);
         if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(platform), id);
         if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
-        if (f.contains("status")) jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
+        if (f.contains("status")) {
+            // только значения из списка; прежнее значение не из списка можно оставить как есть
+            String st = trim(status);
+            String old = jdbc.queryForObject("SELECT status FROM items WHERE id = ?", String.class, id);
+            if (st != null && !st.isEmpty() && !STATUSES.contains(st) && !st.equals(old))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Выберите статус из списка");
+            jdbc.update("UPDATE items SET status = ? WHERE id = ?", st, id);
+        }
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
+        if (f.contains("available") && available != null) {
+            if (available) jdbc.update("DELETE FROM item_absent WHERE item_id = ?", id);
+            else jdbc.update("INSERT OR IGNORE INTO item_absent (item_id) VALUES (?)", id);
+        }
         // Описание и картинка есть у всех объектов, независимо от типа коллекции
         if (description != null) setItemDescription(id, description);
         if (image != null && !image.isEmpty()) {
