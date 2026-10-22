@@ -385,7 +385,7 @@ public class WebController {
                              @RequestParam(defaultValue = "name") String sort,
                              @RequestParam(defaultValue = "asc") String dir,
                              @RequestParam(defaultValue = "1") int page,
-                             @RequestParam(defaultValue = "50") int size,
+                             @RequestParam(defaultValue = "200") int size,
                              @RequestParam(name = "f_name", required = false) String fName,
                              @RequestParam(name = "f_platform", required = false) String fPlatform,
                              @RequestParam(name = "f_format", required = false) String fFormat,
@@ -412,7 +412,7 @@ public class WebController {
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
         boolean desc = "desc".equals(dir);
-        if (!PAGE_SIZES.contains(size)) size = 50;
+        if (!PAGE_SIZES.contains(size)) size = 200;
 
         // Фильтры по столбцам (только по тем, что есть у типа коллекции); пустые не учитываются
         Map<String, String> filters = new java.util.LinkedHashMap<>();
