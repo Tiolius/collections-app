@@ -674,13 +674,15 @@ public class WebController {
         return "redirect:/kinds";
     }
 
-    /** Сколько пустых строк «статус — цвет» добавлять в форму типа. */
-    private static final int EMPTY_STATUS_ROWS = 3;
-
     private String kindForm(long uid, Model m, Kind kind, String title) {
+        Map<String, String> colors = kind == null ? Map.of() : kind.statusColors();
         m.addAttribute("kind", kind);
-        m.addAttribute("statusColors", kind == null ? Map.of() : kind.statusColors());
-        m.addAttribute("emptyRows", IntStream.range(0, EMPTY_STATUS_ROWS).boxed().toList());
+        m.addAttribute("statusColors", colors);
+        // пустые строки «статус — цвет»: по одной на каждый статус из списка, у которого ещё нет цвета
+        List<String> lower = Repo.STATUSES.stream().map(s -> s.toLowerCase(java.util.Locale.ROOT)).toList();
+        long colored = colors.keySet().stream().filter(s -> lower.contains(s.toLowerCase(java.util.Locale.ROOT))).count();
+        m.addAttribute("statusesLower", lower);
+        m.addAttribute("emptyRows", IntStream.range(0, (int) Math.max(0, Repo.STATUSES.size() - colored)).boxed().toList());
         m.addAttribute("fieldNames", Repo.FIELDS);
         m.addAttribute("title", title);
         return "kind-form";
