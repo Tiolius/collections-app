@@ -1,6 +1,9 @@
 #!/bin/sh
-# Запуск приложения
+# Запуск приложения: сборка, остановка уже запущенного (если есть), запуск новой версии.
+# Если сборка не удалась — работающее приложение не трогаем.
 cd "$(dirname "$0")"
 mkdir -p data
-docker compose up -d --build
+docker compose build || { echo "Сборка не удалась, приложение не перезапущено"; exit 1; }
+docker compose down
+docker compose up -d || { echo "Не удалось запустить приложение"; exit 1; }
 echo "Приложение запущено: http://localhost:47321"
