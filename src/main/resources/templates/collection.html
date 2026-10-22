@@ -66,7 +66,13 @@
     <select id="page-size" name="size" form="filter-form" onchange="this.form.requestSubmit()">
       <option th:each="s : ${sizes}" th:value="${s}" th:text="${s}" th:selected="${s == size}"></option>
     </select>
-    <button type="button" class="btn light small" id="reset-widths" title="Вернуть исходную ширину столбцов">Сбросить ширину столбцов</button>
+    <!-- После «На странице»: сбросить ширину столбцов и сбросить фильтры -->
+    <span class="pager-tools">
+      <button type="button" class="icon" id="reset-widths" title="Сбросить ширину столбцов" aria-label="Сбросить ширину столбцов"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M140-160q-24.75 0-42.37-17.63Q80-195.25 80-220v-520q0-24.75 17.63-42.38Q115.25-800 140-800h680q24.75 0 42.38 17.62Q880-764.75 880-740v520q0 24.75-17.62 42.37Q844.75-160 820-160H140Zm0-60h187v-520H140v520Zm247 0h186v-520H387v520Zm246 0h187v-520H633v520Zm-246 0v-520 520Z"/></svg></button>
+      <a th:unless="${filters.isEmpty()}" class="icon" title="Сбросить фильтры" aria-label="Сбросить фильтры"
+           th:href="|?sort=${sort}&dir=${dir}&size=${size}${modeQs}|"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></a>
+      <span th:if="${filters.isEmpty()}" class="icon disabled" title="Фильтры не заданы" aria-label="Фильтры не заданы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></span>
+    </span>
   </div>
 
   <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '') + ':pic'}">
@@ -99,11 +105,7 @@
         </div>
       </th>
       <th class="pic-col"></th>
-      <th class="actions">
-        <a th:unless="${filters.isEmpty()}" class="icon" title="Сбросить фильтры" aria-label="Сбросить фильтры"
-           th:href="|?sort=${sort}&dir=${dir}&size=${size}${modeQs}|"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></a>
-        <span th:if="${filters.isEmpty()}" class="icon disabled" title="Фильтры не заданы" aria-label="Фильтры не заданы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></span>
-      </th>
+      <th class="actions"></th>
     </tr></thead>
     <tbody><th:block th:each="it : ${items}" th:with="grp=${groupStarts.contains(it.id()) ? 'gstart' : null}">
     <tr th:fragment="itemRow" th:class="${grp}"

@@ -186,8 +186,10 @@
   table.items tr.filters .active { border-color: var(--orange); box-shadow: inset 0 0 0 1px var(--orange); }
   table.items tr.head th.actions { padding: 3px 6px; font-weight: normal; }
   /* «Сбросить фильтры» — иконка в строке фильтров; когда фильтры заданы — оранжевая (как активный фильтр) */
-  table.items tr.filters th.actions { text-align: right; padding: 2px 6px; }
-  table.items tr.filters th.actions a.icon { color: var(--orange); }
+  table.items tr.filters th.actions { padding: 2px 6px; }
+  /* Иконки после «На странице»: сброс ширины столбцов и фильтров (активный сброс фильтров — оранжевый) */
+  .pager-tools { display: inline-flex; align-items: center; gap: 2px; }
+  .pager-tools a.icon { color: var(--orange); }
   table.items td.empty { text-align: center; padding: 16px; }
   table.items td { height: 30px; line-height: 1.4; }
   table.items tbody tr:nth-child(even) td { background: var(--zebra); }
