@@ -52,9 +52,9 @@
   header .user { display: inline-flex; align-items: center; gap: 6px; color: #fff; opacity: .9; }
   header a.settings { font-weight: normal; opacity: .85; }
   header a.settings:hover { opacity: 1; }
-  header .logout { background: none; border: 1px solid rgba(255,255,255,.4); color: #fff; border-radius: 6px;
-                   padding: 0 10px; line-height: 20px; cursor: pointer; }
-  header .logout:hover { background: rgba(255,255,255,.1); }
+  /* Выход и тема — иконки в шапке в одном стиле */
+  header .logout { background: none; border: none; color: #fff; opacity: .85; cursor: pointer; padding: 2px; display: inline-flex; }
+  header .logout:hover { opacity: 1; }
   /* Вход и регистрация */
   main.auth { max-width: 520px; margin: 60px auto 0; }
   main.auth h2 { margin-bottom: 12px; }
@@ -196,7 +196,11 @@
         <span th:text="${currentUser.name()}"></span>
       </span>
       <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций, пароль'}">⚙ Настройки</a>
-      <form class="inline" method="post" action="/logout"><button class="logout">Выйти</button></form>
+      <form class="inline" method="post" action="/logout">
+        <button class="logout" title="Выйти" aria-label="Выйти">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.56v16.16a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z"/></svg>
+        </button>
+      </form>
     </nav>
     <button type="button" class="theme" onclick="toggleTheme()" title="Светлая / тёмная тема" aria-label="Переключить тему">
       <svg class="moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
