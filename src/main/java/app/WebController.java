@@ -141,6 +141,60 @@ public class WebController {
                 "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
+    // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
+    @GetMapping("/export")
+    public String exportPage(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("collections", repo.collections(uid));
+        return "export";
+    }
+
+    @PostMapping("/export")
+    public Object export(@SessionAttribute("uid") long uid, @RequestParam(name = "c", required = false) List<Long> ids,
+                         Model m) throws java.io.IOException {
+        // Только свои коллекции, в порядке списка (по алфавиту)
+        List<Entry> chosen = repo.collections(uid).stream().filter(c -> ids != null && ids.contains(c.id())).toList();
+        if (chosen.isEmpty()) {
+            m.addAttribute("collections", repo.collections(uid));
+            m.addAttribute("error", "Выберите хотя бы одну коллекцию");
+            return "export";
+        }
+        List<Xlsx.Sheet> sheets = new ArrayList<>();
+        for (Entry c : chosen) {
+            Set<String> fields = repo.itemFields(uid, c.kind());
+            List<String> headers = new ArrayList<>(List.of("Название"));
+            List<Integer> widths = new ArrayList<>(List.of(60));
+            for (String f : fields) {
+                headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
+                widths.add(f.equals("price") ? 12 : 22);
+            }
+            List<List<Object>> rows = new ArrayList<>();
+            for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
+                List<Object> row = new ArrayList<>();
+                row.add(it.name());
+                for (String f : fields)
+                    row.add(switch (f) {
+                        case "platform" -> it.platform();
+                        case "format" -> it.format();
+                        case "status" -> it.status();
+                        case "price" -> it.price();
+                        default -> null;
+                    });
+                rows.add(row);
+            }
+            sheets.add(new Xlsx.Sheet(c.name(), headers, rows, widths));
+        }
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        Xlsx.write(out, sheets);
+        String file = (chosen.size() == 1 ? chosen.get(0).name() : "Коллекции") + " " + java.time.LocalDate.now() + ".xlsx";
+        return ResponseEntity.ok()
+                // Имя файла: латиницей для старых браузеров и по-русски (filename*, RFC 5987) для остальных
+                .header("Content-Disposition", "attachment; filename=\"collections-" + java.time.LocalDate.now()
+                        + ".xlsx\"; filename*=UTF-8''" + java.net.URLEncoder.encode(file, java.nio.charset.StandardCharsets.UTF_8)
+                        .replace("+", "%20"))
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(out.toByteArray());
+    }
+
     /** Версия приложения (из pom.xml, см. app.version в application.properties). */
     @org.springframework.beans.factory.annotation.Value("${app.version}")
     private String appVersion;
