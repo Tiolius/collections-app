@@ -3,7 +3,7 @@
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
-<main>
+<main class="settings">
   <th:block th:replace="~{base :: settingsHead('display')}"></th:block>
   <p class="ok" th:if="${param.saved != null}">Настройки сохранены.</p>
   <form autocomplete="off" class="form" method="post" action="/display">

@@ -14,10 +14,13 @@
     <groupId>app</groupId>
     <artifactId>collections-app</artifactId>
     <!-- Версия приложения: показывается в «Настройках» → «О приложении». Повышать при выпуске изменений -->
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 
     <properties>
         <java.version>21</java.version>
+        <!-- Дата сборки — «Дата обновления» в «Настройках» → «О приложении» (app.build-date) -->
+        <maven.build.timestamp.format>dd.MM.yyyy</maven.build.timestamp.format>
+        <build.date>${maven.build.timestamp}</build.date>
     </properties>
 
     <dependencies>

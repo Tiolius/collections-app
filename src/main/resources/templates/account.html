@@ -3,7 +3,7 @@
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
-<main>
+<main class="settings">
   <th:block th:replace="~{base :: settingsHead('account')}"></th:block>
   <p class="ok" th:if="${param.passwordChanged != null}">Пароль изменён.</p>
   <p class="error" th:if="${passwordError != null}" th:text="${passwordError}"></p>
