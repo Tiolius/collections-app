@@ -15,6 +15,9 @@ target/
 *.iml
 .vscode/
 
+# Секреты (токен Discogs и др.) — в файле .env рядом с docker-compose.yml
+.env
+
 # Инструкции для ассистента — только локально
 CLAUDE.md
 .claude/

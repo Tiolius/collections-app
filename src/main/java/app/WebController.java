@@ -26,12 +26,12 @@ public class WebController {
 
     private final Repo repo;
     private final LoginGuard guard;
-    private final SteamImport steam;
+    private final ImageImport images;
 
-    public WebController(Repo repo, LoginGuard guard, SteamImport steam) {
+    public WebController(Repo repo, LoginGuard guard, ImageImport images) {
         this.repo = repo;
         this.guard = guard;
-        this.steam = steam;
+        this.images = images;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -111,31 +111,39 @@ public class WebController {
         return "redirect:/display?saved";
     }
 
-    // Вкладка «Импорт»: картинки объектов коллекции из Steam (в фоне, прогресс — /import/status)
+    // Вкладка «Импорт»: картинки объектов коллекции из Steam или Discogs (в фоне, прогресс — /import/status)
     @GetMapping("/import")
     public String importPage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
-        m.addAttribute("job", steam.job(uid));
+        m.addAttribute("job", images.job(uid));
+        m.addAttribute("discogsReady", images.discogsReady());
         return "import";
     }
 
-    @PostMapping("/import/steam")
-    public String importSteam(@SessionAttribute("uid") long uid, @RequestParam long collection,
+    @PostMapping("/import/start")
+    public String importStart(@SessionAttribute("uid") long uid, @RequestParam long collection,
+                              @RequestParam(defaultValue = ImageImport.STEAM) String source,
                               @RequestParam(defaultValue = "false") boolean onlyMissing) {
-        steam.start(uid, repo.collection(uid, collection), onlyMissing); // чужая коллекция — 404
+        Entry c = repo.collection(uid, collection); // чужая коллекция — 404
+        if (!ImageImport.SOURCES.containsKey(source))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
+        if (source.equals(ImageImport.DISCOGS) && !images.discogsReady())
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Для Discogs нужен токен: задайте DISCOGS_TOKEN (см. README)");
+        images.start(uid, c, onlyMissing, source);
         return "redirect:/import";
     }
 
     @PostMapping("/import/cancel")
     public String importCancel(@SessionAttribute("uid") long uid) {
-        steam.cancel(uid);
+        images.cancel(uid);
         return "redirect:/import";
     }
 
     @GetMapping("/import/status")
     @org.springframework.web.bind.annotation.ResponseBody
     public Map<String, Object> importStatus(@SessionAttribute("uid") long uid) {
-        SteamImport.Job j = steam.job(uid);
+        ImageImport.Job j = images.job(uid);
         if (j == null) return Map.of("state", "none");
         return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
                 "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);

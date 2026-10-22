@@ -46,6 +46,16 @@ DATA_DIR=./data mvn spring-boot:run
 Чтобы сменить внешний порт, поменяйте первое число в `docker-compose.yml` (`"47321:8000"`)
 и адрес в `start.sh` / `start.bat`.
 
+## Импорт обложек из Discogs
+В «Настройках» → «Импорт» можно загрузить обложки альбомов из Discogs (названия объектов — «Группа - Альбом»).
+Для этого нужен личный токен Discogs:
+1. Войдите на discogs.com → Settings → Developers → **Generate new token**.
+2. Рядом с `docker-compose.yml` создайте файл `.env` со строкой `DISCOGS_TOKEN=ваш_токен`
+   (файл `.env` в git не попадает).
+3. Перезапустите приложение (`start.sh` / `start.bat`).
+
+Без Docker токен задаётся переменной окружения: `DISCOGS_TOKEN=... DATA_DIR=./data mvn spring-boot:run`.
+
 ## Публикация в интернете
 Сейчас приложение доступно только с этого компьютера (`127.0.0.1:47321` в `docker-compose.yml`).
 Для доступа из интернета:

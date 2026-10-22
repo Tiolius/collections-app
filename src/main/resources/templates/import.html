@@ -5,14 +5,16 @@
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
-  <h3 class="section">Картинки объектов из Steam</h3>
-  <p class="muted">Для каждого объекта коллекции ищется игра в Steam с таким же названием (без учёта регистра, знаков ™ ® © и пунктуации),
-    и в объект загружается её картинка. Steam ограничивает число запросов, поэтому на один объект уходит около 1,5 секунды
-    (1000 объектов — примерно 25 минут). Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
+  <h3 class="section">Картинки объектов из Steam или Discogs</h3>
+  <p class="muted"><b>Steam</b> — для игр: ищется игра с таким же названием, как у объекта (без учёта регистра, знаков ™ ® © и пунктуации),
+    картинка — шапка страницы игры. <b>Discogs</b> — для музыки: название объекта должно быть в виде «Группа - Альбом»,
+    ищется альбом с тем же названием у той же группы, картинка — обложка; объекты без « - » в названии пропускаются.
+    Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam и около 2 секунд для Discogs.
+    Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
 
   <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
   <div class="import-box" id="import-job" th:if="${job != null and job.active()}">
-    <div><b th:text="${job.collectionName}"></b> — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
+    <div><b th:text="${job.collectionName}"></b> (<span th:text="${job.sourceName()}"></span>) — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
     <progress id="ij-bar" th:max="${job.total == 0 ? 1 : job.total}" th:value="${job.processed}"></progress>
     <div>Обработано <span id="ij-processed" th:text="${job.processed}"></span> из <span th:text="${job.total}"></span>
       · загружено <span id="ij-loaded" th:text="${job.loaded}"></span>
@@ -27,23 +29,30 @@
   <th:block th:if="${job != null and !job.active()}">
     <p th:class="${job.state == 'failed' ? 'error' : 'ok'}">
       <span th:text="${job.state == 'done' ? 'Импорт завершён' : job.state == 'cancelled' ? 'Импорт остановлен' : job.message}"></span>
-      (<span th:text="${job.collectionName}"></span>): загружено картинок — <b th:text="${job.loaded}"></b>
+      (<span th:text="${job.collectionName + ', ' + job.sourceName()}"></span>): загружено картинок — <b th:text="${job.loaded}"></b>
       из <span th:text="${job.total}"></span> объектов<span th:if="${job.processed < job.total}" th:text="${', обработано ' + job.processed}"></span>.
-      Не найдено в Steam — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
+      Не найдено в <span th:text="${job.sourceName()}"></span> — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
     </p>
   </th:block>
 
-  <form autocomplete="off" class="form" method="post" action="/import/steam" th:unless="${job != null and job.active()}">
+  <form autocomplete="off" class="form" method="post" action="/import/start" th:unless="${job != null and job.active()}">
     <label for="f-coll">Коллекция</label>
     <select id="f-coll" name="collection" required>
       <option th:each="c : ${collections}" th:value="${c.id()}" th:text="${c.name() + ' (' + c.count() + ')'}"
               th:selected="${job != null and job.collectionId == c.id()}"></option>
     </select>
 
+    <label>Источник</label>
+    <div>
+      <label class="radio"><input type="radio" name="source" value="steam" checked> Steam (игры)</label>
+      <label class="radio"><input type="radio" name="source" value="discogs" th:disabled="${!discogsReady}"> Discogs (музыка, «Группа - Альбом»)</label>
+      <div class="muted" th:unless="${discogsReady}">Для Discogs нужен токен: задайте DISCOGS_TOKEN (см. README, «Импорт обложек из Discogs»).</div>
+    </div>
+
     <span></span>
     <label class="radio"><input type="checkbox" name="onlyMissing" value="true" checked> только объекты без картинки</label>
 
-    <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить картинки из Steam</button></div>
+    <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить картинки</button></div>
   </form>
 
 <script th:if="${job != null and job.active()}">
