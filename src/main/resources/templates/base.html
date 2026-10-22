@@ -308,8 +308,8 @@
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
     dialog.modal.wide .dlg-body > .form { flex: none; grid-template-rows: none; }
     dialog.modal.wide #d-description { height: auto; resize: vertical; }
-    dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; grid-template-columns: minmax(0, 1fr) auto; }
-    dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка над полями */
+    dialog.modal .dlg-image { order: 2; padding: 0 16px 16px 24px; grid-template-columns: minmax(0, 1fr) auto; }  /* сначала поля, под ними картинка */
+    dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка под полями */
     dialog.modal .dlg-image img, dialog.modal .no-image { width: 100%; }
   }
   /* Экспорт: список коллекций с галочками в столбик */
