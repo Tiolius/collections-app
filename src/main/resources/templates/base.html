@@ -251,18 +251,18 @@
   dialog.modal .form { border: none; max-width: none; grid-template-columns: 160px 1fr; }
   .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); color: #222; line-height: 18px; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
-  /* Окно объекта с картинкой: картинка 800×600 слева (вписана целиком), поля справа */
+  /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
   dialog.modal.wide { width: fit-content; }
   dialog.modal .dlg-body { display: flex; align-items: flex-start; }
   dialog.modal .dlg-body > .form { flex: 1; }
   dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; }
-  dialog.modal .dlg-image { padding: 16px 0 16px 24px; display: grid; gap: 8px; }
+  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; gap: 8px; }
   dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
     dialog.modal.wide .dlg-body > .form { flex: none; }
-    dialog.modal .dlg-image { padding: 16px 16px 0; }
+    dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; }
     dialog.modal .dlg-image img { width: 100%; }
   }
   /* Импорт: прогресс */
@@ -332,7 +332,7 @@
     </div>
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
-      <!-- Картинка объекта (если есть): слева, в области 800×600, целиком без обрезки -->
+      <!-- Картинка объекта (если есть): справа от полей (CSS order), в области 800×600, целиком без обрезки -->
       <div id="d-image" class="dlg-image" hidden>
         <a target="_blank" title="Открыть в полном размере"><img alt=""></a>
         <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
@@ -384,7 +384,7 @@
         // Картинка: показываем текущую (если есть), поле выбора файла и галочку удаления — сброшены
         var box = document.getElementById('d-image'), url = '/items/' + row.dataset.id + '/image';
         box.hidden = !row.dataset.image;
-        dlg.classList.toggle('wide', !!row.dataset.image); // с картинкой окно шире: картинка слева, поля справа
+        dlg.classList.toggle('wide', !!row.dataset.image); // с картинкой окно шире: поля слева, картинка справа
         if (row.dataset.image) { box.querySelector('img').src = url + '?t=' + Date.now(); box.querySelector('a').href = url; }
         form.elements.image.value = '';
         form.elements.remove_image.checked = false;
