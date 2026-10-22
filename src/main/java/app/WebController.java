@@ -246,7 +246,7 @@ public class WebController {
         // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
-        if (fields.contains("price")) cols.add(showPrices ? new Col("price", "Цена", "num") : new Col("price", "₽", "eye"));
+        if (fields.contains("price")) cols.add(new Col("price", "Цена", showPrices ? "num" : "eye"));
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
