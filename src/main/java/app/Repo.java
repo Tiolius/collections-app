@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.text.Collator;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -485,6 +486,30 @@ public class Repo {
             else jdbc.update("INSERT INTO item_more_images (item_id, pos, image_mime) VALUES (?, ?, ?)", itemId, pos, mime);
             files.write(itemId, pos, list.get(pos), mime);
         }
+    }
+
+    /** Сколько картинок у объектов каждой коллекции пользователя: id коллекции → число (вкладка «Кэш»). */
+    public Map<Long, Integer> collectionImageCounts(long uid) {
+        Map<Long, Integer> counts = new HashMap<>();
+        jdbc.query("SELECT i.collection_id, COUNT(*) FROM items i JOIN collections c ON c.id = i.collection_id "
+                + "JOIN (SELECT item_id FROM item_images UNION ALL SELECT item_id FROM item_more_images) p ON p.item_id = i.id "
+                + "WHERE c.user_id = ? GROUP BY i.collection_id",
+                rs -> { counts.put(rs.getLong(1), rs.getInt(2)); }, uid);
+        return counts;
+    }
+
+    /**
+     * Удаляет все картинки объектов коллекции (отметки в базе и файлы); обложка коллекции остаётся.
+     * Чужая коллекция — 404. Возвращает, сколько картинок удалено.
+     */
+    public int clearCollectionImages(long uid, long collectionId) {
+        collection(uid, collectionId);
+        int count = collectionImageCounts(uid).getOrDefault(collectionId, 0);
+        List<Long> ids = jdbc.queryForList("SELECT id FROM items WHERE collection_id = ?", Long.class, collectionId);
+        jdbc.update("DELETE FROM item_images WHERE item_id IN (SELECT id FROM items WHERE collection_id = ?)", collectionId);
+        jdbc.update("DELETE FROM item_more_images WHERE item_id IN (SELECT id FROM items WHERE collection_id = ?)", collectionId);
+        for (long id : ids) files.deleteAll(id);
+        return count;
     }
 
     /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */

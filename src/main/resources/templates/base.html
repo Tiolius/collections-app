@@ -448,6 +448,7 @@
     <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
     <a href="/import" th:classappend="${active == 'import'} ? 'active'">Импорт</a>
     <a href="/export" th:classappend="${active == 'export'} ? 'active'">Экспорт</a>
+    <a href="/cache" th:classappend="${active == 'cache'} ? 'active'">Кэш</a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>
   </nav>
