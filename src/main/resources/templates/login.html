@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main class="auth">
+  <h2 th:text="${setup ? 'Первый запуск' : 'Вход'}"></h2>
+  <p class="muted" th:if="${setup}">Пользователей ещё нет. Создайте администратора — он сможет добавлять других пользователей в «Настройках».</p>
+  <p class="error" th:if="${error != null}" th:text="${error}"></p>
+  <!-- Подсказки браузера в полях входа отключены: autocomplete="off" для имени,
+       "new-password" для пароля (на "off" у паролей браузеры не реагируют) -->
+  <form class="form" method="post" autocomplete="off" th:action="${setup ? '/setup' : '/login'}">
+    <label for="f-name">Имя пользователя</label>
+    <input id="f-name" type="text" name="name" required autofocus autocomplete="off" autocapitalize="off" spellcheck="false" th:value="${name}">
+
+    <label for="f-pw">Пароль</label>
+    <input id="f-pw" type="password" name="password" autocomplete="new-password">
+
+    <th:block th:if="${setup}">
+      <label for="f-pw2">Повторите пароль</label>
+      <input id="f-pw2" type="password" name="password2" autocomplete="new-password">
+    </th:block>
+
+    <div class="full"><button class="btn" th:text="${setup ? 'Создать администратора' : 'Войти'}"></button></div>
+  </form>
+</main>
+</body>
+</html>
