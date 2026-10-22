@@ -318,6 +318,7 @@
   dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 4px; padding: 10px 24px;
                            border-top: 1px solid var(--border); background: var(--panel); }
   dialog.modal .pic { display: block; cursor: pointer; }
+  dialog.modal a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не сохранённый файл */
   /* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
   dialog.modal .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
@@ -470,7 +471,7 @@
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
       <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
-           Щелчок по картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
+           Щелчок по сохранённой картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
            Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div id="d-image" class="dlg-image">
         <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
@@ -554,7 +555,10 @@
       $('d-pic').hidden = !src;
       $('d-noimg').hidden = !!src;
       $('d-tools').hidden = !src;
-      if (src) { document.querySelector('#d-pic img').src = src; $('d-pic').href = src; } // выбранный файл — его превью
+      if (src) document.querySelector('#d-pic img').src = src;
+      // щелчок открывает только сохранённую картинку; у выбранного, ещё не сохранённого файла — ничего
+      if (s.chosen) { $('d-pic').removeAttribute('href'); $('d-pic').removeAttribute('title'); }
+      else if (src) { $('d-pic').href = src; $('d-pic').title = 'Открыть в полном размере'; }
       ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
       $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
       if (s.saved) $('d-open').href = s.saved;
