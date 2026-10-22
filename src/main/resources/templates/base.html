@@ -216,6 +216,12 @@
   table.items.fixed td.actions { overflow: visible; }
   /* Цена: иконка глаза, сама цена — в подсказке */
   table.items th.eye, table.items td.eye { text-align: center; }
+  /* Колонка «есть картинка»: узкая, иконка по центру */
+  table.items th.pic-col, table.items td.pic-col { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
+  table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
+  table.items th.pic-col .mi { width: 15px; height: 15px; }
+  table.items td.pic-col .has-pic { color: var(--icon); display: inline-flex; vertical-align: middle; }
+  table.items td.pic-col .mi { width: 16px; height: 16px; }
   table.items.fixed td.eye { overflow: visible; }
   .tip { position: relative; cursor: default; }
   .tip.none { opacity: .45; }
