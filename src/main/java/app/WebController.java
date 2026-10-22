@@ -231,6 +231,8 @@ public class WebController {
                              @RequestParam(name = "f_platform", required = false) String fPlatform,
                              @RequestParam(name = "f_format", required = false) String fFormat,
                              @RequestParam(name = "f_status", required = false) String fStatus,
+                             @RequestParam(name = "f_price_min", required = false) String fPriceMin,
+                             @RequestParam(name = "f_price_max", required = false) String fPriceMax,
                              @RequestParam(defaultValue = "false") boolean dups) {
         Entry c = repo.collection(uid, id);
         Set<String> fields = repo.itemFields(uid, c.kind());
@@ -257,6 +259,11 @@ public class WebController {
         if (fields.contains("platform")) putFilter(filters, "platform", fPlatform);
         if (fields.contains("format")) putFilter(filters, "format", fFormat);
         if (fields.contains("status")) putFilter(filters, "status", fStatus);
+        // Цена «от — до» (включительно): только целые числа, остальное не учитывается
+        if (fields.contains("price")) {
+            putPriceFilter(filters, "price_min", fPriceMin);
+            putPriceFilter(filters, "price_max", fPriceMax);
+        }
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
@@ -335,6 +342,10 @@ public class WebController {
 
     private static void putFilter(Map<String, String> filters, String key, String value) {
         if (value != null && !value.isBlank()) filters.put(key, value.trim());
+    }
+
+    private static void putPriceFilter(Map<String, String> filters, String key, String value) {
+        if (value != null && value.trim().matches("\\d{1,12}")) filters.put(key, String.valueOf(Long.parseLong(value.trim())));
     }
 
     /**

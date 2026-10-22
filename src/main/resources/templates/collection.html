@@ -89,6 +89,12 @@
           <option th:each="v : ${filterOptions.get(col.key())}" th:value="${v}" th:text="${v}"
                   th:selected="${v == filters.get(col.key())}"></option>
         </select>
+        <div th:if="${col.key() == 'price'}" class="range">
+          <input type="number" name="f_price_min" form="filter-form" min="0" step="1" placeholder="от" title="Цена от (Enter — применить)"
+                 autocomplete="off" th:value="${filters.get('price_min')}" th:classappend="${filters.containsKey('price_min')} ? 'active'">
+          <input type="number" name="f_price_max" form="filter-form" min="0" step="1" placeholder="до" title="Цена до (Enter — применить)"
+                 autocomplete="off" th:value="${filters.get('price_max')}" th:classappend="${filters.containsKey('price_max')} ? 'active'">
+        </div>
       </th>
       <th class="actions">
         <a th:unless="${filters.isEmpty()}" class="icon" title="Сбросить фильтры" aria-label="Сбросить фильтры"

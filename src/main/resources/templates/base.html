@@ -168,6 +168,11 @@
   table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0; }
   table.items tr.filters select { min-width: 8em; }
   table.items.fixed tr.filters select { min-width: 0; }
+  /* Фильтр цены «от — до»: два поля без стрелок */
+  table.items tr.filters .range { display: flex; gap: 4px; }
+  table.items tr.filters .range input { min-width: 4.5em; appearance: textfield; -moz-appearance: textfield; }
+  table.items.fixed tr.filters .range input { min-width: 0; }
+  table.items tr.filters .range input::-webkit-inner-spin-button, table.items tr.filters .range input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   table.items tr.filters .active { border-color: var(--orange); box-shadow: inset 0 0 0 1px var(--orange); }
   table.items tr.head th.actions { padding: 3px 6px; font-weight: normal; }
   /* «Сбросить фильтры» — иконка в строке фильтров; когда фильтры заданы — оранжевая (как активный фильтр) */

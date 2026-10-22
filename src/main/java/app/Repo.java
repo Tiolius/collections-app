@@ -318,6 +318,15 @@ public class Repo {
                 where.append(" AND ").append(f).append(" = ?"); // f — только из SELECT_FILTERS
                 args.add(filters.get(f));
             }
+        // Цена «от — до»: значения уже проверены в контроллере (целые числа); объекты без цены не подходят
+        if (filters.containsKey("price_min")) {
+            where.append(" AND price >= ?");
+            args.add(Long.parseLong(filters.get("price_min")));
+        }
+        if (filters.containsKey("price_max")) {
+            where.append(" AND price <= ?");
+            args.add(Long.parseLong(filters.get("price_max")));
+        }
         List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
                 mapper(true, false), args.toArray());
         String name = filters.get("name");
