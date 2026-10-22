@@ -34,6 +34,23 @@ CREATE TABLE IF NOT EXISTS item_images (
     image_mime TEXT NOT NULL
 );
 
+-- Дополнительные картинки объекта (вторая и следующие, pos = 1..4; первая — в item_images); сами файлы — в DATA_DIR/images
+CREATE TABLE IF NOT EXISTS item_more_images (
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    pos INTEGER NOT NULL,
+    image_mime TEXT NOT NULL,
+    PRIMARY KEY (item_id, pos)
+);
+
+-- Запомненный вид таблицы объектов коллекции у пользователя: сортировка, страница, размер страницы, фильтры
+-- (строка параметров адреса, как в ссылках страницы); подставляется, если коллекция открыта без параметров
+CREATE TABLE IF NOT EXISTS collection_views (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    query TEXT NOT NULL,
+    PRIMARY KEY (user_id, collection_id)
+);
+
 -- Описание объекта (отдельная таблица: у старых баз создаётся сама, без изменения items)
 CREATE TABLE IF NOT EXISTS item_descriptions (
     item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
@@ -65,10 +82,12 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     PRIMARY KEY (user_id, service)
 );
 
--- Наличие объекта (поле типа «Наличие»): здесь — объекты, которых нет в наличии; нет строки — объект есть
-CREATE TABLE IF NOT EXISTS item_absent (
+-- Наличие объекта (поле типа «Наличие»): здесь — объекты, которые есть в наличии; нет строки — «Нет» (по умолчанию).
+-- Прежняя таблица item_absent (отметки «нет», по умолчанию было «есть») удалена: по решению пользователя все объекты стали «Нет»
+CREATE TABLE IF NOT EXISTS item_present (
     item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE
 );
+DROP TABLE IF EXISTS item_absent;
 
 -- Разовые обновления данных: имя выполненного обновления (чтобы не повторять его при каждом старте)
 CREATE TABLE IF NOT EXISTS data_updates (

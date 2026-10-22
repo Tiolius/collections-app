@@ -80,8 +80,10 @@ public class ImageImport {
         public final boolean images, descriptions;
         /** Steam: картинка — первый скриншот из галереи игры (1920×1080), а не шапка. */
         public final boolean screenshot;
+        /** Сколько картинок загружать на объект (1…ImageFiles.MAX_IMAGES), если у источника они есть. */
+        public final int maxImages;
         public volatile String state = "queued"; // queued | running | done | cancelled | failed
-        public volatile int total, processed, loaded, described, notFound, errors; // loaded — картинок, described — описаний
+        public volatile int total, processed, found, loaded, described, notFound, errors; // found — найдено в источнике; loaded — картинок, described — описаний
         public volatile String current = "";
         public volatile String message = "";      // пауза из-за ограничений сервиса, причина остановки
         volatile boolean cancel;
@@ -89,8 +91,9 @@ public class ImageImport {
         private final String discogsToken;
 
         Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions,
-            boolean screenshot, String discogsToken) {
+            boolean screenshot, int maxImages, String discogsToken) {
             this.screenshot = screenshot;
+            this.maxImages = Math.max(1, Math.min(ImageFiles.MAX_IMAGES, maxImages));
             this.discogsToken = discogsToken == null ? "" : discogsToken.trim();
             this.collectionId = collectionId;
             this.collectionName = collectionName;
@@ -144,14 +147,15 @@ public class ImageImport {
      * но без обложек (и только 25 запросов в минуту).
      */
     public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source,
-                                      boolean images, boolean descriptions, boolean screenshot, String discogsToken) {
+                                      boolean images, boolean descriptions, boolean screenshot, int maxImages,
+                                      String discogsToken) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
         boolean hasToken = discogsToken != null && !discogsToken.isBlank();
         // Без токена обложек у Discogs нет — только описания
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
         Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
-                screenshot && source.equals(STEAM), discogsToken);
+                screenshot && source.equals(STEAM), maxImages, discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -193,8 +197,9 @@ public class ImageImport {
                     if (f == null) {
                         job.notFound++;
                     } else {
-                        if (img && f.image() != null) {
-                            repo.setItemImage(item.id(), f.image());
+                        job.found++;
+                        if (img && !f.images().isEmpty()) {
+                            repo.setItemImages(item.id(), f.images());
                             job.loaded++;
                         }
                         if (descr && f.description() != null) {
@@ -232,7 +237,20 @@ public class ImageImport {
     // ---------- Steam ----------
 
     /** Найденное: картинка и/или описание (null — нет). */
-    private record Found(byte[] image, String description) {}
+    /** Найденное: картинки (по порядку, без повторов) и описание. */
+    private record Found(List<byte[]> images, String description) {}
+
+    /** Скачивает картинки по адресам по порядку, пока не наберётся max; неудачные и повторы (по содержимому) пропускаются. */
+    private List<byte[]> downloadAll(List<String> urls, int max) throws Exception {
+        List<byte[]> res = new java.util.ArrayList<>();
+        for (String u : urls) {
+            if (res.size() >= max) break;
+            if (u == null || u.isEmpty()) continue;
+            byte[] b = download(u);
+            if (b != null && res.stream().noneMatch(x -> java.util.Arrays.equals(x, b))) res.add(b);
+        }
+        return res;
+    }
 
     /**
      * Игра с таким же названием: картинка (если нужна) и краткое описание (если нужно); null — в Steam такой игры нет.
@@ -258,31 +276,42 @@ public class ImageImport {
             if (!"app".equals(it.path("type").asText("app")) || !key.equals(norm(it.path("name").asText()))) continue;
             long appId = it.path("id").asLong();
             String tiny = it.path("tiny_image").asText("");
-            boolean wantShot = wantImage && job.screenshot;
+            // скриншоты нужны, если картинка — скриншот или картинок больше одной
+            boolean wantShots = wantImage && (job.screenshot || job.maxImages > 1);
             JsonNode details = null;
             String description = null;
             // описание и скриншоты — в одной карточке игры, один запрос
-            if (wantDescription || wantShot) details = appDetails(job, appId, wantShot);
+            if (wantDescription || wantShots) details = appDetails(job, appId, wantShots);
             if (wantDescription) description = cleanDescription(details.path("short_description").asText(""));
-            byte[] img = null;
-            if (wantShot) {
-                // первый скриншот галереи в полном размере
-                String shot = details.path("screenshots").path(0).path("path_full").asText("");
-                if (!shot.isEmpty()) img = download(shot);
-            }
-            if (wantImage && img == null) {
-                // Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры
-                img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
-                if (img == null) {
-                    if (details == null) details = appDetails(job, appId, false);
-                    String header = details.path("header_image").asText("");
-                    if (!header.isEmpty()) img = download(header);
+            List<byte[]> imgs = List.of();
+            if (wantImage) {
+                List<String> shots = new java.util.ArrayList<>();
+                if (wantShots) for (JsonNode sh : details.path("screenshots")) shots.add(sh.path("path_full").asText(""));
+                // скриншоты галереи в полном размере; режим «шапка» — сначала шапка, за ней скриншоты
+                imgs = job.screenshot ? downloadAll(shots, job.maxImages) : List.of();
+                if (imgs.isEmpty()) {
+                    byte[] header = steamHeader(job, appId, tiny, details);
+                    List<byte[]> all = new java.util.ArrayList<>();
+                    if (header != null) all.add(header);
+                    if (!job.screenshot) all.addAll(downloadAll(shots, job.maxImages - all.size()));
+                    imgs = all;
                 }
-                if (img == null && !tiny.isEmpty()) img = download(tiny);
             }
-            return new Found(img, description);
+            return new Found(imgs, description);
         }
         return null;
+    }
+
+    /** Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры; иначе маленькая картинка. */
+    private byte[] steamHeader(Job job, long appId, String tiny, JsonNode details) throws Exception {
+        byte[] img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
+        if (img == null) {
+            if (details == null) details = appDetails(job, appId, false);
+            String header = details.path("header_image").asText("");
+            if (!header.isEmpty()) img = download(header);
+        }
+        if (img == null && !tiny.isEmpty()) img = download(tiny);
+        return img;
     }
 
     /** Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет. */
@@ -324,25 +353,55 @@ public class ImageImport {
             }
             matches.sort(java.util.Comparator.comparingLong((JsonNode r) -> r.path("community").path("have").asLong()).reversed());
             for (JsonNode r : matches) {
-                byte[] img = null;
+                Map<String, JsonNode> cache = new java.util.HashMap<>(); // карточки альбома: для Notes и картинок — один запрос
+                long id = r.path("id").asLong();
+                List<byte[]> imgs = List.of();
                 if (wantImage) {
+                    List<String> urls = new java.util.ArrayList<>();
+                    // несколько картинок — из карточки альбома (обложка, оборот, вкладыш…), иначе — обложка из поиска
+                    if (job.maxImages > 1) urls.addAll(discogsImages(job, type, id, cache));
                     String cover = r.path("cover_image").asText("");
+                    // обложка из поиска — если из карточки ничего нет (иначе была бы та же картинка в другом размере);
                     // нет обложки — у Discogs пустая заглушка spacer.gif
-                    if (!cover.isEmpty() && !cover.contains("spacer.gif")) img = download(cover);
+                    if (urls.isEmpty() && !cover.isEmpty() && !cover.contains("spacer.gif")) urls.add(cover);
+                    imgs = downloadAll(urls, job.maxImages);
                 }
-                String notes = wantDescription ? discogsNotes(job, type, r.path("id").asLong()) : null;
-                if (img == null && notes == null) continue; // ни обложки, ни примечаний — следующий результат
-                return new Found(img, notes);
+                String notes = wantDescription ? discogsNotes(job, type, id, cache) : null;
+                if (imgs.isEmpty() && notes == null) continue; // ни обложки, ни примечаний — следующий результат
+                return new Found(imgs, notes);
             }
         }
         return null;
     }
 
+    /** Запрос к Discogs с запоминанием ответа в пределах одного альбома. */
+    private JsonNode discogsCached(Job job, String url, Map<String, JsonNode> cache) throws Exception {
+        if (cache.containsKey(url)) return cache.get(url);
+        JsonNode n = api(job, url);
+        cache.put(url, n);
+        return n;
+    }
+
+    /** Адреса картинок альбома из его карточки (master или release), главная — первой; без токена Discogs их не отдаёт. */
+    private List<String> discogsImages(Job job, String type, long id, Map<String, JsonNode> cache) throws Exception {
+        if (id <= 0) return List.of();
+        JsonNode d = discogsCached(job, discogsUrl + (type.equals("master") ? "/masters/" : "/releases/") + id, cache);
+        List<String> res = new java.util.ArrayList<>();
+        if (d != null)
+            for (JsonNode im : d.path("images")) {
+                String uri = im.path("uri").asText("");
+                if (uri.isEmpty()) continue;
+                if ("primary".equals(im.path("type").asText())) res.add(0, uri);
+                else res.add(uri);
+            }
+        return res;
+    }
+
     /** Notes альбома: у главной версии (master), если там пусто — у её основного издания; у издания (release) — его Notes. */
-    private String discogsNotes(Job job, String type, long id) throws Exception {
+    private String discogsNotes(Job job, String type, long id, Map<String, JsonNode> cache) throws Exception {
         if (id <= 0) return null;
         if (type.equals("master")) {
-            JsonNode m = api(job, discogsUrl + "/masters/" + id);
+            JsonNode m = discogsCached(job, discogsUrl + "/masters/" + id, cache);
             if (m == null) return null;
             String notes = cleanNotes(m.path("notes").asText(""));
             if (notes != null) return notes;
@@ -350,7 +409,7 @@ public class ImageImport {
             if (main <= 0) return null;
             id = main;
         }
-        JsonNode rel = api(job, discogsUrl + "/releases/" + id);
+        JsonNode rel = discogsCached(job, discogsUrl + "/releases/" + id, cache);
         return rel == null ? null : cleanNotes(rel.path("notes").asText(""));
     }
 
@@ -399,30 +458,34 @@ public class ImageImport {
             if (work == null) continue;
             long workId = w.path("work_id").asLong();
             String image = work.path("image").asText("");
-            byte[] img = null;
+            List<byte[]> imgs = List.of();
             if (wantImage) {
-                if (image.isEmpty()) image = editionCover(job, workId); // своей обложки нет — обложка одного из изданий
-                if (image != null && !image.isEmpty()) img = download(image.startsWith("/") ? fantlabSite + image : image);
+                // своя обложка произведения, за ней (или вместо неё) — обложки изданий
+                List<String> urls = new java.util.ArrayList<>();
+                if (!image.isEmpty()) urls.add(image);
+                if (image.isEmpty() || job.maxImages > 1) urls.addAll(editionCovers(job, workId));
+                imgs = downloadAll(urls.stream().map(u -> u.startsWith("/") ? fantlabSite + u : u).toList(), job.maxImages);
             }
             String descr = wantDescription ? cleanFantlab(work.path("work_description").asText("")) : null;
-            if (img == null && descr == null) continue;
-            return new Found(img, descr);
+            if (imgs.isEmpty() && descr == null) continue;
+            return new Found(imgs, descr);
         }
         return null;
     }
 
-    /** Обложка из списка изданий (расширенная карточка): первое издание с картинкой, русское — в первую очередь; или null. */
-    private String editionCover(Job job, long workId) throws Exception {
+    /** Обложки изданий (расширенная карточка): издания с картинкой, русские — в первую очередь. */
+    private List<String> editionCovers(Job job, long workId) throws Exception {
         JsonNode ext = api(job, fantlabUrl + "/work/" + workId + "/extended");
-        if (ext == null) return null;
-        long any = 0;
+        if (ext == null) return List.of();
+        List<String> ru = new java.util.ArrayList<>(), other = new java.util.ArrayList<>();
         for (JsonNode block : ext.path("editions_blocks"))
             for (JsonNode e : block.path("list")) {
                 if (e.path("pic_num").asInt() <= 0 || e.path("edition_id").asLong() <= 0) continue;
-                if ("ru".equals(e.path("lang_code").asText())) return "/images/editions/big/" + e.path("edition_id").asLong();
-                if (any == 0) any = e.path("edition_id").asLong();
+                String url = "/images/editions/big/" + e.path("edition_id").asLong();
+                ("ru".equals(e.path("lang_code").asText()) ? ru : other).add(url);
             }
-        return any == 0 ? null : "/images/editions/big/" + any;
+        ru.addAll(other);
+        return ru;
     }
 
     /**

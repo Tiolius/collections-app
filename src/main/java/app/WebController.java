@@ -143,7 +143,8 @@ public class WebController {
                               @RequestParam(defaultValue = "false") boolean onlyMissing,
                               @RequestParam(defaultValue = "false") boolean loadImages,
                               @RequestParam(defaultValue = "false") boolean loadDescriptions,
-                              @RequestParam(defaultValue = "screenshot") String steamImage) {
+                              @RequestParam(defaultValue = "screenshot") String steamImage,
+                              @RequestParam(defaultValue = "5") int imageCount) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
@@ -154,7 +155,8 @@ public class WebController {
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");
-        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), discogsToken);
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
+                discogsToken);
         return "redirect:/import";
     }
 
@@ -169,7 +171,7 @@ public class WebController {
     public Map<String, Object> importStatus(@SessionAttribute("uid") long uid) {
         ImageImport.Job j = images.job(uid);
         if (j == null) return Map.of("state", "none");
-        return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
+        return Map.of("state", j.state, "total", j.total, "processed", j.processed, "found", j.found, "loaded", j.loaded,
                 "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
@@ -383,7 +385,7 @@ public class WebController {
                              @RequestParam(defaultValue = "name") String sort,
                              @RequestParam(defaultValue = "asc") String dir,
                              @RequestParam(defaultValue = "1") int page,
-                             @RequestParam(defaultValue = "50") int size,
+                             @RequestParam(defaultValue = "200") int size,
                              @RequestParam(name = "f_name", required = false) String fName,
                              @RequestParam(name = "f_platform", required = false) String fPlatform,
                              @RequestParam(name = "f_format", required = false) String fFormat,
@@ -391,8 +393,14 @@ public class WebController {
                              @RequestParam(name = "f_price_min", required = false) String fPriceMin,
                              @RequestParam(name = "f_price_max", required = false) String fPriceMax,
                              @RequestParam(name = "f_available", required = false) String fAvailable,
-                             @RequestParam(defaultValue = "false") boolean dups) {
+                             @RequestParam(defaultValue = "false") boolean dups,
+                             HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
+        // Открыта без параметров (с главной и т. п.) — запомненный вид списка этой коллекции: сортировка, страница, фильтры
+        if (req.getQueryString() == null || req.getQueryString().isEmpty()) {
+            String saved = repo.collectionView(uid, id);
+            if (isView(saved)) return "redirect:" + collectionUrl(id, saved);
+        }
         Set<String> fields = repo.itemFields(uid, c.kind());
         m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
 
@@ -410,7 +418,7 @@ public class WebController {
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
         boolean desc = "desc".equals(dir);
-        if (!PAGE_SIZES.contains(size)) size = 50;
+        if (!PAGE_SIZES.contains(size)) size = 200;
 
         // Фильтры по столбцам (только по тем, что есть у типа коллекции); пустые не учитываются
         Map<String, String> filters = new java.util.LinkedHashMap<>();
@@ -487,8 +495,10 @@ public class WebController {
         m.addAttribute("to", Math.min(page * size, total));
         m.addAttribute("pageLinks", pageLinks(page, pages));
         // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
-        m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size
-                + filterQs + modeQs);
+        String view = "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size + filterQs;
+        m.addAttribute("view", view + modeQs);
+        // Запомнить вид для этого пользователя и коллекции (режим «Дубли» не запоминается)
+        if (!dups) repo.setCollectionView(uid, id, view);
         return "collection";
     }
 
@@ -515,8 +525,11 @@ public class WebController {
      * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
      */
     private static String collectionUrl(long cid, String view) {
-        return "/collections/" + cid
-                + (view != null && view.matches("[A-Za-z0-9=&%+._*-]*") && !view.isEmpty() ? "?" + view : "");
+        return "/collections/" + cid + (isView(view) ? "?" + view : "");
+    }
+
+    private static boolean isView(String view) {
+        return view != null && !view.isEmpty() && view.matches("[A-Za-z0-9=&%+._*-]*");
     }
 
     /** Ключ для поиска дублей: название без учёта регистра и лишних пробелов. */
@@ -572,11 +585,12 @@ public class WebController {
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) List<String> available,
-                             @RequestParam(required = false) MultipartFile image,
+                             @RequestParam Map<String, MultipartFile> files,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), image, false, description);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available),
+                newImages(files), Set.of(), description);
         return "redirect:/collections/" + cid;
     }
 
@@ -596,14 +610,36 @@ public class WebController {
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) List<String> available,
-                           @RequestParam(required = false) MultipartFile image,
+                           @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
+                           @RequestParam(name = "remove", required = false) List<Integer> remove,
                            @RequestParam(required = false) String description,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), image, removeImage != null, description);
+                available(available), newImages(files), removed(remove, removeImage != null), description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /**
+     * Новые картинки из формы: «image_N» — на место N (окно объекта), «image» — на место первой (страница объекта).
+     */
+    private static Map<Integer, MultipartFile> newImages(Map<String, MultipartFile> files) {
+        Map<Integer, MultipartFile> res = new java.util.HashMap<>();
+        MultipartFile first = files.get("image");
+        if (first != null && !first.isEmpty()) res.put(0, first);
+        for (int pos = 0; pos < ImageFiles.MAX_IMAGES; pos++) {
+            MultipartFile f = files.get("image_" + pos);
+            if (f != null && !f.isEmpty()) res.put(pos, f);
+        }
+        return res;
+    }
+
+    /** Какие картинки удалить: номера из «remove» (окно объекта), «remove_image» — первую (страница объекта). */
+    private static Set<Integer> removed(List<Integer> remove, boolean removeFirst) {
+        Set<Integer> res = new java.util.HashSet<>(remove == null ? List.of() : remove);
+        if (removeFirst) res.add(0);
+        return res;
     }
 
     /**
@@ -616,8 +652,9 @@ public class WebController {
 
     /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */
     @GetMapping("/items/{id}/image")
-    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id) {
-        Map<String, Object> row = repo.itemImage(uid, id);
+    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id,
+                                            @RequestParam(defaultValue = "0") int n) {
+        Map<String, Object> row = repo.itemImage(uid, id, n);
         return ResponseEntity.ok()
                 .cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
                 .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
