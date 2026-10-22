@@ -15,7 +15,7 @@
       </div>
     </div>
     <span class="spacer"></span>
-    <a class="btn" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-450H200v-60h250v-250h60v250h250v60H510v250h-60v-250Z"/></svg><span>Новый объект</span></a>
+    <a class="icon big add" title="Новый объект" aria-label="Новый объект" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-450H200v-60h250v-250h60v250h250v60H510v250h-60v-250Z"/></svg></a>
     <a class="icon big" title="Изменить коллекцию" aria-label="Изменить коллекцию" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
     <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
           onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
