@@ -279,13 +279,16 @@
   dialog.modal .dlg-foot { display: flex; justify-content: flex-end; gap: 4px; padding: 10px 24px;
                            border-top: 1px solid var(--border); background: var(--panel); }
   dialog.modal .pic { display: block; cursor: pointer; }
-  dialog.modal .img-tools { display: flex; align-items: center; gap: 4px; }
+  /* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
+  dialog.modal .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
-  dialog.modal .img-tools .spacer { flex: 1; }
+  dialog.modal .img-tools .spacer { flex: none; height: 24px; }
+  dialog.modal .dlg-image > .pic, dialog.modal .dlg-image > .no-image { grid-column: 1; grid-row: 1; }
+  dialog.modal .dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
   dialog.modal .dlg-image [hidden] { display: none !important; }
   /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
   dialog.modal .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-                           width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
+                           width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
                            background: var(--panel); border: 2px dashed var(--border); }
   dialog.modal .no-image .mi { width: 96px; height: 96px; opacity: .6; }
   dialog.modal .no-image b { color: var(--text); }
@@ -294,13 +297,14 @@
   dialog.modal .dlg-body { display: flex; align-items: flex-start; }
   dialog.modal .dlg-body > .form { flex: 1; }
   dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; }
-  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; gap: 8px; }
-  dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 560px)); aspect-ratio: 4 / 3; height: auto;
+  dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: auto auto; align-items: start; gap: 8px; }
+  dialog.modal .dlg-image img { display: block; width: min(800px, calc(100vw - 600px)); aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
     dialog.modal.wide .dlg-body > .form { flex: none; }
-    dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; }
+    dialog.modal .dlg-image { order: 0; padding: 16px 16px 0; grid-template-columns: minmax(0, 1fr) auto; }
+    dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка над полями */
     dialog.modal .dlg-image img, dialog.modal .no-image { width: 100%; }
   }
   /* Экспорт: список коллекций с галочками в столбик */
@@ -379,7 +383,7 @@
     <div class="dlg-body">
       <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
            Щелчок по картинке или заглушке «Нет картинки» — выбор файла (поле скрыто).
-           Под картинкой панель: заменить, открыть в полном размере, удалить -->
+           Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div id="d-image" class="dlg-image">
         <input id="d-file" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         <input type="hidden" name="remove_image" value="1" id="d-remove-val" disabled>
