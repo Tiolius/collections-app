@@ -142,7 +142,8 @@ public class WebController {
                               @RequestParam(defaultValue = ImageImport.STEAM) String source,
                               @RequestParam(defaultValue = "false") boolean onlyMissing,
                               @RequestParam(defaultValue = "false") boolean loadImages,
-                              @RequestParam(defaultValue = "false") boolean loadDescriptions) {
+                              @RequestParam(defaultValue = "false") boolean loadDescriptions,
+                              @RequestParam(defaultValue = "screenshot") String steamImage) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
@@ -153,7 +154,7 @@ public class WebController {
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");
-        images.start(uid, c, onlyMissing, source, loadImages, descriptions, discogsToken);
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), discogsToken);
         return "redirect:/import";
     }
 

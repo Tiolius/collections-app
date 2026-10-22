@@ -7,11 +7,11 @@
   <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
   <h3 class="section">Картинки и описания объектов из Steam, Discogs или FantLab</h3>
   <p class="muted"><b>Steam</b> — для игр: ищется игра с таким же названием, как у объекта (без учёта регистра, знаков ™ ® © и пунктуации),
-    картинка — шапка страницы игры, описание — краткое описание игры (по-русски, если есть). <b>Discogs</b> — для музыки: название объекта должно быть в виде «Группа - Альбом»,
+    картинка — первый скриншот из галереи игры или шапка страницы игры, описание — краткое описание игры (по-русски, если есть). <b>Discogs</b> — для музыки: название объекта должно быть в виде «Группа - Альбом»,
     ищется альбом с тем же названием у той же группы, картинка — обложка, описание — примечания альбома (Notes); объекты без « - » в названии пропускаются.
     <b>FantLab</b> — для книг: название объекта «Автор - Книга» (как у дисков; без « - » ищется просто по названию), картинка — обложка, описание — аннотация
     (FantLab — база фантастики, книги других жанров там есть не всегда).
-    Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд вместе с описанием) около 2 секунд для Discogs (до 4 секунд вместе с описанием) и около 3 секунд для FantLab.
+    Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд со скриншотом или описанием) около 2 секунд для Discogs (до 4 секунд вместе с описанием) и около 3 секунд для FantLab.
     Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
 
   <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
@@ -59,6 +59,12 @@
       <label class="radio"><input type="checkbox" name="loadDescriptions" value="true" id="f-descr" checked> описания</label>
     </div>
 
+    <label>Картинка из Steam</label>
+    <div>
+      <label class="radio"><input type="radio" name="steamImage" value="screenshot" checked> первый скриншот (1920×1080)</label>
+      <label class="radio"><input type="radio" name="steamImage" value="header"> шапка страницы игры</label>
+    </div>
+
     <span></span>
     <label class="radio"><input type="checkbox" name="onlyMissing" value="true" checked> не заменять уже заполненные картинки и описания</label>
 
@@ -90,6 +96,18 @@
     if (!img || img.dataset.discogsReady === 'true') return;
     function sync() { img.disabled = document.querySelector('input[name=source]:checked').value === 'discogs'; }
     document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+  })();
+  // Выбор «скриншот / шапка» — только для Steam и когда загружаются картинки
+  (function () {
+    var img = document.getElementById('f-images');
+    if (!img) return;
+    function sync() {
+      var steam = document.querySelector('input[name=source]:checked').value === 'steam';
+      document.querySelectorAll('input[name=steamImage]').forEach(function (r) { r.disabled = !steam || !img.checked || img.disabled; });
+    }
+    document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
+    img.addEventListener('change', sync);
     sync();
   })();
 </script>
