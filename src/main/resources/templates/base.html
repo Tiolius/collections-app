@@ -276,7 +276,8 @@
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
   /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
   dialog.modal.wide { width: fit-content; }
-  dialog.modal .dlg-foot { padding: 0 24px 16px; display: flex; gap: 4px; }
+  dialog.modal .dlg-foot { display: flex; justify-content: flex-end; gap: 4px; padding: 10px 24px;
+                           border-top: 1px solid var(--border); background: var(--panel); }
   dialog.modal .pic { display: block; cursor: pointer; }
   dialog.modal .img-tools { display: flex; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
@@ -416,10 +417,9 @@
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
     </div>
-    <!-- Кнопки — в левом нижнем углу окна, под полями и картинкой -->
+    <!-- Нижняя панель окна: «Сохранить» справа; отмена — крестик в шапке (или Esc, щелчок мимо окна) -->
     <div class="dlg-foot">
       <button class="btn">Сохранить</button>
-      <button type="button" class="btn gray" data-close>Отмена</button>
     </div>
     </form>
   </dialog>
