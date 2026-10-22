@@ -182,13 +182,8 @@
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
-  /* Страница дублей: группы чередуются фоном (вместо полос через строку), между группами — линия */
-  table.items.dups tbody tr td { background: transparent; }
-  table.items.dups tbody tr.g2 td { background: var(--zebra); }
-  table.items.dups tbody tr[style] td { background: var(--row-bg); }
-  :root[data-theme="dark"] table.items.dups tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 30%, var(--paper)); }
-  table.items.dups tbody tr.gstart td { border-top: 2px solid var(--border); }
-  table.items.dups td.title { color: var(--link); }
+  /* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
+  table.items tbody tr.gstart td { border-top: 2px solid var(--border); }
   /* Название забирает всё свободное место, остальные столбцы — по содержимому */
   table.items th, table.items td { width: 1%; white-space: nowrap; }
   table.items .title { width: auto; white-space: normal; }

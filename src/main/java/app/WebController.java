@@ -217,7 +217,8 @@ public class WebController {
                              @RequestParam(name = "f_name", required = false) String fName,
                              @RequestParam(name = "f_platform", required = false) String fPlatform,
                              @RequestParam(name = "f_format", required = false) String fFormat,
-                             @RequestParam(name = "f_status", required = false) String fStatus) {
+                             @RequestParam(name = "f_status", required = false) String fStatus,
+                             @RequestParam(defaultValue = "false") boolean dups) {
         Entry c = repo.collection(uid, id);
         Set<String> fields = repo.itemFields(uid, c.kind());
         m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
@@ -247,7 +248,20 @@ public class WebController {
         filters.forEach((k, v) -> filterQs.append("&f_").append(k).append("=")
                 .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8)));
 
+        // Режим «Дубли»: только объекты, у которых в коллекции есть объект с тем же названием
+        Set<Long> dupIds = new java.util.HashSet<>();
+        int dupGroups = 0;
+        if (dups) {
+            Map<String, List<Long>> byName = new java.util.HashMap<>();
+            for (Entry e : repo.items(id, "name", false, Map.of()))
+                byName.computeIfAbsent(dupKey(e.name()), k -> new ArrayList<>()).add(e.id());
+            for (List<Long> g : byName.values())
+                if (g.size() > 1) { dupIds.addAll(g); dupGroups++; }
+        }
+        String modeQs = dups ? "&dups=1" : "";
+
         List<Entry> found = repo.items(id, sort, desc, filters);
+        if (dups) found = found.stream().filter(e -> dupIds.contains(e.id())).toList();
         int total = found.size();
         int pages = Math.max(1, (total + size - 1) / size);
         page = Math.min(Math.max(page, 1), pages);
@@ -256,11 +270,23 @@ public class WebController {
         m.addAttribute("c", c);
         m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
-        m.addAttribute("items", found.subList(fromIdx, Math.min(fromIdx + size, total)));
+        List<Entry> pageItems = found.subList(fromIdx, Math.min(fromIdx + size, total));
+        m.addAttribute("items", pageItems);
+        // В режиме дублей при сортировке по названию — первая строка каждой группы (над ней линия)
+        Set<Long> groupStarts = new java.util.HashSet<>();
+        if (dups && sort.equals("name"))
+            for (int i = fromIdx; i < fromIdx + pageItems.size(); i++)
+                if (i == 0 || !dupKey(found.get(i).name()).equals(dupKey(found.get(i - 1).name())))
+                    groupStarts.add(found.get(i).id());
+        m.addAttribute("groupStarts", groupStarts);
+        m.addAttribute("dups", dups);
+        m.addAttribute("dupGroups", dupGroups);
+        m.addAttribute("modeQs", modeQs);
         m.addAttribute("filters", filters);
         m.addAttribute("filterOptions", filterOptions);
         m.addAttribute("filterQs", filterQs.toString());
-        m.addAttribute("totalAll", filters.isEmpty() ? total : repo.countItems(id));
+        // Всего без фильтров: в режиме дублей — все дубли, иначе — все объекты коллекции
+        m.addAttribute("totalAll", dups ? dupIds.size() : filters.isEmpty() ? total : repo.countItems(id));
         m.addAttribute("sort", sort);
         m.addAttribute("dir", desc ? "desc" : "asc");
         m.addAttribute("page", page);
@@ -273,7 +299,7 @@ public class WebController {
         m.addAttribute("pageLinks", pageLinks(page, pages));
         // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
         m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size
-                + filterQs);
+                + filterQs + modeQs);
         return "collection";
     }
 
@@ -296,43 +322,13 @@ public class WebController {
      * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
      */
     private static String collectionUrl(long cid, String view) {
-        if (DUPS_VIEW.equals(view)) return "/collections/" + cid + "/duplicates";
         return "/collections/" + cid
                 + (view != null && view.matches("[A-Za-z0-9=&%+._*-]*") && !view.isEmpty() ? "?" + view : "");
     }
 
-    /** Значение view, при котором после изменения/удаления объекта возвращаемся на страницу дублей. */
-    private static final String DUPS_VIEW = "dups";
-
-    /**
-     * Дубли коллекции: объекты с одинаковым названием (без учёта регистра и лишних пробелов),
-     * сгруппированные по названию; группы — по алфавиту, внутри группы — по порядку добавления.
-     */
-    @GetMapping("/collections/{id}/duplicates")
-    public String duplicates(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
-        Entry c = repo.collection(uid, id);
-        Set<String> fields = repo.itemFields(uid, c.kind());
-        Map<String, List<Entry>> byName = new java.util.TreeMap<>(Repo.alphabetical());
-        for (Entry e : repo.items(id, "name", false, Map.of()))
-            byName.computeIfAbsent(e.name().trim().replaceAll("\\s+", " "), k -> new ArrayList<>()).add(e);
-        List<List<Entry>> groups = byName.values().stream().filter(g -> g.size() > 1)
-                .map(g -> g.stream().sorted(java.util.Comparator.comparingLong(Entry::id)).toList()).toList();
-
-        List<Col> cols = new ArrayList<>();
-        cols.add(new Col("name", "Название", "title"));
-        if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
-        if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
-        if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
-        if (fields.contains("price")) cols.add(new Col("price", "₽", "eye"));
-
-        m.addAttribute("c", c);
-        m.addAttribute("fields", fields);
-        m.addAttribute("cols", cols);
-        m.addAttribute("groups", groups);
-        m.addAttribute("dupCount", groups.stream().mapToInt(List::size).sum());
-        m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
-        m.addAttribute("view", DUPS_VIEW);
-        return "duplicates";
+    /** Ключ для поиска дублей: название без учёта регистра и лишних пробелов. */
+    private static String dupKey(String name) {
+        return name.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.forLanguageTag("ru"));
     }
 
     @GetMapping("/collections/{id}/image")
