@@ -87,7 +87,6 @@
       </th>
       <!-- Картинка: иконка у объектов, у которых она есть -->
       <th class="pic-col" title="Картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></th>
-      <th class="actions"></th>
     </tr>
     <tr class="filters">
       <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
@@ -107,7 +106,6 @@
         </div>
       </th>
       <th class="pic-col"></th>
-      <th class="actions"></th>
     </tr></thead>
     <tbody><th:block th:each="it : ${items}" th:with="grp=${groupStarts.contains(it.id()) ? 'gstart' : null}">
     <tr th:fragment="itemRow" th:class="${grp}"
@@ -129,18 +127,9 @@
         </span>
       </td>
       <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" title="Есть картинка" aria-label="Есть картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></span></td>
-      <td class="actions">
-        <form autocomplete="off" class="inline" method="post" th:action="@{/items/{id}/delete(id=${it.id()})}"
-              onsubmit="return confirm('Удалить объект?')">
-          <input type="hidden" name="view" th:value="${view}">
-          <button class="icon red" title="Удалить" aria-label="Удалить">
-            <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg>
-          </button>
-        </form>
-      </td>
     </tr>
     </th:block>
-    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 2}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
+    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 1}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
     </tbody>
   </table>
   </th:block>

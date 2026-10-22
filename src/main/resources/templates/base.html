@@ -94,6 +94,8 @@
   .btn .mi { width: 16px; height: 16px; margin-left: -2px; }
   .btn.gray, .btn.light { background: linear-gradient(var(--btn2-from), var(--btn2-to)); color: var(--link); border-color: var(--btn2-border); }
   .btn.red { background: var(--red); color: var(--on-red); }
+  /* Удаление — серая кнопка с красным текстом (не так бросается в глаза, как синяя «Сохранить») */
+  .btn.danger { color: var(--red); }
   .btn.back { width: 26px; padding: 0; background: none; border: none; color: var(--blue); }
   .btn.back .mi { width: 22px; height: 22px; margin: 0; }
   .btn.small { height: 24px; padding: 0 10px; }
@@ -157,10 +159,6 @@
   /* Блок с названием коллекции и кнопками — тонкая рамка и фон, как у форм */
   .collhead { border: 1px solid var(--border); padding: 8px 12px; background: var(--form-bg); }
   .collhead .coll-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin-left: auto; }
-  /* Стрелка «назад» и иконки — по строке названия коллекции, а не по центру всего блока */
-  .collhead { align-items: flex-start; }
-  .collhead > .back { margin-top: -3px; }           /* (21px строка названия − 26px кнопка) / 2 */
-  .collhead > .coll-actions { margin-top: -5px; }   /* (21px − 30px иконка) / 2 */
   .collhead .thumb { width: 56px; height: 56px; }
   .pages { display: inline-flex; align-items: center; }
   .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
@@ -283,7 +281,7 @@
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
   /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
   dialog.modal.wide { width: fit-content; }
-  dialog.modal .dlg-foot { display: flex; justify-content: flex-end; gap: 4px; padding: 10px 24px;
+  dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 4px; padding: 10px 24px;
                            border-top: 1px solid var(--border); background: var(--panel); }
   dialog.modal .pic { display: block; cursor: pointer; }
   /* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
@@ -340,9 +338,13 @@
     table.items tr.filters select, table.items tr.filters .range input { min-width: 0; }
     table.items tr.filters .range { flex-direction: column; gap: 2px; }
     table.items td.title { overflow-wrap: anywhere; }
-    .collhead { flex-wrap: wrap; }
+    .collhead { flex-wrap: wrap; align-items: flex-start; }  /* на телефоне стрелка «назад» — по строке названия */
+    .collhead > .back { margin-top: -3px; }   /* (21px строка названия − 26px кнопка) / 2 */
     .collhead > div { flex: 1 1 200px; min-width: 0; }
-    .collhead > .coll-actions { margin-top: 0; }  /* на телефоне иконки — отдельной строкой под названием */
+    /* на телефоне иконки — отдельной строкой, начинаются ровно под названием (после стрелки 26px и промежутка 12px;
+       если у коллекции есть картинка — ещё 56px + 12px) */
+    .collhead > .coll-actions { margin-top: 0; margin-left: 36px; }  /* 38px минус внутренний отступ иконки */
+    .collhead:has(> .thumb) > .coll-actions { margin-left: 104px; }
     .meta-line { column-gap: 12px; }
     .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
   }
@@ -443,8 +445,11 @@
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
     </div>
-    <!-- Нижняя панель окна: «Сохранить» справа; отмена — крестик в шапке (или Esc, щелчок мимо окна) -->
+    <!-- Нижняя панель окна: слева «Удалить объект» (отправляет форму на /items/{id}/delete, адрес — formaction,
+         ставит скрипт), справа «Сохранить»; отмена — крестик в шапке (или Esc, щелчок мимо окна) -->
     <div class="dlg-foot">
+      <button type="submit" class="btn light danger" id="d-delete" formnovalidate
+              onclick="return confirm('Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
       <button class="btn">Сохранить</button>
     </div>
     </form>
@@ -484,6 +489,7 @@
         e.preventDefault();
         var row = a.closest('tr');
         form.action = '/items/' + row.dataset.id + '/edit';
+        document.getElementById('d-delete').formAction = '/items/' + row.dataset.id + '/delete';
         ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
