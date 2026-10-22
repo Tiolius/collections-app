@@ -26,10 +26,12 @@ public class WebController {
 
     private final Repo repo;
     private final LoginGuard guard;
+    private final SteamImport steam;
 
-    public WebController(Repo repo, LoginGuard guard) {
+    public WebController(Repo repo, LoginGuard guard, SteamImport steam) {
         this.repo = repo;
         this.guard = guard;
+        this.steam = steam;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -107,6 +109,90 @@ public class WebController {
     public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices) {
         repo.setShowPrices(uid, showPrices);
         return "redirect:/display?saved";
+    }
+
+    // Вкладка «Импорт»: картинки объектов коллекции из Steam (в фоне, прогресс — /import/status)
+    @GetMapping("/import")
+    public String importPage(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("collections", repo.collections(uid));
+        m.addAttribute("job", steam.job(uid));
+        return "import";
+    }
+
+    @PostMapping("/import/steam")
+    public String importSteam(@SessionAttribute("uid") long uid, @RequestParam long collection,
+                              @RequestParam(defaultValue = "false") boolean onlyMissing) {
+        steam.start(uid, repo.collection(uid, collection), onlyMissing); // чужая коллекция — 404
+        return "redirect:/import";
+    }
+
+    @PostMapping("/import/cancel")
+    public String importCancel(@SessionAttribute("uid") long uid) {
+        steam.cancel(uid);
+        return "redirect:/import";
+    }
+
+    @GetMapping("/import/status")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> importStatus(@SessionAttribute("uid") long uid) {
+        SteamImport.Job j = steam.job(uid);
+        if (j == null) return Map.of("state", "none");
+        return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
+                "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
+    }
+
+    // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
+    @GetMapping("/export")
+    public String exportPage(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("collections", repo.collections(uid));
+        return "export";
+    }
+
+    @PostMapping("/export")
+    public Object export(@SessionAttribute("uid") long uid, @RequestParam(name = "c", required = false) List<Long> ids,
+                         Model m) throws java.io.IOException {
+        // Только свои коллекции, в порядке списка (по алфавиту)
+        List<Entry> chosen = repo.collections(uid).stream().filter(c -> ids != null && ids.contains(c.id())).toList();
+        if (chosen.isEmpty()) {
+            m.addAttribute("collections", repo.collections(uid));
+            m.addAttribute("error", "Выберите хотя бы одну коллекцию");
+            return "export";
+        }
+        List<Xlsx.Sheet> sheets = new ArrayList<>();
+        for (Entry c : chosen) {
+            Set<String> fields = repo.itemFields(uid, c.kind());
+            List<String> headers = new ArrayList<>(List.of("Название"));
+            List<Integer> widths = new ArrayList<>(List.of(60));
+            for (String f : fields) {
+                headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
+                widths.add(f.equals("price") ? 12 : 22);
+            }
+            List<List<Object>> rows = new ArrayList<>();
+            for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
+                List<Object> row = new ArrayList<>();
+                row.add(it.name());
+                for (String f : fields)
+                    row.add(switch (f) {
+                        case "platform" -> it.platform();
+                        case "format" -> it.format();
+                        case "status" -> it.status();
+                        case "price" -> it.price();
+                        default -> null;
+                    });
+                rows.add(row);
+            }
+            sheets.add(new Xlsx.Sheet(c.name(), headers, rows, widths));
+        }
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        Xlsx.write(out, sheets);
+        String file = (chosen.size() == 1 ? chosen.get(0).name() : "Коллекции") + " " + java.time.LocalDate.now() + ".xlsx";
+        return ResponseEntity.ok()
+                // Имя файла: латиницей для старых браузеров и по-русски (filename*, RFC 5987) для остальных
+                .header("Content-Disposition", "attachment; filename=\"collections-" + java.time.LocalDate.now()
+                        + ".xlsx\"; filename*=UTF-8''" + java.net.URLEncoder.encode(file, java.nio.charset.StandardCharsets.UTF_8)
+                        .replace("+", "%20"))
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(out.toByteArray());
     }
 
     /** Версия приложения (из pom.xml, см. app.version в application.properties). */
@@ -432,10 +518,11 @@ public class WebController {
                              @RequestParam(required = false) String platform,
                              @RequestParam(required = false) String format,
                              @RequestParam(required = false) String status,
-                             @RequestParam(required = false) Integer price) {
+                             @RequestParam(required = false) Integer price,
+                             @RequestParam(required = false) MultipartFile image) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, image, false);
         return "redirect:/collections/" + cid;
     }
 
@@ -444,7 +531,8 @@ public class WebController {
         Entry it = repo.item(uid, id);
         Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
         m.addAttribute("view", view);
-        return form(uid, m, it, true, fields, null, "Редактировать объект", collectionUrl(it.collectionId(), view));
+        return form(uid, m, it, true, fields, it.hasImage() ? "/items/" + id + "/image" : null,
+                "Редактировать объект", collectionUrl(it.collectionId(), view));
     }
 
     @PostMapping("/items/{id}/edit")
@@ -453,10 +541,23 @@ public class WebController {
                            @RequestParam(required = false) String format,
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
+                           @RequestParam(required = false) MultipartFile image,
+                           @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
-        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price);
+        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
+                image, removeImage != null);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */
+    @GetMapping("/items/{id}/image")
+    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id) {
+        Map<String, Object> row = repo.itemImage(uid, id);
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
+                .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
+                .body((byte[]) row.get("image"));
     }
 
     @PostMapping("/items/{id}/delete")

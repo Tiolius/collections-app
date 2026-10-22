@@ -20,7 +20,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     // Скрипты и стили только свои (небольшие встроенные — inline), без чужих сайтов и встраивания в чужие страницы
     private static final String CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-            + "img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+            + "img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     // Картинка коллекции: никаких скриптов, даже если открыть её отдельно
     private static final String CSP_IMAGE = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
@@ -30,7 +30,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("X-Frame-Options", "DENY");
         res.setHeader("Referrer-Policy", "same-origin");
-        res.setHeader("Content-Security-Policy", req.getRequestURI().matches("/collections/\\d+/image") ? CSP_IMAGE : CSP);
+        res.setHeader("Content-Security-Policy", req.getRequestURI().matches("/(collections|items)/\\d+/image") ? CSP_IMAGE : CSP);
         if (req.isSecure()) res.setHeader("Strict-Transport-Security", "max-age=31536000");
         if ("POST".equals(req.getMethod()) && !sameOrigin(req)) {
             res.sendError(HttpServletResponse.SC_FORBIDDEN);

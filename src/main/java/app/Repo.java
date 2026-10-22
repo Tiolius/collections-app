@@ -27,7 +27,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class Repo {
 
     private static final String COLLECTION_COLS = "id, name, image_mime IS NOT NULL AS has_image, kind";
-    private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price";
+    private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price, "
+            + "EXISTS (SELECT 1 FROM item_images ii WHERE ii.item_id = items.id) AS has_image";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -58,7 +59,7 @@ public class Repo {
         return (rs, i) -> new Entry(
                 rs.getLong("id"),
                 rs.getString("name"),
-                !isItem && rs.getBoolean("has_image"),
+                rs.getBoolean("has_image"),
                 isItem ? rs.getLong("collection_id") : null,
                 withCount ? rs.getInt("cnt") : 0,
                 isItem ? null : rs.getString("kind"),
@@ -357,6 +358,15 @@ public class Repo {
         return rows.get(0);
     }
 
+    /** Картинка объекта: {image, image_mime} или 404 (в т.ч. если объект чужой). */
+    public Map<String, Object> itemImage(long uid, long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT ii.image, ii.image_mime FROM item_images ii "
+                + "JOIN items i ON i.id = ii.item_id JOIN collections c ON c.id = i.collection_id "
+                + "WHERE ii.item_id = ? AND c.user_id = ?", id, uid);
+        if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return rows.get(0);
+    }
+
     // ---------- изменение ----------
 
     public long createCollection(long uid) {
@@ -377,20 +387,33 @@ public class Repo {
         jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
         if (image != null && !image.isEmpty()) {
-            byte[] bytes;
-            try {
-                bytes = image.getBytes();
-            } catch (IOException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось прочитать файл");
-            }
-            // Тип определяется по содержимому файла, а не по тому, что прислал браузер
-            String mime = imageType(bytes);
-            if (mime == null)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Картинка должна быть в формате PNG, JPEG, GIF или WebP");
-            jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", bytes, mime, id);
+            byte[] bytes = readImage(image);
+            jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", bytes, imageType(bytes), id);
         } else if (removeImage) {
             jdbc.update("UPDATE collections SET image = NULL, image_mime = NULL WHERE id = ?", id);
         }
+    }
+
+    /** Записывает картинку объекта (импорт); владельца и формат проверяет вызывающий код. */
+    public void setItemImage(long itemId, byte[] bytes) {
+        String mime = imageType(bytes);
+        if (mime == null) throw new IllegalArgumentException("не картинка");
+        jdbc.update("INSERT INTO item_images (item_id, image, image_mime) VALUES (?, ?, ?) ON CONFLICT (item_id) "
+                + "DO UPDATE SET image = excluded.image, image_mime = excluded.image_mime", itemId, bytes, mime);
+    }
+
+    /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */
+    private static byte[] readImage(MultipartFile image) {
+        byte[] bytes;
+        try {
+            bytes = image.getBytes();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось прочитать файл");
+        }
+        // Тип определяется по содержимому файла, а не по тому, что прислал браузер
+        if (imageType(bytes) == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Картинка должна быть в формате PNG, JPEG, GIF или WebP");
+        return bytes;
     }
 
     /** Тип картинки по первым байтам файла: PNG, JPEG, GIF, WebP; иначе null (в т.ч. SVG — в нём бывают скрипты). */
@@ -414,7 +437,7 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price) {
+                         Integer price, MultipartFile image, boolean removeImage) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
@@ -424,6 +447,14 @@ public class Repo {
         if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
         if (f.contains("status")) jdbc.update("UPDATE items SET status = ? WHERE id = ?", trim(status), id);
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
+        // Картинка есть у всех объектов, независимо от типа коллекции
+        if (image != null && !image.isEmpty()) {
+            byte[] bytes = readImage(image);
+            jdbc.update("INSERT INTO item_images (item_id, image, image_mime) VALUES (?, ?, ?) ON CONFLICT (item_id) "
+                    + "DO UPDATE SET image = excluded.image, image_mime = excluded.image_mime", id, bytes, imageType(bytes));
+        } else if (removeImage) {
+            jdbc.update("DELETE FROM item_images WHERE item_id = ?", id);
+        }
     }
 
     /** Удаляет запись; владельца проверяет вызывающий код (collection/item с uid). */

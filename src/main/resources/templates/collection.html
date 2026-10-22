@@ -107,7 +107,7 @@
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
-               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}">
+               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-image="${it.hasImage() ? '1' : null}">
       <td class="title" th:text="${it.name()}" th:title="${it.name()}"></td>
       <td th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
       <td th:if="${fields.contains('format')}" th:text="${it.format()}"></td>

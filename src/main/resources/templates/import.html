@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main>
+  <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
+  <h3 class="section">Картинки объектов из Steam</h3>
+  <p class="muted">Для каждого объекта коллекции ищется игра в Steam с таким же названием (без учёта регистра, знаков ™ ® © и пунктуации),
+    и в объект загружается её картинка. Steam ограничивает число запросов, поэтому на один объект уходит около 1,5 секунды
+    (1000 объектов — примерно 25 минут). Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
+
+  <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
+  <div class="import-box" id="import-job" th:if="${job != null and job.active()}">
+    <div><b th:text="${job.collectionName}"></b> — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
+    <progress id="ij-bar" th:max="${job.total == 0 ? 1 : job.total}" th:value="${job.processed}"></progress>
+    <div>Обработано <span id="ij-processed" th:text="${job.processed}"></span> из <span th:text="${job.total}"></span>
+      · загружено <span id="ij-loaded" th:text="${job.loaded}"></span>
+      · не найдено <span id="ij-notfound" th:text="${job.notFound}"></span>
+      · ошибок <span id="ij-errors" th:text="${job.errors}"></span></div>
+    <div class="muted" id="ij-current" th:text="${job.current}"></div>
+    <div class="muted" id="ij-message" th:text="${job.message}" th:hidden="${#strings.isEmpty(job.message)}"></div>
+    <form autocomplete="off" method="post" action="/import/cancel"><button class="btn gray">Остановить</button></form>
+  </div>
+
+  <!-- Итог последнего импорта -->
+  <th:block th:if="${job != null and !job.active()}">
+    <p th:class="${job.state == 'failed' ? 'error' : 'ok'}">
+      <span th:text="${job.state == 'done' ? 'Импорт завершён' : job.state == 'cancelled' ? 'Импорт остановлен' : job.message}"></span>
+      (<span th:text="${job.collectionName}"></span>): загружено картинок — <b th:text="${job.loaded}"></b>
+      из <span th:text="${job.total}"></span> объектов<span th:if="${job.processed < job.total}" th:text="${', обработано ' + job.processed}"></span>.
+      Не найдено в Steam — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
+    </p>
+  </th:block>
+
+  <form autocomplete="off" class="form" method="post" action="/import/steam" th:unless="${job != null and job.active()}">
+    <label for="f-coll">Коллекция</label>
+    <select id="f-coll" name="collection" required>
+      <option th:each="c : ${collections}" th:value="${c.id()}" th:text="${c.name() + ' (' + c.count() + ')'}"
+              th:selected="${job != null and job.collectionId == c.id()}"></option>
+    </select>
+
+    <span></span>
+    <label class="radio"><input type="checkbox" name="onlyMissing" value="true" checked> только объекты без картинки</label>
+
+    <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить картинки из Steam</button></div>
+  </form>
+
+<script th:if="${job != null and job.active()}">
+  // Прогресс импорта: раз в секунду спрашиваем состояние; когда импорт закончится — перезагружаем страницу (итог)
+  (function () {
+    function $(id) { return document.getElementById(id); }
+    function tick() {
+      fetch('/import/status', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+        if (s.state !== 'queued' && s.state !== 'running') { location.reload(); return; }
+        $('ij-state').textContent = s.state === 'queued' ? 'в очереди' : 'идёт импорт';
+        $('ij-bar').max = Math.max(s.total, 1); $('ij-bar').value = s.processed;
+        $('ij-processed').textContent = s.processed; $('ij-loaded').textContent = s.loaded;
+        $('ij-notfound').textContent = s.notFound; $('ij-errors').textContent = s.errors;
+        $('ij-current').textContent = s.current;
+        $('ij-message').textContent = s.message; $('ij-message').hidden = !s.message;
+        setTimeout(tick, 1000);
+      }).catch(function () { setTimeout(tick, 3000); });
+    }
+    setTimeout(tick, 1000);
+  })();
+</script>
+</main>
+</body>
+</html>
