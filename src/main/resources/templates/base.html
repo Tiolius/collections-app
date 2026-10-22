@@ -71,7 +71,10 @@
   .mi { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; vertical-align: middle; }
 
   /* Верхнее меню */
-  header { display: flex; align-items: center; justify-content: space-between; height: 34px; padding-left: 12px;
+  /* Шапка той же ширины, что и белая область страницы (main, до 1500px по центру): кнопки справа заканчиваются
+     ровно на её правой границе, и вертикальная линия идёт из шапки вниз без излома */
+  header { display: flex; align-items: center; justify-content: space-between; height: 34px;
+           padding-left: max(12px, calc((100% - 1500px) / 2 + 24px)); padding-right: max(0px, calc((100% - 1500px) / 2));
            background: linear-gradient(var(--bar-from), var(--bar-to)); border-bottom: 1px solid var(--bar-border); color: var(--text); }
   header a { color: inherit; text-decoration: none; }
   header a:hover { text-decoration: none; }
@@ -80,6 +83,7 @@
   /* Логотип — книги на полке (контурная иконка, рисуется линией, а не заливкой) */
   header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   header .right, header nav { display: flex; align-items: stretch; height: 100%; }
+  header .right { border-right: 1px solid var(--bar-sep); }
   header .user, header a.settings, header .theme, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
            padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
   header .user { cursor: default; }
