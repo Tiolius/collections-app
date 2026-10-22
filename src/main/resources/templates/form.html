@@ -57,9 +57,9 @@
 
     <th:block th:if="${isItem and fields.contains('available')}">
       <label for="f-available">Наличие</label>
-      <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме»; у нового объекта — отмечена -->
+      <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме»; у нового объекта — снята («Нет») -->
       <span><input type="hidden" name="available" value="0"><label class="radio"><input id="f-available" type="checkbox" name="available" value="1"
-             th:checked="${obj == null or obj.available()}"> есть</label></span>
+             th:checked="${obj != null and obj.available()}"> есть</label></span>
     </th:block>
 
     <th:block th:if="${isItem}">

@@ -32,7 +32,7 @@ public class Repo {
             + "(SELECT COUNT(*) FROM item_images ii WHERE ii.item_id = items.id) "
             + "+ (SELECT COUNT(*) FROM item_more_images m WHERE m.item_id = items.id) AS image_count, "
             + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description, "
-            + "NOT EXISTS (SELECT 1 FROM item_absent a WHERE a.item_id = items.id) AS available";
+            + "EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id) AS available";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -51,7 +51,7 @@ public class Repo {
         FIELDS.put("format", "Формат");
         FIELDS.put("status", "Статус прохождения");
         FIELDS.put("price", "Цена");
-        FIELDS.put("available", "Наличие"); // не столбец items: отметки «нет» — в таблице item_absent
+        FIELDS.put("available", "Наличие"); // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
     }
 
     /** Значения поля «Статус прохождения» (выпадающий список); пусто — статус не указан. */
@@ -373,8 +373,8 @@ public class Repo {
         }
         // Наличие: "1" — есть, "0" — нет
         if (filters.containsKey("available"))
-            where.append("1".equals(filters.get("available")) ? " AND NOT" : " AND")
-                    .append(" EXISTS (SELECT 1 FROM item_absent a WHERE a.item_id = items.id)");
+            where.append("1".equals(filters.get("available")) ? " AND" : " AND NOT")
+                    .append(" EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id)");
         List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
                 mapper(true, false), args.toArray());
         String name = filters.get("name");
@@ -541,8 +541,8 @@ public class Repo {
         }
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
         if (f.contains("available") && available != null) {
-            if (available) jdbc.update("DELETE FROM item_absent WHERE item_id = ?", id);
-            else jdbc.update("INSERT OR IGNORE INTO item_absent (item_id) VALUES (?)", id);
+            if (available) jdbc.update("INSERT OR IGNORE INTO item_present (item_id) VALUES (?)", id);
+            else jdbc.update("DELETE FROM item_present WHERE item_id = ?", id);
         }
         // Описание и картинка есть у всех объектов, независимо от типа коллекции
         if (description != null) setItemDescription(id, description);

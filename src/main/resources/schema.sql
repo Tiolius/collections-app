@@ -82,10 +82,12 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     PRIMARY KEY (user_id, service)
 );
 
--- Наличие объекта (поле типа «Наличие»): здесь — объекты, которых нет в наличии; нет строки — объект есть
-CREATE TABLE IF NOT EXISTS item_absent (
+-- Наличие объекта (поле типа «Наличие»): здесь — объекты, которые есть в наличии; нет строки — «Нет» (по умолчанию).
+-- Прежняя таблица item_absent (отметки «нет», по умолчанию было «есть») удалена: по решению пользователя все объекты стали «Нет»
+CREATE TABLE IF NOT EXISTS item_present (
     item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE
 );
+DROP TABLE IF EXISTS item_absent;
 
 -- Разовые обновления данных: имя выполненного обновления (чтобы не повторять его при каждом старте)
 CREATE TABLE IF NOT EXISTS data_updates (
