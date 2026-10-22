@@ -169,7 +169,7 @@ public class WebController {
     public Map<String, Object> importStatus(@SessionAttribute("uid") long uid) {
         ImageImport.Job j = images.job(uid);
         if (j == null) return Map.of("state", "none");
-        return Map.of("state", j.state, "total", j.total, "processed", j.processed, "loaded", j.loaded,
+        return Map.of("state", j.state, "total", j.total, "processed", j.processed, "found", j.found, "loaded", j.loaded,
                 "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 

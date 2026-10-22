@@ -11,8 +11,7 @@
     <div><b th:text="${job.collectionName}"></b> (<span th:text="${job.sourceName()}"></span>) — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
     <progress id="ij-bar" th:max="${job.total == 0 ? 1 : job.total}" th:value="${job.processed}"></progress>
     <div>Обработано <span id="ij-processed" th:text="${job.processed}"></span> из <span th:text="${job.total}"></span>
-      · картинок <span id="ij-loaded" th:text="${job.loaded}"></span>
-      <th:block th:if="${job.descriptions}">· описаний <span id="ij-described" th:text="${job.described}"></span></th:block>
+      · найдено <span id="ij-found" th:text="${job.found}"></span>
       · не найдено <span id="ij-notfound" th:text="${job.notFound}"></span>
       · ошибок <span id="ij-errors" th:text="${job.errors}"></span></div>
     <div class="muted" id="ij-current" th:text="${job.current}"></div>
@@ -24,9 +23,9 @@
   <th:block th:if="${job != null and !job.active()}">
     <p th:class="${job.state == 'failed' ? 'error' : 'ok'}">
       <span th:text="${job.state == 'done' ? 'Импорт завершён' : job.state == 'cancelled' ? 'Импорт остановлен' : job.message}"></span>
-      (<span th:text="${job.collectionName + ', ' + job.sourceName()}"></span>): загружено картинок — <b th:text="${job.loaded}"></b><th:block th:if="${job.descriptions}">, описаний — <b th:text="${job.described}"></b></th:block>
-      для <span th:text="${job.total}"></span> объектов<span th:if="${job.processed < job.total}" th:text="${', обработано ' + job.processed}"></span>.
-      Не найдено в <span th:text="${job.sourceName()}"></span> — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
+      (<span th:text="${job.collectionName + ', ' + job.sourceName()}"></span>): найдено — <b th:text="${job.found}"></b>
+      из <span th:text="${job.total}"></span><span th:if="${job.processed < job.total}" th:text="${' (обработано ' + job.processed + ')'}"></span>,
+      не найдено — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
     </p>
   </th:block>
 
@@ -133,9 +132,8 @@
         if (s.state !== 'queued' && s.state !== 'running') { location.reload(); return; }
         $('ij-state').textContent = s.state === 'queued' ? 'в очереди' : 'идёт импорт';
         $('ij-bar').max = Math.max(s.total, 1); $('ij-bar').value = s.processed;
-        $('ij-processed').textContent = s.processed; $('ij-loaded').textContent = s.loaded;
+        $('ij-processed').textContent = s.processed; $('ij-found').textContent = s.found;
         $('ij-notfound').textContent = s.notFound; $('ij-errors').textContent = s.errors;
-        if ($('ij-described')) $('ij-described').textContent = s.described;
         $('ij-current').textContent = s.current;
         $('ij-message').textContent = s.message; $('ij-message').hidden = !s.message;
         setTimeout(tick, 1000);

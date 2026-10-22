@@ -81,7 +81,7 @@ public class ImageImport {
         /** Steam: картинка — первый скриншот из галереи игры (1920×1080), а не шапка. */
         public final boolean screenshot;
         public volatile String state = "queued"; // queued | running | done | cancelled | failed
-        public volatile int total, processed, loaded, described, notFound, errors; // loaded — картинок, described — описаний
+        public volatile int total, processed, found, loaded, described, notFound, errors; // found — найдено в источнике; loaded — картинок, described — описаний
         public volatile String current = "";
         public volatile String message = "";      // пауза из-за ограничений сервиса, причина остановки
         volatile boolean cancel;
@@ -193,6 +193,7 @@ public class ImageImport {
                     if (f == null) {
                         job.notFound++;
                     } else {
+                        job.found++;
                         if (img && f.image() != null) {
                             repo.setItemImage(item.id(), f.image());
                             job.loaded++;
