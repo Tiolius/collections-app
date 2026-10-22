@@ -129,9 +129,8 @@ public class WebController {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
-        if (source.equals(ImageImport.DISCOGS) && !images.discogsReady())
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Для Discogs нужен токен: задайте DISCOGS_TOKEN (см. README)");
+        // Обложки Discogs — только с токеном; без него — только описания
+        if (source.equals(ImageImport.DISCOGS) && !images.discogsReady()) loadImages = false;
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,

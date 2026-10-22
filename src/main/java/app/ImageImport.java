@@ -117,7 +117,7 @@ public class ImageImport {
         this.repo = repo;
     }
 
-    /** Есть ли токен Discogs (без него поиск Discogs не работает). */
+    /** Есть ли токен Discogs: без него Discogs отдаёт результаты и Notes, но без обложек (и только 25 запросов в минуту). */
     public boolean discogsReady() {
         return !discogsToken.isBlank();
     }
@@ -135,7 +135,9 @@ public class ImageImport {
                                       boolean images, boolean descriptions) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
-        Job job = new Job(collection.id(), collection.name(), source, images, descriptions);
+        // Без токена обложек у Discogs нет — только описания
+        boolean img = images && (!source.equals(DISCOGS) || discogsReady());
+        Job job = new Job(collection.id(), collection.name(), source, img, descriptions);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -221,7 +223,18 @@ public class ImageImport {
     private Found findSteam(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
         String key = norm(name);
         if (key.isEmpty()) return null;
-        JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(name));
+        // Поиск Steam спотыкается о знаки («Batman: … - Game of the Year Edition», «F.E.A.R.»):
+        // если по названию как есть совпадения нет — ещё раз по названию без знаков препинания
+        String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
+        for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
+            Found f = findSteamTerm(job, term, key, wantImage, wantDescription);
+            if (f != null) return f;
+        }
+        return null;
+    }
+
+    private Found findSteamTerm(Job job, String term, String key, boolean wantImage, boolean wantDescription) throws Exception {
+        JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
         if (res == null) return null;
         for (JsonNode it : res.path("items")) {
             if (!"app".equals(it.path("type").asText("app")) || !key.equals(norm(it.path("name").asText()))) continue;
@@ -278,10 +291,15 @@ public class ImageImport {
             JsonNode res = api(job, discogsUrl + "/database/search?type=" + type + "&per_page=10&artist=" + enc(artist)
                     + "&release_title=" + enc(album));
             if (res == null) continue;
+            // Подходящие результаты (название «Группа - Альбом» совпадает) — от самого популярного:
+            // у одноимённых фильма, сборника или бутлега владельцев на Discogs гораздо меньше, чем у самого альбома
+            List<JsonNode> matches = new java.util.ArrayList<>();
             for (JsonNode r : res.path("results")) {
-                // Название результата — «Группа - Альбом»: альбом должен совпасть, группа — тоже
                 String[] t = artistAlbum(r.path("title").asText(""));
-                if (t == null || !norm(t[1]).equals(norm(album)) || !sameArtist(t[0], artist)) continue;
+                if (t != null && norm(t[1]).equals(norm(album)) && sameArtist(t[0], artist)) matches.add(r);
+            }
+            matches.sort(java.util.Comparator.comparingLong((JsonNode r) -> r.path("community").path("have").asLong()).reversed());
+            for (JsonNode r : matches) {
                 byte[] img = null;
                 if (wantImage) {
                     String cover = r.path("cover_image").asText("");
@@ -314,13 +332,14 @@ public class ImageImport {
 
     /**
      * Notes Discogs без их разметки: [url=…]текст[/url] → текст, [a=Имя]/[l=Имя] → Имя,
-     * ссылки на записи [a123]/[r123]/[m123]/[l123] и теги [b] [i] [u] убираются; пустое — null.
+     * ссылки на записи по номеру ([a123], [m=123]) и теги [b] [i] [u] убираются, пробелы перед знаками препинания — тоже; пустое — null.
      */
     static String cleanNotes(String s) {
         String t = s.replaceAll("(?is)\\[url=[^\\]]*\\](.*?)\\[/url\\]", "$1")
-                .replaceAll("\\[[alrm]=([^\\]]+)\\]", "$1")
-                .replaceAll("\\[[alrm]\\d+\\]", "")
+                .replaceAll("\\[[alrm]=?\\d+\\]", "")          // ссылки по номеру: [a45467], [m=11329]
+                .replaceAll("\\[[alrm]=([^\\]]+)\\]", "$1")    // по имени: [a=Имя], [l=Студия]
                 .replaceAll("(?i)\\[/?[biu]\\]", "")
+                .replaceAll("[ \\t]+([,.;:!?)])", "$1").replaceAll("[ \\t]{2,}", " ")
                 .replace("\r\n", "\n").replaceAll("[ \\t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();
         if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
         return t.isEmpty() ? null : t;
@@ -348,7 +367,8 @@ public class ImageImport {
     /** Запрос к API с паузой между запросами; при ограничении (429/403/5xx) — пауза и повтор. null — 404. */
     private JsonNode api(Job job, String url) throws Exception {
         boolean discogs = job.source.equals(DISCOGS);
-        long interval = discogs ? discogsIntervalMs : steamIntervalMs;
+        // Discogs без токена — 25 запросов в минуту
+        long interval = discogs ? (discogsReady() ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500)) : steamIntervalMs;
         for (int attempt = 0; ; attempt++) {
             synchronized (lastCall) {
                 long wait = lastCall.getOrDefault(job.source, 0L) + interval - System.currentTimeMillis();
@@ -357,7 +377,7 @@ public class ImageImport {
             }
             HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30))
                     .header("User-Agent", "CollectionsApp/" + appVersion).GET();
-            if (discogs) req.header("Authorization", "Discogs token=" + discogsToken.trim());
+            if (discogs && discogsReady()) req.header("Authorization", "Discogs token=" + discogsToken.trim());
             HttpResponse<String> r = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
             int code = r.statusCode();
             if (code == 200) {
@@ -395,9 +415,29 @@ public class ImageImport {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
 
-    /** Название для сравнения: без регистра, знаков ™®©, пунктуации и лишних пробелов; «&» = «and». */
+    /**
+     * Название для сравнения: без регистра, знаков ™®©, пунктуации и лишних пробелов; «&» = «and»;
+     * римские числа — арабскими («Gothic II» = «Gothic 2», «Final Fantasy IX» = «Final Fantasy 9»).
+     */
     static String norm(String s) {
-        return s.toLowerCase(Locale.ROOT).replaceAll("[™®©]", "").replace("&", " and ")
+        String t = s.toLowerCase(Locale.ROOT).replaceAll("[™®©]", "").replace("&", " and ")
                 .replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
+        StringBuilder b = new StringBuilder();
+        for (String w : t.split(" ")) {
+            if (b.length() > 0) b.append(' ');
+            b.append(w.matches("x{0,3}(ix|iv|v?i{0,3})") && !w.isEmpty() ? String.valueOf(roman(w)) : w);
+        }
+        return b.toString();
+    }
+
+    /** Римское число до 39 (i…xxxix). */
+    private static int roman(String w) {
+        int n = 0;
+        for (int i = 0; i < w.length(); i++) {
+            int v = w.charAt(i) == 'x' ? 10 : w.charAt(i) == 'v' ? 5 : 1;
+            int next = i + 1 < w.length() ? (w.charAt(i + 1) == 'x' ? 10 : w.charAt(i + 1) == 'v' ? 5 : 1) : 0;
+            n += v < next ? -v : v;
+        }
+        return n;
     }
 }

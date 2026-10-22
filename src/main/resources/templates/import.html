@@ -46,13 +46,13 @@
     <label>Источник</label>
     <div>
       <label class="radio"><input type="radio" name="source" value="steam" checked> Steam (игры)</label>
-      <label class="radio"><input type="radio" name="source" value="discogs" th:disabled="${!discogsReady}"> Discogs (музыка, «Группа - Альбом»)</label>
-      <div class="muted" th:unless="${discogsReady}">Для Discogs нужен токен: задайте DISCOGS_TOKEN (см. README, «Импорт обложек из Discogs»).</div>
+      <label class="radio"><input type="radio" name="source" value="discogs"> Discogs (музыка, «Группа - Альбом»)</label>
+      <div class="muted" th:unless="${discogsReady}">Без токена Discogs отдаёт только описания, без обложек: для обложек задайте DISCOGS_TOKEN (см. README, «Импорт обложек из Discogs»).</div>
     </div>
 
     <label>Загружать</label>
     <div>
-      <label class="radio"><input type="checkbox" name="loadImages" value="true" checked> картинки</label>
+      <label class="radio"><input type="checkbox" name="loadImages" value="true" id="f-images" checked th:attr="data-discogs-ready=${discogsReady}"> картинки</label>
       <label class="radio"><input type="checkbox" name="loadDescriptions" value="true" id="f-descr" checked> описания</label>
     </div>
 
@@ -62,6 +62,16 @@
     <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить</button></div>
   </form>
 
+<script>
+  // Discogs без токена отдаёт только описания: галочка «картинки» для него неактивна
+  (function () {
+    var img = document.getElementById('f-images');
+    if (!img || img.dataset.discogsReady === 'true') return;
+    function sync() { img.disabled = document.querySelector('input[name=source]:checked').value === 'discogs'; }
+    document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+  })();
+</script>
 <script th:if="${job != null and job.active()}">
   // Прогресс импорта: раз в секунду спрашиваем состояние; когда импорт закончится — перезагружаем страницу (итог)
   (function () {
