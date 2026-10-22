@@ -137,7 +137,7 @@
 </head>
 <body>
 <header th:fragment="header">
-  <a href="/">📦 Коллекции</a>
+  <a href="/">📦 Collections App</a>
   <nav th:if="${currentUser != null}">
     <span class="user" th:text="${'👤 ' + currentUser.name()}"
           th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}"></span>
