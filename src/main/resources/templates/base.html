@@ -285,6 +285,7 @@
   </div>
   <nav class="tabs">
     <a href="/kinds" th:classappend="${active == 'kinds'} ? 'active'">Типы коллекций</a>
+    <a href="/display" th:classappend="${active == 'display'} ? 'active'">Отображение</a>
     <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>

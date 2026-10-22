@@ -86,6 +86,19 @@ public class WebController {
         return "account";
     }
 
+    // Вкладка «Отображение»: показывать цены открыто или за иконкой глаза
+    @GetMapping("/display")
+    public String display(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("showPrices", repo.showPrices(uid));
+        return "display";
+    }
+
+    @PostMapping("/display")
+    public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices) {
+        repo.setShowPrices(uid, showPrices);
+        return "redirect:/display?saved";
+    }
+
     /** Версия приложения (из pom.xml, см. app.version в application.properties). */
     @org.springframework.beans.factory.annotation.Value("${app.version}")
     private String appVersion;
@@ -228,7 +241,10 @@ public class WebController {
         if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
         if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
         if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
-        if (fields.contains("price")) cols.add(new Col("price", "₽", "eye")); // цена видна в подсказке у иконки глаза
+        // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
+        boolean showPrices = repo.showPrices(uid);
+        m.addAttribute("showPrices", showPrices);
+        if (fields.contains("price")) cols.add(showPrices ? new Col("price", "Цена", "num") : new Col("price", "₽", "eye"));
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
