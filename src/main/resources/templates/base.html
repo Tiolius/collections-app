@@ -170,9 +170,9 @@
   table.items.fixed tr.filters select { min-width: 0; }
   table.items tr.filters .active { border-color: var(--orange); box-shadow: inset 0 0 0 1px var(--orange); }
   table.items tr.head th.actions { padding: 3px 6px; font-weight: normal; }
-  table.items tr.head th.actions a.icon { color: #fff; }
-  table.items tr.head th.actions .icon:hover { background: rgba(255,255,255,.15); }
-  table.items tr.head th.actions .icon.disabled { color: #fff; }
+  /* «Сбросить фильтры» — иконка в строке фильтров; когда фильтры заданы — оранжевая (как активный фильтр) */
+  table.items tr.filters th.actions { text-align: right; padding: 2px 6px; }
+  table.items tr.filters th.actions a.icon { color: var(--orange); }
   table.items td.empty { text-align: center; padding: 16px; }
   table.items td { height: 30px; line-height: 1.4; }
   table.items tbody tr:nth-child(even) td { background: var(--zebra); }
