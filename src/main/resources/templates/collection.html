@@ -136,7 +136,7 @@
         <span th:if="${it.available()}" class="avail yes" title="Есть" aria-label="Есть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg></span>
         <span th:unless="${it.available()}" class="avail no" title="Нет" aria-label="Нет"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></span>
       </td>
-      <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" title="Есть картинка" aria-label="Есть картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></span></td>
+      <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" th:title="|Картинок: ${it.imageCount()}|" th:aria-label="|Картинок: ${it.imageCount()}|"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg><span class="pic-n" th:text="${it.imageCount()}">1</span></span></td>
     </tr>
     </th:block>
     <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 1}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
