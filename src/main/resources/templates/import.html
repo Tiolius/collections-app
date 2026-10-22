@@ -31,10 +31,6 @@
       из <span th:text="${job.total}"></span> объектов<span th:if="${job.processed < job.total}" th:text="${', обработано ' + job.processed}"></span>.
       Не найдено в Steam — <span th:text="${job.notFound}"></span><span th:if="${job.errors > 0}" th:text="${', ошибок — ' + job.errors}"></span>.
     </p>
-    <details th:unless="${job.notFoundNames.isEmpty()}">
-      <summary th:text="${'Не найдены в Steam (' + job.notFoundNames.size() + ')'}"></summary>
-      <ul class="notfound"><li th:each="n : ${job.notFoundNames}" th:text="${n}"></li></ul>
-    </details>
   </th:block>
 
   <form autocomplete="off" class="form" method="post" action="/import/steam" th:unless="${job != null and job.active()}">

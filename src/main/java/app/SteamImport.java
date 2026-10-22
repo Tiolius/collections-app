@@ -7,7 +7,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -50,7 +49,6 @@ public class SteamImport {
         public volatile int total, processed, loaded, notFound, errors;
         public volatile String current = "";
         public volatile String message = "";      // пауза из-за ограничений Steam, причина остановки
-        public final List<String> notFoundNames = java.util.Collections.synchronizedList(new ArrayList<>());
         volatile boolean cancel;
 
         Job(long collectionId, String collectionName) {
@@ -120,7 +118,6 @@ public class SteamImport {
                     byte[] image = findImage(job, item.name());
                     if (image == null) {
                         job.notFound++;
-                        job.notFoundNames.add(item.name());
                     } else {
                         repo.setItemImage(item.id(), image);
                         job.loaded++;
