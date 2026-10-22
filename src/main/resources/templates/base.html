@@ -157,6 +157,10 @@
   /* Блок с названием коллекции и кнопками — тонкая рамка и фон, как у форм */
   .collhead { border: 1px solid var(--border); padding: 8px 12px; background: var(--form-bg); }
   .collhead .coll-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin-left: auto; }
+  /* Стрелка «назад» и иконки — по строке названия коллекции, а не по центру всего блока */
+  .collhead { align-items: flex-start; }
+  .collhead > .back { margin-top: -3px; }           /* (21px строка названия − 26px кнопка) / 2 */
+  .collhead > .coll-actions { margin-top: -5px; }   /* (21px − 30px иконка) / 2 */
   .collhead .thumb { width: 56px; height: 56px; }
   .pages { display: inline-flex; align-items: center; }
   .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
@@ -338,6 +342,7 @@
     table.items td.title { overflow-wrap: anywhere; }
     .collhead { flex-wrap: wrap; }
     .collhead > div { flex: 1 1 200px; min-width: 0; }
+    .collhead > .coll-actions { margin-top: 0; }  /* на телефоне иконки — отдельной строкой под названием */
     .meta-line { column-gap: 12px; }
     .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
   }
