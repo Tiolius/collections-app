@@ -175,6 +175,25 @@ public class WebController {
                 "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
+    // Вкладка «Кэш»: удалить все картинки объектов выбранной коллекции
+    @GetMapping("/cache")
+    public String cachePage(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("collections", repo.collections(uid));
+        m.addAttribute("imageCounts", repo.collectionImageCounts(uid));
+        return "cache";
+    }
+
+    @PostMapping("/cache/clear")
+    public String cacheClear(@SessionAttribute("uid") long uid, @RequestParam long collection) {
+        ImageImport.Job j = images.job(uid);
+        // пока идёт импорт в эту коллекцию, он сразу дописал бы картинки обратно
+        if (j != null && j.active() && j.collectionId == collection)
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "В эту коллекцию идёт импорт — остановите его на вкладке «Импорт»");
+        int n = repo.clearCollectionImages(uid, collection);
+        return "redirect:/cache?c=" + collection + "&deleted=" + n;
+    }
+
     // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
     @GetMapping("/export")
     public String exportPage(@SessionAttribute("uid") long uid, Model m) {

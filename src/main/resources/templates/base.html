@@ -238,10 +238,11 @@
   table.items td.flag .avail.yes { color: var(--link); }
   table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
   /* Колонка «есть картинка»: узкая, иконка по центру */
-  table.items th.pic-col, table.items td.pic-col { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
+  table.items th.pic-col, table.items td.pic-col { width: 34px; text-align: center; padding-left: 2px; padding-right: 2px; }
   table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
   table.items th.pic-col .mi { width: 15px; height: 15px; }
-  table.items td.pic-col .has-pic { color: var(--icon); display: inline-flex; vertical-align: middle; }
+  table.items td.pic-col .has-pic { color: var(--icon); display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+  table.items td.pic-col .pic-n { line-height: 1; }
   table.items td.pic-col .mi { width: 16px; height: 16px; }
   table.items.fixed td.eye { overflow: visible; }
   .tip { position: relative; cursor: default; }
@@ -267,9 +268,13 @@
   .form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;
           display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
   .form > label { font-weight: bold; color: var(--label); }
+  /* короткая подпись: колонка по её ширине; отступ подпись → поле равен отступу поле → кнопка (.inline) */
+  .form.compact { --gap: 75px; grid-template-columns: auto 1fr; column-gap: var(--gap); }
+  .form.compact .inline { column-gap: var(--gap); }
   .form .full { grid-column: 1 / -1; }
   .form .full.split { display: flex; justify-content: space-between; align-items: center; }  /* кнопки по краям формы */
   .form .full.end { display: flex; justify-content: flex-end; }  /* кнопка у правого края формы */
+  .form .inline { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }  /* поле и кнопка в одну строку */
   input[type=text], input[type=number], input[type=password], input[type=search], select {
       height: 26px; padding: 0 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); }
   input[type=text]:focus, input[type=number]:focus, input[type=password]:focus, input[type=search]:focus, select:focus {
@@ -375,7 +380,7 @@
     .form > label:has(.tip.help) { position: relative; }
     .tip.help { position: static; }
     .tip.help .tiptext { left: 0; right: 0; top: calc(100% + 4px); width: auto; }
-    .form { grid-template-columns: 1fr; }
+    .form, .form.compact { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span { display: none; }
     /* Таблица объектов на телефоне: название, статус, цена и корзина; платформа, формат и иконка картинки — в окне объекта */
@@ -447,6 +452,7 @@
     <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
     <a href="/import" th:classappend="${active == 'import'} ? 'active'">Импорт</a>
     <a href="/export" th:classappend="${active == 'export'} ? 'active'">Экспорт</a>
+    <a href="/cache" th:classappend="${active == 'cache'} ? 'active'">Кэш</a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>
   </nav>

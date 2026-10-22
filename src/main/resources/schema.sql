@@ -12,8 +12,6 @@ CREATE TABLE IF NOT EXISTS collections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    image BLOB,
-    image_mime TEXT,
     kind TEXT -- тип коллекции: kinds.name этого же пользователя
 );
 
@@ -27,20 +25,31 @@ CREATE TABLE IF NOT EXISTS items (
     price INTEGER
 );
 
--- Картинка объекта (отдельная таблица: у старых баз создаётся сама, без изменения items)
-CREATE TABLE IF NOT EXISTS item_images (
-    item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
-    image BLOB NOT NULL,
-    image_mime TEXT NOT NULL
+-- Картинки — файлы в DATA_DIR/images/ab/cd/<sha256>.<ext>, одинаковая картинка хранится один раз (ImageFiles).
+-- pictures — справочник файлов (size — для будущей статистики и ограничений); строка и файл удаляются,
+-- когда на картинку не осталось ссылок. Прежние хранилища (item_images, item_more_images, collections.image/image_mime)
+-- переносятся сюда при запуске и удаляются
+CREATE TABLE IF NOT EXISTS pictures (
+    hash TEXT PRIMARY KEY, -- SHA-256 содержимого, 64 hex
+    mime TEXT NOT NULL,
+    size INTEGER NOT NULL
 );
 
--- Дополнительные картинки объекта (вторая и следующие, pos = 1..4; первая — в item_images); сами файлы — в DATA_DIR/images
-CREATE TABLE IF NOT EXISTS item_more_images (
+-- Картинки объекта: pos = 0..4 по порядку без пропусков (0 — главная)
+CREATE TABLE IF NOT EXISTS item_pictures (
     item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     pos INTEGER NOT NULL,
-    image_mime TEXT NOT NULL,
+    hash TEXT NOT NULL REFERENCES pictures(hash),
     PRIMARY KEY (item_id, pos)
 );
+CREATE INDEX IF NOT EXISTS item_pictures_hash ON item_pictures (hash);
+
+-- Обложка коллекции
+CREATE TABLE IF NOT EXISTS collection_pictures (
+    collection_id INTEGER PRIMARY KEY REFERENCES collections(id) ON DELETE CASCADE,
+    hash TEXT NOT NULL REFERENCES pictures(hash)
+);
+CREATE INDEX IF NOT EXISTS collection_pictures_hash ON collection_pictures (hash);
 
 -- Запомненный вид таблицы объектов коллекции у пользователя: сортировка, страница, размер страницы, фильтры
 -- (строка параметров адреса, как в ссылках страницы); подставляется, если коллекция открыта без параметров
