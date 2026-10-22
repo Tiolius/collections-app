@@ -3,7 +3,8 @@ services:
     build: .
     container_name: collections-app
     ports:
-      - "47321:8000"
+      # Только с этого компьютера. Для доступа из сети/интернета — см. README, «Публикация в интернете»
+      - "127.0.0.1:47321:8000"
     volumes:
       - ./data:/data
     restart: unless-stopped

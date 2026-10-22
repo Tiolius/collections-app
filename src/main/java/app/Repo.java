@@ -377,17 +377,36 @@ public class Repo {
         jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
         if (image != null && !image.isEmpty()) {
-            String mime = image.getContentType();
-            if (mime == null || !mime.startsWith("image/"))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Файл должен быть картинкой");
+            byte[] bytes;
             try {
-                jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", image.getBytes(), mime, id);
+                bytes = image.getBytes();
             } catch (IOException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось прочитать файл");
             }
+            // Тип определяется по содержимому файла, а не по тому, что прислал браузер
+            String mime = imageType(bytes);
+            if (mime == null)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Картинка должна быть в формате PNG, JPEG, GIF или WebP");
+            jdbc.update("UPDATE collections SET image = ?, image_mime = ? WHERE id = ?", bytes, mime, id);
         } else if (removeImage) {
             jdbc.update("UPDATE collections SET image = NULL, image_mime = NULL WHERE id = ?", id);
         }
+    }
+
+    /** Тип картинки по первым байтам файла: PNG, JPEG, GIF, WebP; иначе null (в т.ч. SVG — в нём бывают скрипты). */
+    static String imageType(byte[] b) {
+        if (starts(b, 0, 0x89, 'P', 'N', 'G')) return "image/png";
+        if (starts(b, 0, 0xFF, 0xD8, 0xFF)) return "image/jpeg";
+        if (starts(b, 0, 'G', 'I', 'F', '8')) return "image/gif";
+        if (starts(b, 0, 'R', 'I', 'F', 'F') && starts(b, 8, 'W', 'E', 'B', 'P')) return "image/webp";
+        return null;
+    }
+
+    private static boolean starts(byte[] b, int from, int... sig) {
+        if (b.length < from + sig.length) return false;
+        for (int i = 0; i < sig.length; i++)
+            if ((b[from + i] & 0xFF) != sig[i]) return false;
+        return true;
     }
 
     /**
