@@ -129,10 +129,17 @@
   main.auth .form { grid-template-columns: 160px 1fr; }
 
   /* Вкладки «Настроек»: активная — синяя */
-  nav.tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); margin-bottom: 14px; }
-  nav.tabs a { padding: 7px 12px; color: var(--muted); }
-  nav.tabs a:hover { color: var(--link); text-decoration: none; }
-  nav.tabs a.active { background: var(--blue); color: var(--on-blue); }
+  /* Настройки: разделы столбцом слева, содержимое раздела справа (main.settings) */
+  main.settings { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 24px; align-content: start; }
+  main.settings > .bar:first-child { grid-column: 1 / -1; }  /* заголовок «Настройки» — на всю ширину */
+  main.settings > nav.tabs { grid-column: 1; grid-row: 2 / span 50; align-self: start; }
+  main.settings > :not(:first-child):not(nav.tabs) { grid-column: 2; }
+  main.settings > nav.tabs + * { margin-top: 0; }  /* содержимое раздела — вровень с верхом списка разделов */
+  nav.tabs { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); }
+  nav.tabs a { padding: 8px 12px; color: var(--muted); border-left: 3px solid transparent; }
+  nav.tabs a + a { border-top: 1px solid var(--line); }
+  nav.tabs a:hover { color: var(--link); text-decoration: none; background: var(--hover); }
+  nav.tabs a.active { background: var(--blue); color: var(--on-blue); border-left-color: var(--orange); }
   table.users { max-width: 900px; }
 
   /* Главная: карточки коллекций в 2 колонки, 10 на странице */
@@ -290,6 +297,9 @@
   .import-box form { margin: 0; }
 
   @media (max-width: 700px) {
+    main.settings { grid-template-columns: 1fr; }
+    main.settings > nav.tabs { grid-row: auto; margin-bottom: 14px; }
+    main.settings > :not(:first-child):not(nav.tabs) { grid-column: 1; }
     main { padding: 12px; border: none; }
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
@@ -324,7 +334,7 @@
 <div th:fragment="passwordHint" class="muted hint">Не короче 12 символов, любые буквы, цифры, знаки и пробелы.
   Удобно взять фразу из нескольких слов. Нельзя: имя пользователя, повторы, ряды клавиш и распространённые пароли.</div>
 
-<!-- Шапка страницы «Настройки» с вкладками; active — kinds | account | users -->
+<!-- Шапка страницы «Настройки»: заголовок и разделы (столбцом слева, см. main.settings); active — kinds | account | users -->
 <th:block th:fragment="settingsHead(active)">
   <div class="bar">
     <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
@@ -333,9 +343,9 @@
   <nav class="tabs">
     <a href="/kinds" th:classappend="${active == 'kinds'} ? 'active'">Типы коллекций</a>
     <a href="/display" th:classappend="${active == 'display'} ? 'active'">Отображение</a>
+    <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
     <a href="/import" th:classappend="${active == 'import'} ? 'active'">Импорт</a>
     <a href="/export" th:classappend="${active == 'export'} ? 'active'">Экспорт</a>
-    <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>
   </nav>

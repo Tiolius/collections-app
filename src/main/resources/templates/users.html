@@ -3,7 +3,7 @@
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
-<main>
+<main class="settings">
   <th:block th:replace="~{base :: settingsHead('users')}"></th:block>
   <p class="ok" th:if="${param.userAdded != null}" th:text="${'Пользователь «' + param.userAdded + '» добавлен.'}"></p>
   <table class="items users">
