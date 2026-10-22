@@ -50,7 +50,7 @@
     --hover: #26303d; --icon: #8a9099; --placeholder: #33373e;
     --red: #c62828; --on-red: #fff;
     --error-bg: #5c2626; --error-text: #fde3e3; --ok-bg: #22432f; --ok-text: #e2f3dc;
-    --tip-bg: #e6e6e6; --tip-text: #222;
+    --tip-bg: #3a3f47; --tip-text: #e6e6e6;  /* тёмная подсказка, светлее фона страницы */
     --swatch-text: #222;
   }
 
@@ -71,15 +71,21 @@
   .mi { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; vertical-align: middle; }
 
   /* Верхнее меню */
-  header { display: flex; align-items: center; justify-content: space-between; height: 34px; padding-left: 12px;
+  /* Шапка той же ширины, что и белая область страницы (main, до 1500px по центру): кнопки справа заканчиваются
+     ровно на её правой границе, и вертикальная линия идёт из шапки вниз без излома */
+  header { display: flex; align-items: center; justify-content: space-between; height: 34px;
+           padding: 0 max(0px, calc((100% - 1500px) / 2));
            background: linear-gradient(var(--bar-from), var(--bar-to)); border-bottom: 1px solid var(--bar-border); color: var(--text); }
   header a { color: inherit; text-decoration: none; }
   header a:hover { text-decoration: none; }
-  header .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: bold; }
+  /* Логотип — ячейка с линиями слева (по левой границе белой области) и справа, как у кнопок справа */
+  header .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: bold; height: 100%; padding: 0 14px 0 24px;
+                 border-left: 1px solid var(--bar-sep); border-right: 1px solid var(--bar-sep); }
   header .logo .mi { color: var(--orange); }
   /* Логотип — книги на полке (контурная иконка, рисуется линией, а не заливкой) */
   header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   header .right, header nav { display: flex; align-items: stretch; height: 100%; }
+  header .right { border-right: 1px solid var(--bar-sep); }
   header .user, header a.settings, header .theme, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
            padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
   header .user { cursor: default; }
@@ -164,7 +170,7 @@
   .collhead .thumb { width: 56px; height: 56px; }
   .pages { display: inline-flex; align-items: center; }
   .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
-                       margin-left: -1px; border: 1px solid var(--line); color: var(--link); font-weight: normal; }
+                       margin-left: -1px; border: 1px solid var(--input-border); background: var(--paper); color: var(--text); font-weight: normal; }
   .pages a:hover { background: var(--hover); text-decoration: none; }
   .pages b { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
   .pages .muted { padding: 0 4px; }
@@ -243,7 +249,13 @@
                   background: var(--tip-bg); color: var(--tip-text); padding: 2px 8px; white-space: nowrap; z-index: 3; line-height: 20px;
                   font-weight: normal; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
+  :root[data-theme="dark"] .tip .tiptext { border: 1px solid var(--input-border); }  /* тёмная подсказка отделена рамкой */
   .tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
+  /* Справка: большая подсказка под иконкой, с переносами, абзацами */
+  .tip.help { display: inline-flex; vertical-align: middle; margin-left: 4px; color: var(--icon); cursor: help; }
+  .tip.help .tiptext { top: calc(100% + 6px); left: 0; right: auto; transform: none; width: min(560px, calc(100vw - 48px));
+                       white-space: normal; line-height: 1.5; padding: 8px 12px; text-align: left; }
+  .tip.help:hover .tiptext, .tip.help:focus .tiptext { display: flex; flex-direction: column; gap: 6px; }
   .icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
   .icon.small .mi { width: 16px; height: 16px; }
   .icon.small:hover { background: none; }
@@ -343,6 +355,12 @@
     main.settings > nav.tabs { grid-row: auto; margin-bottom: 14px; }
     main.settings > :not(:first-child):not(nav.tabs) { grid-column: 1; }
     main { padding: 12px; border: none; }
+    header .logo { padding-left: 12px; border-left: none; }  /* на телефоне у страницы нет боковых линий */
+    header .right { border-right: none; }
+    /* справка — во всю ширину формы, сразу под иконкой */
+    .form > label:has(.tip.help) { position: relative; }
+    .tip.help { position: static; }
+    .tip.help .tiptext { left: 0; right: 0; top: calc(100% + 4px); width: auto; }
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span { display: none; }
@@ -388,7 +406,7 @@
   <script>
     // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
     (function () {
-      var items = document.querySelectorAll('header .right .user, header .right a.settings, header .right .theme, header .right .logout');
+      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.settings, header .right .theme, header .right .logout');
       function fit() {
         items.forEach(function (e) { e.style.width = ''; });
         items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });

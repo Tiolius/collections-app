@@ -78,6 +78,8 @@ public class ImageImport {
         public final String collectionName;
         public final String source;
         public final boolean images, descriptions;
+        /** Steam: картинка — первый скриншот из галереи игры (1920×1080), а не шапка. */
+        public final boolean screenshot;
         public volatile String state = "queued"; // queued | running | done | cancelled | failed
         public volatile int total, processed, loaded, described, notFound, errors; // loaded — картинок, described — описаний
         public volatile String current = "";
@@ -86,7 +88,9 @@ public class ImageImport {
         /** Личный токен Discogs пользователя (пусто — без токена); на страницу не попадает. */
         private final String discogsToken;
 
-        Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions, String discogsToken) {
+        Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions,
+            boolean screenshot, String discogsToken) {
+            this.screenshot = screenshot;
             this.discogsToken = discogsToken == null ? "" : discogsToken.trim();
             this.collectionId = collectionId;
             this.collectionName = collectionName;
@@ -140,13 +144,14 @@ public class ImageImport {
      * но без обложек (и только 25 запросов в минуту).
      */
     public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source,
-                                      boolean images, boolean descriptions, String discogsToken) {
+                                      boolean images, boolean descriptions, boolean screenshot, String discogsToken) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
         boolean hasToken = discogsToken != null && !discogsToken.isBlank();
         // Без токена обложек у Discogs нет — только описания
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
-        Job job = new Job(collection.id(), collection.name(), source, img, descriptions, discogsToken);
+        Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
+                screenshot && source.equals(STEAM), discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -253,18 +258,23 @@ public class ImageImport {
             if (!"app".equals(it.path("type").asText("app")) || !key.equals(norm(it.path("name").asText()))) continue;
             long appId = it.path("id").asLong();
             String tiny = it.path("tiny_image").asText("");
+            boolean wantShot = wantImage && job.screenshot;
             JsonNode details = null;
             String description = null;
-            if (wantDescription) {
-                details = appDetails(job, appId);
-                description = cleanDescription(details.path("short_description").asText(""));
-            }
+            // описание и скриншоты — в одной карточке игры, один запрос
+            if (wantDescription || wantShot) details = appDetails(job, appId, wantShot);
+            if (wantDescription) description = cleanDescription(details.path("short_description").asText(""));
             byte[] img = null;
-            if (wantImage) {
+            if (wantShot) {
+                // первый скриншот галереи в полном размере
+                String shot = details.path("screenshots").path(0).path("path_full").asText("");
+                if (!shot.isEmpty()) img = download(shot);
+            }
+            if (wantImage && img == null) {
                 // Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры
                 img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
                 if (img == null) {
-                    if (details == null) details = appDetails(job, appId);
+                    if (details == null) details = appDetails(job, appId, false);
                     String header = details.path("header_image").asText("");
                     if (!header.isEmpty()) img = download(header);
                 }
@@ -275,9 +285,10 @@ public class ImageImport {
         return null;
     }
 
-    /** Карточка игры Steam (data из appdetails) на русском; пустой узел, если её нет. */
-    private JsonNode appDetails(Job job, long appId) throws Exception {
-        JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic&l=russian&appids=" + appId);
+    /** Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет. */
+    private JsonNode appDetails(Job job, long appId, boolean screenshots) throws Exception {
+        JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic" + (screenshots ? ",screenshots" : "")
+                + "&l=russian&appids=" + appId);
         return d == null ? json.createObjectNode() : d.path(String.valueOf(appId)).path("data");
     }
 
