@@ -586,10 +586,11 @@ public class Repo {
 
     /** Удаляет запись; владельца проверяет вызывающий код (collection/item с uid). */
     public void delete(String table, long id) {
-        jdbc.update("DELETE FROM " + table + " WHERE id = ?", id); // объекты коллекции удаляются каскадно
-        // файлы картинок: объекта — сразу, объектов коллекции — все, что остались без записи в базе
+        // файлы картинок объекта — до удаления записи (по ней находится папка коллекции)
         if (table.equals("items")) files.deleteAll(id);
-        else files.removeOrphans();
+        jdbc.update("DELETE FROM " + table + " WHERE id = ?", id); // объекты коллекции удаляются каскадно
+        // у коллекции — вся её папка: файлы, оставшиеся без записи в базе
+        if (!table.equals("items")) files.removeOrphans();
     }
 
     // ---------- вспомогательное ----------
