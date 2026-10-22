@@ -14,104 +14,160 @@
   }
 </script>
 <style>
-  /* Цвета темы. Светлая — по умолчанию, тёмная — <html data-theme="dark"> (переключатель в шапке) */
+  /* ===== Material 3 (своими стилями): шрифт Roboto, токены цвета M3, базовая фиолетовая палитра ===== */
+  @font-face { font-family: "Roboto"; font-style: normal; font-display: swap; font-weight: 100 900;
+    src: url(/fonts/roboto-cyrillic-wght-normal.woff2) format("woff2-variations");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: "Roboto"; font-style: normal; font-display: swap; font-weight: 100 900;
+    src: url(/fonts/roboto-latin-wght-normal.woff2) format("woff2-variations");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+                   U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+  /* Цвета — роли Material 3. Светлая тема по умолчанию, тёмная — <html data-theme="dark"> (переключатель в шапке) */
   :root {
-    --bg: #f4f4f6; --text: #222; --muted: #666; --surface: #fff; --surface-2: #edf2f7; --surface-3: #f7fafc;
-    --placeholder: #e2e8f0; --border: #cbd5e0; --line: #d5dde6; --icon: #4a5568; --link: #2b6cb0; --accent: #3182ce;
-    --hover-accent: #ebf4ff; --header-bg: #2d3748; --tip-bg: #2d3748;
-    --error-bg: #fed7d7; --error-text: #9b2c2c; --ok-bg: #c6f6d5; --ok-text: #22543d;
+    --primary: #6750a4; --on-primary: #fff; --primary-container: #eaddff; --on-primary-container: #21005d;
+    --secondary-container: #e8def8; --on-secondary-container: #1d192b;
+    --error: #b3261e; --on-error: #fff; --error-container: #f9dedc; --on-error-container: #410e0b;
+    --success-container: #c4eed0; --on-success-container: #072711;
+    --surface: #fef7ff; --on-surface: #1d1b20; --on-surface-variant: #49454f;
+    --surface-lowest: #fff; --surface-low: #f7f2fa; --surface-mid: #f3edf7; --surface-high: #ece6f0; --surface-highest: #e6e0e9;
+    --outline: #79747e; --outline-variant: #cac4d0; --inverse-surface: #322f35; --inverse-on-surface: #f5eff7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15); /* elevation 1 */
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #15181e; --text: #e2e8f0; --muted: #a0aec0; --surface: #1f242d; --surface-2: #2a313c; --surface-3: #232933;
-    --placeholder: #343c48; --border: #4a5568; --line: #3a4350; --icon: #cbd5e0; --link: #63b3ed; --accent: #3182ce;
-    --hover-accent: #23344a; --header-bg: #0f1115; --tip-bg: #4a5568;
-    --error-bg: #5c2626; --error-text: #fed7d7; --ok-bg: #22432f; --ok-text: #c6f6d5;
+    --primary: #d0bcff; --on-primary: #381e72; --primary-container: #4f378b; --on-primary-container: #eaddff;
+    --secondary-container: #4a4458; --on-secondary-container: #e8def8;
+    --error: #f2b8b5; --on-error: #601410; --error-container: #8c1d18; --on-error-container: #f9dedc;
+    --success-container: #1f4d2c; --on-success-container: #c4eed0;
+    --surface: #141218; --on-surface: #e6e0e9; --on-surface-variant: #cac4d0;
+    --surface-lowest: #0f0d13; --surface-low: #1d1b20; --surface-mid: #211f26; --surface-high: #2b2930; --surface-highest: #36343b;
+    --outline: #938f99; --outline-variant: #49454f; --inverse-surface: #e6e0e9; --inverse-on-surface: #322f35;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15);
   }
-  /* Цвет статуса в тёмной теме приглушается — смешивается с фоном таблицы, текст остаётся светлым */
-  :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 30%, var(--surface)); }
-  /* Поля ввода — в цветах темы */
-  input[type=text], input[type=number], input[type=password], input[type=search] { background: var(--surface); color: var(--text); }
-  /* Переключатель темы в шапке: в светлой теме видна луна, в тёмной — солнце */
-  header .theme { background: none; border: none; color: #fff; opacity: .85; cursor: pointer; padding: 2px; display: inline-flex; }
-  header .theme:hover { opacity: 1; }
+
+  /* Шрифты: Roboto везде (поля, списки и кнопки наследуют). Размеры: 15px — основной текст, шапка, формы, кнопки;
+     14px — таблицы и панель над таблицей; крупнее — только заголовки */
+  * { box-sizing: border-box; }
+  input, select, button, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+  body { font-family: "Roboto", system-ui, sans-serif; margin: 0; background: var(--surface); color: var(--on-surface);
+         font-size: 15px; letter-spacing: .01em; }
+  a { color: var(--primary); }
+  h2 { margin: 0; font-size: 22px; font-weight: 400; }             /* M3 title-large */
+  h3.section { margin: 28px 0 12px; font-size: 18px; font-weight: 500; }
+  main { padding: 16px 24px; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  input[type=checkbox], input[type=radio] { accent-color: var(--primary); width: 18px; height: 18px; }
+
+  /* Иконки Material Symbols (встроенный SVG, цвет — как у текста) */
+  .mi { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; vertical-align: middle; }
+
+  /* Верхняя панель (M3 top app bar) */
+  header { display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 16px 0 20px;
+           background: var(--surface-mid); color: var(--on-surface); }
+  header a { color: inherit; text-decoration: none; }
+  header .logo { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 500; }
+  header .logo .mi { width: 24px; height: 24px; color: var(--primary); }
+  header .right, header nav { display: flex; align-items: center; gap: 4px; }
+  header .user, header a.settings { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+           border-radius: 20px; color: var(--on-surface-variant); }
+  header a.settings:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); color: var(--on-surface); }
+  header .theme, header .logout { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+           padding: 0; border: none; border-radius: 50%; background: none; color: var(--on-surface-variant); cursor: pointer; }
+  header .theme:hover, header .logout:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); color: var(--on-surface); }
   header .theme .sun, :root[data-theme="dark"] header .theme .moon { display: none; }
   :root[data-theme="dark"] header .theme .sun { display: inline; }
-  header .right { display: flex; align-items: center; gap: 18px; }
 
-  * { box-sizing: border-box; }
-  /* Шрифты: один шрифт везде (поля, списки и кнопки по умолчанию берут шрифт браузера — наследуем).
-     Размеры: 15px — основной текст, шапка, формы, кнопки; 14px — таблицы и панель над таблицей;
-     крупнее — только заголовки страниц и разделов */
-  input, select, button, textarea { font-family: inherit; font-size: inherit; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); font-size: 15px; }
-  header { background: var(--header-bg); color: #fff; padding: 8px 24px; }
-  header { display: flex; align-items: center; justify-content: space-between; }
-  header a { color: #fff; text-decoration: none; font-weight: 600; }
-  header nav { display: flex; align-items: center; gap: 18px; }
-  header .user { display: inline-flex; align-items: center; gap: 6px; color: #fff; opacity: .9; }
-  header a.settings { font-weight: normal; opacity: .85; }
-  header a.settings:hover { opacity: 1; }
-  /* Выход и тема — иконки в шапке в одном стиле */
-  header .logout { background: none; border: none; color: #fff; opacity: .85; cursor: pointer; padding: 2px; display: inline-flex; }
-  header .logout:hover { opacity: 1; }
-  /* Вход и регистрация */
-  main.auth { max-width: 520px; margin: 60px auto 0; }
-  main.auth h2 { margin-bottom: 12px; }
-  main.auth .form { grid-template-columns: 160px 1fr; }
-  .error { background: var(--error-bg); color: var(--error-text); padding: 8px 12px; border-radius: 6px; }
-  .ok { background: var(--ok-bg); color: var(--ok-text); padding: 8px 12px; border-radius: 6px; }
-  .form input[type=password] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; }
-  h3.section { margin: 28px 0 10px; }
-  /* Вкладки «Настроек» */
-  nav.tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 16px; }
-  nav.tabs a { padding: 8px 16px; color: var(--icon); text-decoration: none; border-radius: 6px 6px 0 0;
-               margin-bottom: -2px; border-bottom: 2px solid transparent; }
-  nav.tabs a:hover { background: var(--surface-2); color: var(--text); }
-  nav.tabs a.active { color: var(--link); border-bottom-color: var(--accent); font-weight: 600; }
-  table.users { max-width: 900px; }
-  /* На всю ширину экрана; отступы по краям небольшие */
-  main { padding: 16px 24px; }
-  h2 { margin: 0; font-size: 22px; }
-  a { color: var(--link); }
+  /* Кнопки (M3 common buttons): filled — основная, tonal — вторичная, outlined — светлая, error — удаление */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 24px;
+         border-radius: 20px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 500;
+         text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .btn .mi { margin-left: -8px; width: 18px; height: 18px; }
+  .btn:hover { box-shadow: var(--shadow); filter: brightness(1.06); }
+  .btn.gray { background: var(--secondary-container); color: var(--on-secondary-container); }
+  .btn.red { background: var(--error); color: var(--on-error); }
+  .btn.light { background: transparent; color: var(--primary); border: 1px solid var(--outline); }
+  .btn.light:hover { box-shadow: none; filter: none; background: color-mix(in srgb, var(--primary) 8%, transparent); }
+  .btn.back { width: 40px; padding: 0; border: none; color: var(--on-surface); }
+  .btn.back .mi { margin: 0; width: 24px; height: 24px; }
+  .btn.small { height: 32px; padding: 0 16px; }
+  .btn.disabled { opacity: .38; cursor: default; pointer-events: none; }
+  form.inline { display: inline; }
+
+  /* Иконочные кнопки в строках (M3 standard icon button) */
+  .icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0;
+          border: none; border-radius: 50%; background: none; color: var(--on-surface-variant); cursor: pointer; vertical-align: middle; }
+  .icon:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); color: var(--on-surface); }
+  .icon.red:hover { background: color-mix(in srgb, var(--error) 12%, transparent); color: var(--error); }
+  .icon.disabled { opacity: .38; cursor: not-allowed; }
+  .icon.disabled:hover { background: none; color: var(--on-surface-variant); }
+
+  /* Панели, подписи, сообщения */
   .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
   .bar .spacer { flex: 1; }
-  .muted, .type { color: var(--muted); }
-  .name { font-weight: 600; }
-  .empty { color: var(--muted); }
+  .muted, .type { color: var(--on-surface-variant); }
+  .name { font-weight: 500; }
+  .empty { color: var(--on-surface-variant); }
+  .error, .ok { padding: 12px 16px; border-radius: 12px; }
+  .error { background: var(--error-container); color: var(--on-error-container); }
+  .ok { background: var(--success-container); color: var(--on-success-container); }
 
-  /* Главная: коллекции в 2 колонки, 10 на странице (5 рядов) — помещаются на экран 1920×1080 */
-  .list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .list .row { display: flex; align-items: center; gap: 18px; height: 148px; padding: 0 12px; background: var(--surface); border-radius: 8px;
-               box-shadow: 0 1px 2px rgba(0,0,0,.08); text-decoration: none; color: inherit; min-width: 0; }
-  .list .row:hover { background: var(--hover-accent); }
+  /* Вход */
+  main.auth { max-width: 520px; margin: 60px auto 0; }
+  main.auth h2 { margin-bottom: 16px; }
+  main.auth .form { grid-template-columns: 160px 1fr; }
+
+  /* Вкладки «Настроек» (M3 primary tabs) */
+  nav.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--outline-variant); margin-bottom: 16px; }
+  nav.tabs a { position: relative; padding: 12px 20px; color: var(--on-surface-variant); text-decoration: none; font-weight: 500; }
+  nav.tabs a:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); color: var(--on-surface); }
+  nav.tabs a.active { color: var(--primary); }
+  nav.tabs a.active::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px;
+                             border-radius: 3px 3px 0 0; background: var(--primary); }
+  table.users { max-width: 900px; }
+
+  /* Главная: карточки коллекций (M3 elevated card), 2 колонки, 10 на странице — помещаются на экран 1920×1080 */
+  .list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .list .row { display: flex; align-items: center; gap: 18px; height: 140px; padding: 0 12px; border-radius: 12px;
+               background: var(--surface-low); box-shadow: var(--shadow); text-decoration: none; color: inherit; min-width: 0; }
+  .list .row:hover { background: color-mix(in srgb, var(--primary) 8%, var(--surface-low)); }
   .list .row > div { min-width: 0; }
   .list .name, .list .type { font-size: 16px; }
   .list .name { margin-bottom: 4px; }
   .list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .list .thumb { width: 128px; height: 128px; border-radius: 8px; }
-  .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: var(--placeholder); display: block; }
+  .list .thumb { width: 116px; height: 116px; border-radius: 8px; }
+  .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; border-radius: 8px; background: var(--surface-highest); display: block; }
 
   /* Страница коллекции: шапка в одну строку, таблица на всю ширину */
   .collhead .thumb { width: 56px; height: 56px; }
-  table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-  table.items { font-size: 14px; }
-  table.items th, table.items td { padding: 5px 12px; text-align: left; border-top: 1px solid var(--surface-2); }
-  table.items th { background: var(--surface-2); border-top: none; position: relative; }
+  .pager { font-size: 14px; }
+  .pages { display: inline-flex; align-items: center; gap: 2px; }
+  .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center;
+          min-width: 32px; height: 32px; padding: 0 6px; border-radius: 16px; text-decoration: none; }
+  .pages a:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); }
+  .pages b { background: var(--secondary-container); color: var(--on-secondary-container); font-weight: 500; }
+  .pager select { height: 32px; padding: 0 8px; }
+
+  table.items { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; background: var(--surface-lowest);
+                border-radius: 12px; box-shadow: var(--shadow); }
+  table.items th, table.items td { padding: 6px 12px; text-align: left; border-top: 1px solid var(--outline-variant); }
+  table.items th { background: var(--surface-high); border-top: none; position: relative; font-weight: 500; }
+  table.items thead tr:first-child th:first-child { border-top-left-radius: 12px; }
+  table.items thead tr:first-child th:last-child { border-top-right-radius: 12px; }
   /* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
   table.items thead { position: sticky; top: 0; z-index: 2; }
-  table.items tr.filters th { background: var(--surface-3); padding: 4px 6px; border-top: 1px solid var(--line); font-weight: normal; }
-  table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0;
-      padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); }
+  table.items tr.filters th { background: var(--surface-mid); padding: 4px 6px; border-top: 1px solid var(--outline-variant); font-weight: 400; }
+  table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0; height: 30px;
+      padding: 0 8px; border: 1px solid var(--outline); border-radius: 4px; background: var(--surface-lowest); }
   table.items tr.filters select { min-width: 8em; }
   table.items.fixed tr.filters select { min-width: 0; }
-  table.items tr.filters .active { border-color: var(--accent); background: var(--hover-accent); }
-  table.items tr.head th.actions { padding: 3px 8px; font-weight: normal; }
-  .btn.disabled { opacity: .45; cursor: default; }
+  table.items tr.filters .active { border: 2px solid var(--primary); background: var(--primary-container); color: var(--on-primary-container); }
+  table.items tr.head th.actions { padding: 3px 8px; font-weight: 400; }
   table.items td.empty { text-align: center; padding: 16px; }
-  /* Цвет строки по статусу задаётся переменной --row-bg; при наведении строка чуть темнеет */
+  /* Цвет строки по статусу задаётся переменной --row-bg; при наведении строка чуть темнеет (state layer) */
   table.items tbody td { background: var(--row-bg, transparent); }
-  table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
+  table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--on-surface) 6%, transparent); }
+  :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 30%, var(--surface-lowest)); }
   /* Название забирает всё свободное место, остальные столбцы — по содержимому */
   table.items th, table.items td { width: 1%; white-space: nowrap; }
   table.items .title { width: auto; white-space: normal; }
@@ -119,10 +175,9 @@
   table.items .actions { text-align: right; }
   table.items th { padding-right: 16px; }
   table.items th a.sort { color: inherit; text-decoration: none; display: block; }
-  table.items th a.sort:hover { color: var(--link); }
-  /* Ручка для изменения ширины столбца — правый край заголовка */
+  table.items th a.sort:hover { color: var(--primary); }
   /* Границы столбцов — тонкие линии и в строках, и в заголовке */
-  table.items td + td, table.items th + th { border-left: 1px solid var(--line); }
+  table.items td + td, table.items th + th { border-left: 1px solid var(--outline-variant); }
   /* Ручка — невидимая полоса у правого края заголовка (курсор ↔) */
   table.items .grip { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; }
   body.resizing { cursor: col-resize; user-select: none; }
@@ -130,80 +185,67 @@
   table.items.fixed { table-layout: fixed; }
   table.items.fixed td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.items.fixed td.actions { overflow: visible; }
-  .pager { font-size: 14px; }
-  .pager .pages a, .pager .pages b, .pager > a, .pager > b { padding: 2px 6px; }
-  .pager b { background: var(--accent); color: #fff; border-radius: 4px; }
-  /* Иконки действий в строке: карандаш и корзина */
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0;
-          border: none; border-radius: 6px; background: none; color: var(--icon); cursor: pointer; vertical-align: middle; }
-  .icon:hover { background: var(--placeholder); color: var(--link); }
-  .icon.red:hover { background: var(--error-bg); color: #e53e3e; }
-  .icon.disabled { color: var(--border); cursor: not-allowed; }
-  /* Цена: иконка глаза, сама цена — в подсказке при наведении */
+  /* Цена: иконка глаза, сама цена — в подсказке (M3 plain tooltip) */
   table.items th.eye, table.items td.eye { text-align: center; }
   table.items.fixed td.eye { overflow: visible; }
   .tip { position: relative; cursor: default; }
-  .tip.none { color: var(--border); }
+  .tip.none { opacity: .38; }
   .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
-                  background: var(--tip-bg); color: #fff; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 2; }
+                  background: var(--inverse-surface); color: var(--inverse-on-surface); padding: 4px 8px; border-radius: 4px;
+                  white-space: nowrap; z-index: 3; }
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
 
-  .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: none; background: var(--accent); color: #fff; text-decoration: none; cursor: pointer; line-height: 1.4; }
-  .btn.gray { background: #718096; }
-  .btn.red { background: #e53e3e; }
-  .btn.light { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-  .btn.light:hover { background: var(--surface-2); }
-  .btn.back { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; padding: 0; }
-  .btn.small { padding: 3px 10px; }
-  form.inline { display: inline; }
-
-  /* Форма: подпись слева, поле справа */
-  .form { background: var(--surface); padding: 16px 20px; border-radius: 8px; max-width: 900px;
-          display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
-  .form > label { font-weight: 600; }
+  /* Формы (M3 elevated card + outlined text fields): подпись слева, поле справа */
+  .form { background: var(--surface-low); box-shadow: var(--shadow); padding: 20px 24px; border-radius: 12px; max-width: 900px;
+          display: grid; grid-template-columns: 200px 1fr; gap: 12px 16px; align-items: center; }
+  .form > label { font-weight: 500; }
   .form .full { grid-column: 1 / -1; }
-  select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
-  .form select { width: 100%; max-width: 360px; }
-  .pager select { padding: 3px 6px; }
-  .form input[type=text], .form input[type=number] { width: 100%; max-width: 360px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; }
+  input[type=text], input[type=number], input[type=password], input[type=search], select {
+      height: 40px; padding: 0 12px; border: 1px solid var(--outline); border-radius: 4px; background: var(--surface-lowest); }
+  input[type=text]:hover, input[type=number]:hover, input[type=password]:hover, input[type=search]:hover, select:hover { border-color: var(--on-surface); }
+  input[type=text]:focus, input[type=number]:focus, input[type=password]:focus, input[type=search]:focus, select:focus {
+      outline: none; border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
   .form input[name=name] { max-width: none; }
-  .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; }
+  .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: 400; }
   .form > label.top { align-self: start; padding-top: 30px; }
   table.status-colors { border-collapse: collapse; }
-  table.status-colors th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
+  table.status-colors th { text-align: left; font-weight: 400; color: var(--on-surface-variant); padding: 0 8px 4px 0; }
   table.status-colors td { padding: 0 8px 6px 0; }
   table.status-colors input[type=text] { width: 260px; }
-  .form input[type=color] { width: 48px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+  .form input[type=color] { width: 48px; height: 40px; padding: 4px; border: 1px solid var(--outline); border-radius: 4px;
+                            background: var(--surface-lowest); cursor: pointer; }
   .hint { margin-top: 2px; max-width: 560px; }
-  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 10px; border: 1px solid rgba(0,0,0,.08); color: #1a202c; }
-  .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; border-radius: 6px; }
+  .swatch { display: inline-block; padding: 2px 10px; margin: 1px 4px 1px 0; border-radius: 8px;
+            border: 1px solid rgba(0,0,0,.08); color: #1d1b20; }
+  .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; border-radius: 8px; }
 
   @media (max-width: 700px) {
     main { padding: 12px; }
     .form { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
+    header .user span, header a.settings span { display: none; }
   }
 </style>
 </head>
 <body>
 <header th:fragment="header">
-  <a href="/">📦 Collections App</a>
+  <a class="logo" href="/"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-80q-24.75 0-42.37-17.63Q120-115.25 120-140v-483q-17-6-28.5-21.39T80-680v-140q0-24.75 17.63-42.38Q115.25-880 140-880h680q24.75 0 42.38 17.62Q880-844.75 880-820v140q0 20.22-11.5 35.61T840-623v483q0 24.75-17.62 42.37Q804.75-80 780-80H180Zm0-540v480h600v-480H180Zm-40-60h680v-140H140v140Zm220 260h240v-60H360v60Zm120 40Z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
       <span class="user" th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+        <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M372-523q-42-42-42-108t42-108q42-42 108-42t108 42q42 42 42 108t-42 108q-42 42-108 42t-108-42ZM160-160v-94q0-38 19-65t49-41q67-30 128.5-45T480-420q62 0 123 15.5T731-360q31 14 50 41t19 65v94H160Zm60-60h520v-34q0-16-9.5-30.5T707-306q-64-31-117-42.5T480-360q-57 0-111 11.5T252-306q-14 7-23 21.5t-9 30.5v34Zm324.5-346.5Q570-592 570-631t-25.5-64.5Q519-721 480-721t-64.5 25.5Q390-670 390-631t25.5 64.5Q441-541 480-541t64.5-25.5ZM480-631Zm0 411Z"/></svg>
         <span th:text="${currentUser.name()}"></span>
       </span>
-      <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций, пароль'}">⚙ Настройки</a>
+      <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций, пароль'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg><span>Настройки</span></a>
     </nav>
     <button type="button" class="theme" onclick="toggleTheme()" title="Светлая / тёмная тема" aria-label="Переключить тему">
-      <svg class="moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-      <svg class="sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="mi moon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q8 0 17 .5t23 1.5q-36 32-56 79t-20 99q0 90 63 153t153 63q52 0 99-18.5t79-51.5q1 12 1.5 19.5t.5 14.5q0 150-105 255T480-120Zm0-60q109 0 190-67.5T771-406q-25 11-53.67 16.5Q688.67-384 660-384q-114.69 0-195.34-80.66Q384-545.31 384-660q0-24 5-51.5t18-62.5q-98 27-162.5 109.5T180-480q0 125 87.5 212.5T480-180Zm-4-297Z"/></svg>
+      <svg class="mi sun" viewBox="0 -960 960 960" aria-hidden="true"><path d="M579-381q41-41 41-99t-41-99q-41-41-99-41t-99 41q-41 41-41 99t41 99q41 41 99 41t99-41Zm-240.5 42.5Q280-397 280-480t58.5-141.5Q397-680 480-680t141.5 58.5Q680-563 680-480t-58.5 141.5Q563-280 480-280t-141.5-58.5ZM200-450H40v-60h160v60Zm720 0H760v-60h160v60ZM450-760v-160h60v160h-60Zm0 720v-160h60v160h-60ZM262-658l-100-97 43-44 96 100-39 41Zm494 496-98-100 41-41 99 98-42 43Zm-99-537 98-99 44 42-99 98-43-41ZM162-205l99-98 42 42-98 99-43-43Zm318-275Z"/></svg>
     </button>
     <form class="inline" method="post" action="/logout" th:if="${currentUser != null}">
       <button class="logout" title="Выйти" aria-label="Выйти">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.56v16.16a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z"/></svg>
+        <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M440-450q13 0 21.5-9t8.5-21q0-13-8.5-21.5T440-510q-12 0-21 8.5t-9 21.5q0 12 9 21t21 9ZM260-120v-60l280-49v-466q0-14-7.5-24.5T512-732l-252-39v-59l266 46q32 5 53 30.5t21 57.5v516l-340 60Zm-140 0v-60h80v-590q0-26 17.5-43t42.5-17h440q26 0 43 17t17 43v590h80v60H120Zm140-60h440v-590H260v-1 591Z"/></svg>
       </button>
     </form>
   </div>
@@ -212,7 +254,7 @@
 <!-- Шапка страницы «Настройки» с вкладками; active — kinds | account | users -->
 <th:block th:fragment="settingsHead(active)">
   <div class="bar">
-    <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></a>
+    <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
     <h2>Настройки</h2>
   </div>
   <nav class="tabs">
