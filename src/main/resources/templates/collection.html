@@ -61,9 +61,9 @@
         <span class="grip" title="Потяните, чтобы изменить ширину"></span>
       </th>
       <th class="actions">
-        <a th:unless="${filters.isEmpty()}" class="btn light small" title="Показать все объекты"
-           th:href="|?sort=${sort}&dir=${dir}&size=${size}|">Сброс фильтров</a>
-        <span th:if="${filters.isEmpty()}" class="btn light small disabled" title="Фильтры не заданы">Сброс фильтров</span>
+        <a th:unless="${filters.isEmpty()}" class="icon" title="Сбросить фильтры" aria-label="Сбросить фильтры"
+           th:href="|?sort=${sort}&dir=${dir}&size=${size}|"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></a>
+        <span th:if="${filters.isEmpty()}" class="icon disabled" title="Фильтры не заданы" aria-label="Фильтры не заданы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></span>
       </th>
     </tr>
     <tr class="filters">
