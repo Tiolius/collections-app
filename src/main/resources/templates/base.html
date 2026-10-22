@@ -15,19 +15,19 @@
   }
 </script>
 <style>
-  /* ===== Оформление в «каталожном» стиле: Verdana, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
+  /* ===== Оформление в «каталожном» стиле (палитра old-games.ru): Tahoma, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
 
   /* Цвета. Светлая тема по умолчанию, тёмная — <html data-theme="dark"> (переключатель в шапке) */
   :root {
-    --page: #e9e9e9;        /* поля по бокам */
+    --page: #ddd;           /* поля по бокам (как у old-games.ru) */
     --paper: #fff;          /* основная область */
     --text: #222; --muted: #666;
-    --link: #1f5fbf;        /* ссылки, названия */
-    --blue: #2a7bd4; --on-blue: #fff;   /* шапки таблиц, основные кнопки, активная вкладка */
-    --orange: #e8730c;      /* акцент: активная страница, тип коллекции */
-    --label: #34568b;       /* подписи полей в формах */
-    --heading: #2a7bd4;     /* заголовки страниц */
-    --zebra: #f0f0f0;       /* чётные строки таблиц */
+    --link: #1c58a9;        /* ссылки, названия */
+    --blue: #316dbe; --on-blue: #fff;   /* шапки таблиц, основные кнопки, активная вкладка */
+    --orange: #e88a1c; --on-orange: #fff;  /* акцент: активная страница, тип коллекции */
+    --label: #333;          /* подписи полей в формах — тёмный текст, без отдельного синего */
+    --heading: #1c58a9;     /* заголовки страниц — как ссылки, спокойнее шапок таблиц */
+    --zebra: #f5f5f5;       /* чётные строки таблиц */
     --panel: #f3f3f3;       /* строка фильтров, полоса вкладок, поле только для чтения */
     --form-bg: #fafafa;
     --border: #d4d4d4; --input-border: #aaa; --line: #dcdcdc;
@@ -37,11 +37,12 @@
     --red: #c62828; --on-red: #fff;
     --error-bg: #fde3e3; --error-text: #7a1010; --ok-bg: #e2f3dc; --ok-text: #234d14;
     --tip-bg: #333; --tip-text: #fff;
+    --swatch-text: #222;    /* текст на цветном ярлыке статуса (цвета статусов светлые в обеих темах) */
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
     --page: #15171b; --paper: #1f2227; --text: #dddddd; --muted: #9aa0a8;
-    --link: #6aa8ff; --blue: #2a6cb8; --on-blue: #fff; --orange: #f08a2c; --label: #8fb3e8; --heading: #6aa8ff;
+    --link: #6aa8ff; --blue: #316dbe; --on-blue: #fff; --orange: #e88a1c; --on-orange: #fff; --label: #c8ccd2; --heading: #6aa8ff;
     --zebra: #262a30; --panel: #2a2e35; --form-bg: #23262c;
     --border: #3a3e46; --input-border: #5a606a; --line: #343840;
     --bar-from: #2c3037; --bar-to: #22252b; --bar-border: #3a3e46; --bar-sep: #3a3e46; --bar-hover: #34383f;
@@ -50,12 +51,13 @@
     --red: #c62828; --on-red: #fff;
     --error-bg: #5c2626; --error-text: #fde3e3; --ok-bg: #22432f; --ok-text: #e2f3dc;
     --tip-bg: #e6e6e6; --tip-text: #222;
+    --swatch-text: #222;
   }
 
-  /* Шрифт: Verdana везде (поля, списки и кнопки наследуют). Размер 13px везде, крупнее — только заголовки */
+  /* Шрифт: Tahoma (как у old-games.ru; где его нет — Verdana/Liberation Sans) везде (поля, списки и кнопки наследуют). Размер 13px везде, крупнее — только заголовки */
   * { box-sizing: border-box; }
   input, select, button, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-  body { font-family: Verdana, Tahoma, Geneva, sans-serif; font-size: 13px; margin: 0; background: var(--page); color: var(--text); }
+  body { font-family: Tahoma, Verdana, "Liberation Sans", Geneva, sans-serif; font-size: 13px; margin: 0; background: var(--page); color: var(--text); }
   a { color: var(--link); text-decoration: none; }
   a:hover { text-decoration: underline; }
   h2 { margin: 0; font-size: 18px; color: var(--heading); }
@@ -164,7 +166,7 @@
   .pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
                        margin-left: -1px; border: 1px solid var(--line); color: var(--orange); font-weight: normal; }
   .pages a:hover { background: var(--hover); text-decoration: none; }
-  .pages b { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .pages b { background: var(--orange); border-color: var(--orange); color: var(--on-orange); }
   .pages .muted { padding: 0 4px; }
   .pager select { height: 24px; }
 
@@ -196,11 +198,15 @@
   table.items td.empty { text-align: center; padding: 16px; }
   table.items td { height: 30px; line-height: 1.4; }
   table.items tbody tr:nth-child(even) td { background: var(--zebra); }
-  /* Цвет строки по статусу (CSS-переменная --row-bg) важнее полос; при наведении строка чуть темнеет */
-  table.items tbody tr[style] td { background: var(--row-bg); }
-  :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 30%, var(--paper)); }
+  /* Цвет строки по статусу (CSS-переменная --row-bg): бледная заливка (полосы зебры не перебивает)
+     и полоска полного цвета у левого края; при наведении строка чуть темнеет */
+  table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 40%, var(--paper)); }
+  :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 18%, var(--paper)); }
+  table.items tbody tr[style] td:first-child { box-shadow: inset 4px 0 0 var(--row-bg); padding-left: 10px; }
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
+  table.items tbody tr[style]:hover td:first-child { box-shadow: inset 4px 0 0 var(--row-bg), inset 0 0 0 9999px rgba(0,0,0,.04); }
+  :root[data-theme="dark"] table.items tbody tr[style]:hover td:first-child { box-shadow: inset 4px 0 0 var(--row-bg), inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
   table.items td.title a.edit-item, table.items td.title a.edit-item:hover, table.items td.title a.edit-item:focus, table.items td.title a.edit-item:active { color: inherit; text-decoration: none; }
   /* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
@@ -277,7 +283,7 @@
   dialog.modal .modal-head .icon:hover { background: rgba(255,255,255,.15); color: var(--on-blue); }
   /* Подписи — по ширине самой длинной, небольшой отступ до поля */
   dialog.modal .form { border: none; max-width: none; grid-template-columns: auto 1fr; column-gap: 12px; }
-  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); color: #222; line-height: 18px; }
+  .swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid var(--line); color: var(--swatch-text); line-height: 18px; }
   .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
   /* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
   dialog.modal.wide { width: fit-content; }
