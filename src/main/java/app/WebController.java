@@ -199,9 +199,11 @@ public class WebController {
     @org.springframework.beans.factory.annotation.Value("${app.version}")
     private String appVersion;
 
-    /** Автор и год (app.author, app.year в application.properties). */
+    /** Автор, email и год (app.author, app.email, app.year в application.properties). */
     @org.springframework.beans.factory.annotation.Value("${app.author}")
     private String appAuthor;
+    @org.springframework.beans.factory.annotation.Value("${app.email}")
+    private String appEmail;
     @org.springframework.beans.factory.annotation.Value("${app.year}")
     private String appYear;
 
@@ -209,6 +211,7 @@ public class WebController {
     public String about(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("appVersion", appVersion);
         m.addAttribute("appAuthor", appAuthor);
+        m.addAttribute("appEmail", appEmail);
         m.addAttribute("appYear", appYear);
         return "about";
     }
