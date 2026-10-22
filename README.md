@@ -54,19 +54,3 @@ DATA_DIR=./data mvn spring-boot:run
 Снаружи приложение доступно на порту **47321**; внутри контейнера оно слушает порт 8000.
 Чтобы сменить внешний порт, поменяйте первое число в `docker-compose.yml` (`"47321:8000"`)
 и адрес в `start.sh` / `start.bat`.
-
-## Переход на версию с пользователями и ролями (один раз)
-Если база создана до появления пользователей, её нужно перенести: все данные станут данными
-пользователя **Evered** (администратор, пустой пароль — задайте пароль в «Настройках»).
-Windows (PowerShell, в папке проекта):
-```
-.\stop.bat
-Copy-Item data\app.db data\app-backup.db
-docker run --rm -v "${PWD}\data:/data" -v "${PWD}\tools:/tools" alpine sh -c "apk add -q sqlite && sqlite3 /data/app.db '.read /tools/migrate-to-users.sql' && sqlite3 /data/app.db '.read /tools/add-roles.sql'"
-.\start.bat
-```
-Если пользователи уже есть (перенос `migrate-to-users.sql` выполнялся раньше), нужен только второй скрипт:
-```
-docker run --rm -v "${PWD}\data:/data" -v "${PWD}\tools:/tools" alpine sh -c "apk add -q sqlite && sqlite3 /data/app.db '.read /tools/add-roles.sql'"
-```
-Повторный запуск скриптов ничего не меняет (они останавливаются на первой ошибке).
