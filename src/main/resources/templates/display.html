@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main>
+  <th:block th:replace="~{base :: settingsHead('display')}"></th:block>
+  <p class="ok" th:if="${param.saved != null}">Настройки сохранены.</p>
+  <form autocomplete="off" class="form" method="post" action="/display">
+    <label for="f-show">Цены</label>
+    <div>
+      <label class="radio"><input id="f-show" type="checkbox" name="showPrices" value="true" th:checked="${showPrices}"> Показывать цены</label>
+      <div class="muted">Цена объекта и стоимость коллекции видны сразу. Если выключено — только в подсказке у иконки глаза.</div>
+    </div>
+
+    <div class="full"><button class="btn">Сохранить</button></div>
+  </form>
+</main>
+</body>
+</html>

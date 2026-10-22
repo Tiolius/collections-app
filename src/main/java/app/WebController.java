@@ -86,6 +86,29 @@ public class WebController {
         return "account";
     }
 
+    // Вкладка «Отображение»: показывать цены открыто или за иконкой глаза
+    @GetMapping("/display")
+    public String display(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("showPrices", repo.showPrices(uid));
+        return "display";
+    }
+
+    @PostMapping("/display")
+    public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices) {
+        repo.setShowPrices(uid, showPrices);
+        return "redirect:/display?saved";
+    }
+
+    /** Версия приложения (из pom.xml, см. app.version в application.properties). */
+    @org.springframework.beans.factory.annotation.Value("${app.version}")
+    private String appVersion;
+
+    @GetMapping("/about")
+    public String about(@SessionAttribute("uid") long uid, Model m) {
+        m.addAttribute("appVersion", appVersion);
+        return "about";
+    }
+
     @GetMapping("/users")
     public String users(@SessionAttribute("uid") long uid, Model m) {
         requireAdmin(uid);
@@ -207,7 +230,10 @@ public class WebController {
                              @RequestParam(name = "f_name", required = false) String fName,
                              @RequestParam(name = "f_platform", required = false) String fPlatform,
                              @RequestParam(name = "f_format", required = false) String fFormat,
-                             @RequestParam(name = "f_status", required = false) String fStatus) {
+                             @RequestParam(name = "f_status", required = false) String fStatus,
+                             @RequestParam(name = "f_price_min", required = false) String fPriceMin,
+                             @RequestParam(name = "f_price_max", required = false) String fPriceMax,
+                             @RequestParam(defaultValue = "false") boolean dups) {
         Entry c = repo.collection(uid, id);
         Set<String> fields = repo.itemFields(uid, c.kind());
         m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
@@ -217,7 +243,10 @@ public class WebController {
         if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
         if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
         if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
-        if (fields.contains("price")) cols.add(new Col("price", "₽", "eye")); // цена видна в подсказке у иконки глаза
+        // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
+        boolean showPrices = repo.showPrices(uid);
+        m.addAttribute("showPrices", showPrices);
+        if (fields.contains("price")) cols.add(showPrices ? new Col("price", "Цена", "num") : new Col("price", "₽", "eye"));
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
@@ -230,6 +259,11 @@ public class WebController {
         if (fields.contains("platform")) putFilter(filters, "platform", fPlatform);
         if (fields.contains("format")) putFilter(filters, "format", fFormat);
         if (fields.contains("status")) putFilter(filters, "status", fStatus);
+        // Цена «от — до» (включительно): только целые числа, остальное не учитывается
+        if (fields.contains("price")) {
+            putPriceFilter(filters, "price_min", fPriceMin);
+            putPriceFilter(filters, "price_max", fPriceMax);
+        }
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
@@ -237,7 +271,20 @@ public class WebController {
         filters.forEach((k, v) -> filterQs.append("&f_").append(k).append("=")
                 .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8)));
 
+        // Режим «Дубли»: только объекты, у которых в коллекции есть объект с тем же названием
+        Set<Long> dupIds = new java.util.HashSet<>();
+        int dupGroups = 0;
+        if (dups) {
+            Map<String, List<Long>> byName = new java.util.HashMap<>();
+            for (Entry e : repo.items(id, "name", false, Map.of()))
+                byName.computeIfAbsent(dupKey(e.name()), k -> new ArrayList<>()).add(e.id());
+            for (List<Long> g : byName.values())
+                if (g.size() > 1) { dupIds.addAll(g); dupGroups++; }
+        }
+        String modeQs = dups ? "&dups=1" : "";
+
         List<Entry> found = repo.items(id, sort, desc, filters);
+        if (dups) found = found.stream().filter(e -> dupIds.contains(e.id())).toList();
         int total = found.size();
         int pages = Math.max(1, (total + size - 1) / size);
         page = Math.min(Math.max(page, 1), pages);
@@ -246,11 +293,27 @@ public class WebController {
         m.addAttribute("c", c);
         m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
-        m.addAttribute("items", found.subList(fromIdx, Math.min(fromIdx + size, total)));
+        List<Entry> pageItems = found.subList(fromIdx, Math.min(fromIdx + size, total));
+        m.addAttribute("items", pageItems);
+        // В режиме дублей при сортировке по названию — первая строка каждой группы (над ней линия)
+        Set<Long> groupStarts = new java.util.HashSet<>();
+        if (dups && sort.equals("name"))
+            for (int i = fromIdx; i < fromIdx + pageItems.size(); i++)
+                if (i == 0 || !dupKey(found.get(i).name()).equals(dupKey(found.get(i - 1).name())))
+                    groupStarts.add(found.get(i).id());
+        m.addAttribute("groupStarts", groupStarts);
+        // Общая стоимость — только если у типа коллекции есть поле «Цена»; формат «717 841»
+        if (fields.contains("price"))
+            m.addAttribute("totalPrice", String.format(java.util.Locale.forLanguageTag("ru"), "%,d", repo.totalPrice(id))
+                    .replace('\u00a0', ' '));
+        m.addAttribute("dups", dups);
+        m.addAttribute("dupGroups", dupGroups);
+        m.addAttribute("modeQs", modeQs);
         m.addAttribute("filters", filters);
         m.addAttribute("filterOptions", filterOptions);
         m.addAttribute("filterQs", filterQs.toString());
-        m.addAttribute("totalAll", filters.isEmpty() ? total : repo.countItems(id));
+        // Всего без фильтров: в режиме дублей — все дубли, иначе — все объекты коллекции
+        m.addAttribute("totalAll", dups ? dupIds.size() : filters.isEmpty() ? total : repo.countItems(id));
         m.addAttribute("sort", sort);
         m.addAttribute("dir", desc ? "desc" : "asc");
         m.addAttribute("page", page);
@@ -263,7 +326,7 @@ public class WebController {
         m.addAttribute("pageLinks", pageLinks(page, pages));
         // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
         m.addAttribute("view", "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size
-                + filterQs);
+                + filterQs + modeQs);
         return "collection";
     }
 
@@ -281,6 +344,10 @@ public class WebController {
         if (value != null && !value.isBlank()) filters.put(key, value.trim());
     }
 
+    private static void putPriceFilter(Map<String, String> filters, String key, String value) {
+        if (value != null && value.trim().matches("\\d{1,12}")) filters.put(key, String.valueOf(Long.parseLong(value.trim())));
+    }
+
     /**
      * Адрес страницы коллекции с сохранённым видом списка (сортировка, страница, фильтры).
      * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
@@ -288,6 +355,11 @@ public class WebController {
     private static String collectionUrl(long cid, String view) {
         return "/collections/" + cid
                 + (view != null && view.matches("[A-Za-z0-9=&%+._*-]*") && !view.isEmpty() ? "?" + view : "");
+    }
+
+    /** Ключ для поиска дублей: название без учёта регистра и лишних пробелов. */
+    private static String dupKey(String name) {
+        return name.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.forLanguageTag("ru"));
     }
 
     @GetMapping("/collections/{id}/image")

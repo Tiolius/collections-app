@@ -228,6 +228,17 @@ public class Repo {
         return list.isEmpty() ? null : list.get(0);
     }
 
+    /** Показывать ли цены открыто (настройка «Отображение»); по умолчанию — нет, только в подсказке. */
+    public boolean showPrices(long uid) {
+        List<Integer> v = jdbc.queryForList("SELECT show_prices FROM user_settings WHERE user_id = ?", Integer.class, uid);
+        return !v.isEmpty() && v.get(0) == 1;
+    }
+
+    public void setShowPrices(long uid, boolean show) {
+        jdbc.update("INSERT INTO user_settings (user_id, show_prices) VALUES (?, ?) "
+                + "ON CONFLICT (user_id) DO UPDATE SET show_prices = excluded.show_prices", uid, show ? 1 : 0);
+    }
+
     /** Начальные типы коллекций нового пользователя: название → поля. */
     private static final Map<String, String> DEFAULT_KINDS = new LinkedHashMap<>();
     static {
@@ -277,6 +288,11 @@ public class Repo {
     public static final Map<String, String> ITEM_SORT = Map.of(
             "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price");
 
+    /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
+    public long totalPrice(long collectionId) {
+        return jdbc.queryForObject("SELECT COALESCE(SUM(price), 0) FROM items WHERE collection_id = ?", Long.class, collectionId);
+    }
+
     public int countItems(long collectionId) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM items WHERE collection_id = ?", Integer.class, collectionId);
     }
@@ -302,6 +318,15 @@ public class Repo {
                 where.append(" AND ").append(f).append(" = ?"); // f — только из SELECT_FILTERS
                 args.add(filters.get(f));
             }
+        // Цена «от — до»: значения уже проверены в контроллере (целые числа); объекты без цены не подходят
+        if (filters.containsKey("price_min")) {
+            where.append(" AND price >= ?");
+            args.add(Long.parseLong(filters.get("price_min")));
+        }
+        if (filters.containsKey("price_max")) {
+            where.append(" AND price <= ?");
+            args.add(Long.parseLong(filters.get("price_max")));
+        }
         List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
                 mapper(true, false), args.toArray());
         String name = filters.get("name");

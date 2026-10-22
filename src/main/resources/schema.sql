@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS kinds (
     UNIQUE (user_id, name)
 );
 
+-- Настройки пользователя (вкладка «Отображение»); нет строки — значения по умолчанию.
+-- show_prices: 1 — цены видны в таблице объектов и стоимость коллекции рядом с количеством, 0 — только в подсказке у иконки глаза
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    show_prices INTEGER NOT NULL DEFAULT 0
+);
+
 -- Цвет строки объекта в зависимости от статуса (настраивается в типе коллекции)
 CREATE TABLE IF NOT EXISTS kind_status_colors (
     kind_id INTEGER NOT NULL REFERENCES kinds(id) ON DELETE CASCADE,

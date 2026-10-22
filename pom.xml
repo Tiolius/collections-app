@@ -13,7 +13,8 @@
 
     <groupId>app</groupId>
     <artifactId>collections-app</artifactId>
-    <version>1.0</version>
+    <!-- Версия приложения: показывается в «Настройках» → «О приложении». Повышать при выпуске изменений -->
+    <version>1.1.0</version>
 
     <properties>
         <java.version>21</java.version>
