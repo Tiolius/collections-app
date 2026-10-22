@@ -182,6 +182,13 @@
   table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
   :root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
   table.items[data-cols] td.title { color: var(--link); }
+  /* Страница дублей: группы чередуются фоном (вместо полос через строку), между группами — линия */
+  table.items.dups tbody tr td { background: transparent; }
+  table.items.dups tbody tr.g2 td { background: var(--zebra); }
+  table.items.dups tbody tr[style] td { background: var(--row-bg); }
+  :root[data-theme="dark"] table.items.dups tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 30%, var(--paper)); }
+  table.items.dups tbody tr.gstart td { border-top: 2px solid var(--border); }
+  table.items.dups td.title { color: var(--link); }
   /* Название забирает всё свободное место, остальные столбцы — по содержимому */
   table.items th, table.items td { width: 1%; white-space: nowrap; }
   table.items .title { width: auto; white-space: normal; }
@@ -282,6 +289,65 @@
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>
   </nav>
+</th:block>
+
+<!-- Окно изменения объекта (страницы коллекции и дублей): нужны fields и view в модели.
+     Открывается карандашом в строке (a.edit-item), поля заполняются из data-атрибутов строки.
+     Без поддержки <dialog> карандаш ведёт на отдельную страницу /items/{id}/edit -->
+<th:block th:fragment="itemDialog">
+  <dialog id="item-dialog" class="modal" aria-labelledby="item-dialog-title">
+    <div class="modal-head">
+      <span id="item-dialog-title">Редактировать объект</span>
+      <button type="button" class="icon" data-close title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
+    </div>
+    <form autocomplete="off" class="form" method="post">
+      <input type="hidden" name="view" th:value="${view}">
+      <label for="d-name">Название *</label>
+      <input autocomplete="off" id="d-name" type="text" name="name" required>
+      <th:block th:if="${fields.contains('platform')}">
+        <label for="d-platform">Платформа</label>
+        <input autocomplete="off" id="d-platform" type="text" name="platform">
+      </th:block>
+      <th:block th:if="${fields.contains('format')}">
+        <label for="d-format">Формат</label>
+        <input autocomplete="off" id="d-format" type="text" name="format">
+      </th:block>
+      <th:block th:if="${fields.contains('status')}">
+        <label for="d-status">Статус прохождения</label>
+        <input autocomplete="off" id="d-status" type="text" name="status">
+      </th:block>
+      <th:block th:if="${fields.contains('price')}">
+        <label for="d-price">Цена (₽)</label>
+        <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
+      </th:block>
+      <div class="full">
+        <button class="btn">Сохранить</button>
+        <button type="button" class="btn gray" data-close>Отмена</button>
+      </div>
+    </form>
+  </dialog>
+<script>
+  // Изменение объекта в модальном окне
+  (function () {
+    var dlg = document.getElementById('item-dialog');
+    if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — карандаш откроет отдельную страницу
+    var form = dlg.querySelector('form');
+    document.querySelectorAll('a.edit-item').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var row = a.closest('tr');
+        form.action = '/items/' + row.dataset.id + '/edit';
+        ['name', 'platform', 'format', 'status', 'price'].forEach(function (f) {
+          if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
+        });
+        dlg.showModal();
+        form.elements.name.focus();
+      });
+    });
+    dlg.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // щелчок мимо окна
+  })();
+</script>
 </th:block>
 </body>
 </html>

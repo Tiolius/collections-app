@@ -296,8 +296,43 @@ public class WebController {
      * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
      */
     private static String collectionUrl(long cid, String view) {
+        if (DUPS_VIEW.equals(view)) return "/collections/" + cid + "/duplicates";
         return "/collections/" + cid
                 + (view != null && view.matches("[A-Za-z0-9=&%+._*-]*") && !view.isEmpty() ? "?" + view : "");
+    }
+
+    /** Значение view, при котором после изменения/удаления объекта возвращаемся на страницу дублей. */
+    private static final String DUPS_VIEW = "dups";
+
+    /**
+     * Дубли коллекции: объекты с одинаковым названием (без учёта регистра и лишних пробелов),
+     * сгруппированные по названию; группы — по алфавиту, внутри группы — по порядку добавления.
+     */
+    @GetMapping("/collections/{id}/duplicates")
+    public String duplicates(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
+        Entry c = repo.collection(uid, id);
+        Set<String> fields = repo.itemFields(uid, c.kind());
+        Map<String, List<Entry>> byName = new java.util.TreeMap<>(Repo.alphabetical());
+        for (Entry e : repo.items(id, "name", false, Map.of()))
+            byName.computeIfAbsent(e.name().trim().replaceAll("\\s+", " "), k -> new ArrayList<>()).add(e);
+        List<List<Entry>> groups = byName.values().stream().filter(g -> g.size() > 1)
+                .map(g -> g.stream().sorted(java.util.Comparator.comparingLong(Entry::id)).toList()).toList();
+
+        List<Col> cols = new ArrayList<>();
+        cols.add(new Col("name", "Название", "title"));
+        if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
+        if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
+        if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
+        if (fields.contains("price")) cols.add(new Col("price", "₽", "eye"));
+
+        m.addAttribute("c", c);
+        m.addAttribute("fields", fields);
+        m.addAttribute("cols", cols);
+        m.addAttribute("groups", groups);
+        m.addAttribute("dupCount", groups.stream().mapToInt(List::size).sum());
+        m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
+        m.addAttribute("view", DUPS_VIEW);
+        return "duplicates";
     }
 
     @GetMapping("/collections/{id}/image")

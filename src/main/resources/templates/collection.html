@@ -16,6 +16,7 @@
     </div>
     <span class="spacer"></span>
     <a class="icon big add" title="Новый объект" aria-label="Новый объект" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
+    <a class="icon big" title="Дубли" aria-label="Дубли" th:href="@{/collections/{id}/duplicates(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
     <a class="icon big" title="Изменить коллекцию" aria-label="Изменить коллекцию" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
     <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
           onsubmit="return confirm('Удалить коллекцию и все её объекты?')">
@@ -79,7 +80,8 @@
         <span th:if="${filters.isEmpty()}" class="icon disabled" title="Фильтры не заданы" aria-label="Фильтры не заданы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m580-465-43-43 183-232H305l-60-60h527q21 0 31 19t-4 36L580-465ZM813-61 560-314v114q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-274L61-813l43-43 752 752-43 43ZM537-508Z"/></svg></span>
       </th>
     </tr></thead>
-    <tbody><tr th:each="it : ${items}"
+    <tbody><th:block th:each="it : ${items}">
+    <tr th:fragment="itemRow" th:class="${grp}"
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
@@ -107,67 +109,15 @@
         </form>
       </td>
     </tr>
+    </th:block>
     <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 1}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
     </tbody>
   </table>
   </th:block>
 
-  <!-- Окно изменения объекта: открывается карандашом в строке, поля заполняются из data-атрибутов строки.
-       Без поддержки <dialog> карандаш ведёт на отдельную страницу /items/{id}/edit -->
-  <dialog id="item-dialog" class="modal" aria-labelledby="item-dialog-title">
-    <div class="modal-head">
-      <span id="item-dialog-title">Редактировать объект</span>
-      <button type="button" class="icon" data-close title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
-    </div>
-    <form autocomplete="off" class="form" method="post">
-      <input type="hidden" name="view" th:value="${view}">
-      <label for="d-name">Название *</label>
-      <input autocomplete="off" id="d-name" type="text" name="name" required>
-      <th:block th:if="${fields.contains('platform')}">
-        <label for="d-platform">Платформа</label>
-        <input autocomplete="off" id="d-platform" type="text" name="platform">
-      </th:block>
-      <th:block th:if="${fields.contains('format')}">
-        <label for="d-format">Формат</label>
-        <input autocomplete="off" id="d-format" type="text" name="format">
-      </th:block>
-      <th:block th:if="${fields.contains('status')}">
-        <label for="d-status">Статус прохождения</label>
-        <input autocomplete="off" id="d-status" type="text" name="status">
-      </th:block>
-      <th:block th:if="${fields.contains('price')}">
-        <label for="d-price">Цена (₽)</label>
-        <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
-      </th:block>
-      <div class="full">
-        <button class="btn">Сохранить</button>
-        <button type="button" class="btn gray" data-close>Отмена</button>
-      </div>
-    </form>
-  </dialog>
+  <th:block th:replace="~{base :: itemDialog}"></th:block>
 </main>
 <script>
-  // Изменение объекта в модальном окне
-  (function () {
-    var dlg = document.getElementById('item-dialog');
-    if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — карандаш откроет отдельную страницу
-    var form = dlg.querySelector('form');
-    document.querySelectorAll('a.edit-item').forEach(function (a) {
-      a.addEventListener('click', function (e) {
-        e.preventDefault();
-        var row = a.closest('tr');
-        form.action = '/items/' + row.dataset.id + '/edit';
-        ['name', 'platform', 'format', 'status', 'price'].forEach(function (f) {
-          if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
-        });
-        dlg.showModal();
-        form.elements.name.focus();
-      });
-    });
-    dlg.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
-    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // щелчок мимо окна
-  })();
-
   // Ширина столбцов: потянуть за правый край заголовка. Запоминается в браузере (localStorage).
   (function () {
     var table = document.querySelector('table.items');
