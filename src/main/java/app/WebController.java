@@ -421,11 +421,6 @@ public class WebController {
         m.addAttribute("kind", kind);
         m.addAttribute("statusColors", kind == null ? Map.of() : kind.statusColors());
         m.addAttribute("emptyRows", IntStream.range(0, EMPTY_STATUS_ROWS).boxed().toList());
-        // подсказки: стандартные статусы и те, что уже есть у объектов этого типа
-        Set<String> hints = new java.util.TreeSet<>(Repo.alphabetical());
-        hints.addAll(List.of("Complete", "Incomplete"));
-        if (kind != null) hints.addAll(repo.usedStatuses(uid, kind.name()));
-        m.addAttribute("statusHints", hints);
         m.addAttribute("fieldNames", Repo.FIELDS);
         m.addAttribute("title", title);
         return "kind-form";

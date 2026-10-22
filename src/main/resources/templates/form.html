@@ -8,10 +8,10 @@
     <a class="btn light back" th:href="${back}" title="Назад" aria-label="Назад"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
     <h2 th:text="${title}"></h2>
   </div>
-  <form class="form" method="post" enctype="multipart/form-data">
+  <form autocomplete="off" class="form" method="post" enctype="multipart/form-data">
     <input type="hidden" name="view" th:if="${view != null}" th:value="${view}">
     <label for="f-name">Название *</label>
-    <input id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
+    <input autocomplete="off" id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
 
     <th:block th:unless="${isItem}">
       <label for="f-kind">Тип коллекции *</label>
@@ -32,36 +32,22 @@
 
     <th:block th:if="${isItem and fields.contains('platform')}">
       <label for="f-platform">Платформа</label>
-      <input id="f-platform" type="text" name="platform" list="platforms" th:value="${obj != null ? obj.platform() : ''}">
-      <datalist id="platforms">
-        <option>PC / Windows</option><option>Nintendo Switch</option><option>PlayStation Vita</option>
-        <option>PlayStation Portable</option><option>PlayStation 3</option><option>Nintendo 3DS</option>
-        <option>Wii U</option><option>GameCube</option><option>NES</option>
-        <option>Game Boy</option><option>Game Boy Advance</option>
-      </datalist>
+      <input autocomplete="off" id="f-platform" type="text" name="platform" th:value="${obj != null ? obj.platform() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('format')}">
       <label for="f-format">Формат</label>
-      <input id="f-format" type="text" name="format" list="formats" th:value="${obj != null ? obj.format() : ''}">
-      <datalist id="formats">
-        <option>Physical</option><option>Digital</option><option>Digital (Steam)</option>
-        <option>Digital (GOG)</option><option>Digital (Epic)</option><option>Digital (PSN)</option>
-        <option>Digital (Nintendo)</option><option>Digital (Origin)</option><option>Digital (Uplay)</option>
-      </datalist>
+      <input autocomplete="off" id="f-format" type="text" name="format" th:value="${obj != null ? obj.format() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('status')}">
       <label for="f-status">Статус прохождения</label>
-      <input id="f-status" type="text" name="status" list="statuses" th:value="${obj != null ? obj.status() : ''}">
-      <datalist id="statuses">
-        <option>Complete</option><option>Incomplete</option>
-      </datalist>
+      <input autocomplete="off" id="f-status" type="text" name="status" th:value="${obj != null ? obj.status() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('price')}">
       <label for="f-price">Цена (₽)</label>
-      <input id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
+      <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
     <div class="full">

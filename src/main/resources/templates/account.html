@@ -7,9 +7,9 @@
   <th:block th:replace="~{base :: settingsHead('account')}"></th:block>
   <p class="ok" th:if="${param.passwordChanged != null}">Пароль изменён.</p>
   <p class="error" th:if="${passwordError != null}" th:text="${passwordError}"></p>
-  <form class="form" method="post" action="/account/password">
+  <form autocomplete="off" class="form" method="post" action="/account/password">
     <label for="f-cur">Текущий пароль</label>
-    <input id="f-cur" type="password" name="current" autocomplete="current-password">
+    <input id="f-cur" type="password" name="current" autocomplete="new-password">
 
     <label for="f-new">Новый пароль</label>
     <input id="f-new" type="password" name="password" autocomplete="new-password">

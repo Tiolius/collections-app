@@ -121,13 +121,6 @@ public class Repo {
         return res;
     }
 
-    /** Статусы, которые уже встречаются у объектов коллекций этого типа (для подсказок в форме). */
-    public List<String> usedStatuses(long uid, String kindName) {
-        return jdbc.queryForList("SELECT DISTINCT i.status FROM items i JOIN collections c ON c.id = i.collection_id "
-                + "WHERE c.user_id = ? AND c.kind = ? AND i.status <> ''", String.class, uid, kindName)
-                .stream().sorted(alphabetical()).toList();
-    }
-
     /** Поля объектов коллекции этого типа. Если тип не найден — все поля, чтобы данные не прятались. */
     public Set<String> itemFields(long uid, String kindName) {
         List<Kind> list = jdbc.query(KIND_SELECT + " AND name = ?", KIND_MAPPER, uid, kindName);

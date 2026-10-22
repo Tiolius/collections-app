@@ -8,9 +8,9 @@
     <a class="btn light back" href="/kinds" title="Назад" aria-label="Назад"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
     <h2 th:text="${title}"></h2>
   </div>
-  <form class="form" method="post">
+  <form autocomplete="off" class="form" method="post">
     <label for="f-name">Название типа *</label>
-    <input id="f-name" type="text" name="name" required autofocus th:value="${kind != null ? kind.name() : ''}">
+    <input autocomplete="off" id="f-name" type="text" name="name" required autofocus th:value="${kind != null ? kind.name() : ''}">
 
     <label>Поля объектов</label>
     <div>
@@ -26,15 +26,14 @@
       <table class="status-colors">
         <tr><th>Статус</th><th>Цвет</th></tr>
         <tr th:each="e : ${statusColors}">
-          <td><input type="text" name="st" list="status-hints" th:value="${e.key}"></td>
+          <td><input autocomplete="off" type="text" name="st" th:value="${e.key}"></td>
           <td><input type="color" name="stc" th:value="${e.value}"></td>
         </tr>
         <tr th:each="i : ${emptyRows}">
-          <td><input type="text" name="st" list="status-hints" placeholder="статус"></td>
+          <td><input autocomplete="off" type="text" name="st" placeholder="статус"></td>
           <td><input type="color" name="stc" value="#fefcbf"></td>
         </tr>
       </table>
-      <datalist id="status-hints"><option th:each="h : ${statusHints}" th:value="${h}"></option></datalist>
       <div class="muted hint">Строки объектов с этим статусом закрашиваются выбранным цветом (регистр букв не важен).
         Чтобы убрать цвет, очистите статус. Нужно больше строк — сохраните, и появятся новые пустые.
         Работает, если у типа отмечено поле «Статус прохождения».</div>
