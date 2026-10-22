@@ -24,7 +24,8 @@ import org.springframework.stereotype.Component;
 /**
  * Импорт картинок и описаний объектов («Настройки» → «Импорт») из Steam (игры) или Discogs (музыка).
  * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg),
- * описание — краткое описание игры (по-русски, если есть). У Discogs описаний альбомов нет — только обложки.
+ * описание — краткое описание игры (по-русски, если есть).
+ * Discogs: картинка — обложка, описание — поле Notes альбома (главной версии, иначе её основного издания).
  * Discogs: название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы, картинка — обложка.
  * Импорт идёт в фоне, по одному на всё приложение (лимиты сервисов — на адрес, а не на пользователя):
  * запросы к API не чаще заданного интервала, при отказе сервиса (429/403/5xx) — пауза и повтор.
@@ -134,8 +135,7 @@ public class ImageImport {
                                       boolean images, boolean descriptions) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
-        boolean descr = descriptions && source.equals(STEAM);
-        Job job = new Job(collection.id(), collection.name(), source, images, descr);
+        Job job = new Job(collection.id(), collection.name(), source, images, descriptions);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -169,7 +169,7 @@ public class ImageImport {
                 job.current = item.name();
                 try {
                     boolean img = needImage(job, item, onlyMissing), descr = needDescription(job, item, onlyMissing);
-                    Found f = job.source.equals(DISCOGS) ? findDiscogs(job, item.name()) : findSteam(job, item.name(), img, descr);
+                    Found f = job.source.equals(DISCOGS) ? findDiscogs(job, item.name(), img, descr) : findSteam(job, item.name(), img, descr);
                     if (f == null) {
                         job.notFound++;
                     } else {
@@ -267,10 +267,10 @@ public class ImageImport {
     // ---------- Discogs ----------
 
     /**
-     * Обложка альбома (описаний у Discogs нет) или null: название объекта «Группа - Альбом» (без разделителя — не ищем).
+     * Альбом «Группа - Альбом» (без разделителя — не ищем): обложка (если нужна) и Notes (если нужно описание); null — не найден.
      * Сначала главная версия альбома (master), если её нет — отдельные издания (release).
      */
-    private Found findDiscogs(Job job, String name) throws Exception {
+    private Found findDiscogs(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
         String[] aa = artistAlbum(name);
         if (aa == null) return null;
         String artist = aa[0], album = aa[1];
@@ -282,13 +282,48 @@ public class ImageImport {
                 // Название результата — «Группа - Альбом»: альбом должен совпасть, группа — тоже
                 String[] t = artistAlbum(r.path("title").asText(""));
                 if (t == null || !norm(t[1]).equals(norm(album)) || !sameArtist(t[0], artist)) continue;
-                String cover = r.path("cover_image").asText("");
-                if (cover.isEmpty() || cover.contains("spacer.gif")) continue; // у Discogs нет обложки — пустая заглушка
-                byte[] img = download(cover);
-                if (img != null) return new Found(img, null);
+                byte[] img = null;
+                if (wantImage) {
+                    String cover = r.path("cover_image").asText("");
+                    // нет обложки — у Discogs пустая заглушка spacer.gif
+                    if (!cover.isEmpty() && !cover.contains("spacer.gif")) img = download(cover);
+                }
+                String notes = wantDescription ? discogsNotes(job, type, r.path("id").asLong()) : null;
+                if (img == null && notes == null) continue; // ни обложки, ни примечаний — следующий результат
+                return new Found(img, notes);
             }
         }
         return null;
+    }
+
+    /** Notes альбома: у главной версии (master), если там пусто — у её основного издания; у издания (release) — его Notes. */
+    private String discogsNotes(Job job, String type, long id) throws Exception {
+        if (id <= 0) return null;
+        if (type.equals("master")) {
+            JsonNode m = api(job, discogsUrl + "/masters/" + id);
+            if (m == null) return null;
+            String notes = cleanNotes(m.path("notes").asText(""));
+            if (notes != null) return notes;
+            long main = m.path("main_release").asLong();
+            if (main <= 0) return null;
+            id = main;
+        }
+        JsonNode rel = api(job, discogsUrl + "/releases/" + id);
+        return rel == null ? null : cleanNotes(rel.path("notes").asText(""));
+    }
+
+    /**
+     * Notes Discogs без их разметки: [url=…]текст[/url] → текст, [a=Имя]/[l=Имя] → Имя,
+     * ссылки на записи [a123]/[r123]/[m123]/[l123] и теги [b] [i] [u] убираются; пустое — null.
+     */
+    static String cleanNotes(String s) {
+        String t = s.replaceAll("(?is)\\[url=[^\\]]*\\](.*?)\\[/url\\]", "$1")
+                .replaceAll("\\[[alrm]=([^\\]]+)\\]", "$1")
+                .replaceAll("\\[[alrm]\\d+\\]", "")
+                .replaceAll("(?i)\\[/?[biu]\\]", "")
+                .replace("\r\n", "\n").replaceAll("[ \\t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();
+        if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
+        return t.isEmpty() ? null : t;
     }
 
     /** «Группа - Альбом» → [группа, альбом] по первому « - » (или « – », « — »); иначе null. */

@@ -132,8 +132,7 @@ public class WebController {
         if (source.equals(ImageImport.DISCOGS) && !images.discogsReady())
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Для Discogs нужен токен: задайте DISCOGS_TOKEN (см. README)");
-        // Описания есть только в Steam
-        boolean descriptions = loadDescriptions && source.equals(ImageImport.STEAM);
+        boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");

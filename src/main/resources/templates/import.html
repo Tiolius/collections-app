@@ -8,8 +8,8 @@
   <h3 class="section">Картинки и описания объектов из Steam или Discogs</h3>
   <p class="muted"><b>Steam</b> — для игр: ищется игра с таким же названием, как у объекта (без учёта регистра, знаков ™ ® © и пунктуации),
     картинка — шапка страницы игры, описание — краткое описание игры (по-русски, если есть). <b>Discogs</b> — для музыки: название объекта должно быть в виде «Группа - Альбом»,
-    ищется альбом с тем же названием у той же группы, картинка — обложка (описаний альбомов у Discogs нет); объекты без « - » в названии пропускаются.
-    Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд вместе с описанием) и около 2 секунд для Discogs.
+    ищется альбом с тем же названием у той же группы, картинка — обложка, описание — примечания альбома (Notes); объекты без « - » в названии пропускаются.
+    Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд вместе с описанием) и около 2 секунд для Discogs (до 4 секунд вместе с описанием).
     Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</p>
 
   <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
@@ -53,7 +53,7 @@
     <label>Загружать</label>
     <div>
       <label class="radio"><input type="checkbox" name="loadImages" value="true" checked> картинки</label>
-      <label class="radio"><input type="checkbox" name="loadDescriptions" value="true" id="f-descr" checked> описания (только Steam)</label>
+      <label class="radio"><input type="checkbox" name="loadDescriptions" value="true" id="f-descr" checked> описания</label>
     </div>
 
     <span></span>
@@ -62,16 +62,6 @@
     <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}">Загрузить</button></div>
   </form>
 
-<script>
-  // Описания есть только в Steam: для Discogs галочка «описания» неактивна
-  (function () {
-    var d = document.getElementById('f-descr');
-    if (!d) return;
-    function sync() { d.disabled = document.querySelector('input[name=source]:checked').value !== 'steam'; }
-    document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
-    sync();
-  })();
-</script>
 <script th:if="${job != null and job.active()}">
   // Прогресс импорта: раз в секунду спрашиваем состояние; когда импорт закончится — перезагружаем страницу (итог)
   (function () {
