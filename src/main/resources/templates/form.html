@@ -88,7 +88,7 @@
       <a class="btn gray" th:href="${back}">Отмена</a>
       <!-- Удаление объекта (в таблице корзин нет) -->
       <button type="submit" class="btn light danger" th:if="${isItem and obj != null}" formnovalidate
-              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return confirm('Удалить объект?')">Удалить объект</button>
+              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return appConfirm(event, 'Удалить объект?')">Удалить объект</button>
     </div>
   </form>
   <script th:if="${isItem and fields.contains('rating')}" th:replace="~{base :: ratingScript}"></script>
