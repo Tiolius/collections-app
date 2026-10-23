@@ -124,11 +124,31 @@ public class ImageFiles implements ApplicationRunner {
         release(old);
     }
 
-    /** Убирает картинки всех объектов коллекции (обложка остаётся). Возвращает, сколько картинок убрано. */
-    public synchronized int clearCollectionItems(long collectionId) {
-        String where = " WHERE item_id IN (SELECT id FROM items WHERE collection_id = ?)";
-        List<String> old = hashes("SELECT hash FROM item_pictures" + where, collectionId);
-        jdbc.update("DELETE FROM item_pictures" + where, collectionId);
+    /** Сколько объектов обрабатывать за раз при очистке коллекции (одна транзакция на порцию). */
+    private static final int CLEAR_BATCH = 50;
+
+    /**
+     * Убирает картинки всех объектов коллекции (обложка остаётся) порциями по CLEAR_BATCH объектов:
+     * каждая порция — одна транзакция и под блокировкой, между порциями другие пользователи могут сохранять.
+     * progress получает, сколько картинок уже убрано. Возвращает, сколько убрано.
+     */
+    public int clearCollectionItems(long collectionId, java.util.function.IntConsumer progress) {
+        List<Long> items = jdbc.queryForList("SELECT DISTINCT item_id FROM item_pictures "
+                + "WHERE item_id IN (SELECT id FROM items WHERE collection_id = ?) ORDER BY item_id", Long.class, collectionId);
+        int done = 0;
+        for (int i = 0; i < items.size(); i += CLEAR_BATCH) {
+            done += clearItems(items.subList(i, Math.min(items.size(), i + CLEAR_BATCH)));
+            progress.accept(done);
+        }
+        return done;
+    }
+
+    /** Убирает все картинки объектов из списка; возвращает, сколько картинок убрано. */
+    private synchronized int clearItems(List<Long> ids) {
+        String in = "(" + String.join(",", java.util.Collections.nCopies(ids.size(), "?")) + ")";
+        Object[] args = ids.toArray();
+        List<String> old = jdbc.queryForList("SELECT hash FROM item_pictures WHERE item_id IN " + in, String.class, args);
+        tx.executeWithoutResult(s -> jdbc.update("DELETE FROM item_pictures WHERE item_id IN " + in, args));
         release(old);
         return old.size();
     }
@@ -146,20 +166,29 @@ public class ImageFiles implements ApplicationRunner {
         return res;
     }
 
-    /** Удаляет файлы (и строки pictures) тех хешей, на которые больше никто не ссылается. */
+    /**
+     * Удаляет файлы (и строки pictures) тех хешей, на которые больше никто не ссылается.
+     * Строки — одной транзакцией (по одной SQLite записывала бы на диск каждую — тысячи картинок шли бы минуты),
+     * файлы — после неё.
+     */
     public synchronized void release(Collection<String> hashes) {
-        for (String h : new LinkedHashSet<>(hashes)) {
-            Integer refs = jdbc.queryForObject("SELECT (SELECT COUNT(*) FROM item_pictures WHERE hash = ?) "
-                    + "+ (SELECT COUNT(*) FROM collection_pictures WHERE hash = ?)", Integer.class, h, h);
-            if (refs != null && refs > 0) continue;
-            List<String> mime = jdbc.queryForList("SELECT mime FROM pictures WHERE hash = ?", String.class, h);
-            jdbc.update("DELETE FROM pictures WHERE hash = ?", h);
-            if (!mime.isEmpty()) {
-                try {
-                    Files.deleteIfExists(file(h, mime.get(0)));
-                } catch (IOException e) {
-                    log.warn("Не удалось удалить картинку {}: {}", h, e.toString());
-                }
+        if (hashes.isEmpty()) return;
+        List<Path> gone = new ArrayList<>();
+        tx.executeWithoutResult(s -> {
+            for (String h : new LinkedHashSet<>(hashes)) {
+                Integer refs = jdbc.queryForObject("SELECT (SELECT COUNT(*) FROM item_pictures WHERE hash = ?) "
+                        + "+ (SELECT COUNT(*) FROM collection_pictures WHERE hash = ?)", Integer.class, h, h);
+                if (refs != null && refs > 0) continue;
+                List<String> mime = jdbc.queryForList("SELECT mime FROM pictures WHERE hash = ?", String.class, h);
+                jdbc.update("DELETE FROM pictures WHERE hash = ?", h);
+                if (!mime.isEmpty()) gone.add(file(h, mime.get(0)));
+            }
+        });
+        for (Path f : gone) {
+            try {
+                Files.deleteIfExists(f);
+            } catch (IOException e) {
+                log.warn("Не удалось удалить картинку {}: {}", f.getFileName(), e.toString());
             }
         }
     }

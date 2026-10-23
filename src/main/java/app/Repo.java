@@ -503,15 +503,6 @@ public class Repo {
         return counts;
     }
 
-    /**
-     * Удаляет все картинки объектов коллекции; обложка коллекции остаётся. Файл стирается, только если
-     * на ту же картинку больше никто не ссылается. Чужая коллекция — 404. Возвращает, сколько картинок удалено.
-     */
-    public int clearCollectionImages(long uid, long collectionId) {
-        collection(uid, collectionId);
-        return files.clearCollectionItems(collectionId);
-    }
-
     /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */
     private static byte[] readImage(MultipartFile image) {
         byte[] bytes;

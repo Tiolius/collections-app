@@ -27,11 +27,13 @@ public class WebController {
     private final Repo repo;
     private final LoginGuard guard;
     private final ImageImport images;
+    private final CacheClear cacheClear;
 
-    public WebController(Repo repo, LoginGuard guard, ImageImport images) {
+    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear) {
         this.repo = repo;
         this.guard = guard;
         this.images = images;
+        this.cacheClear = cacheClear;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -146,6 +148,10 @@ public class WebController {
                               @RequestParam(defaultValue = "screenshot") String steamImage,
                               @RequestParam(defaultValue = "5") int imageCount) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
+        // пока у коллекции удаляются картинки («Кэш»), импорт в неё не запускается
+        if (cacheClear.active(collection))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "У этой коллекции сейчас удаляются картинки («Настройки» → «Кэш») — дождитесь окончания");
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
         // Обложки Discogs — только с токеном; без него — только описания
@@ -175,23 +181,33 @@ public class WebController {
                 "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
-    // Вкладка «Кэш»: удалить все картинки объектов выбранной коллекции
+    // Вкладка «Кэш»: удалить все картинки объектов выбранной коллекции (в фоне, прогресс — /cache/status)
     @GetMapping("/cache")
     public String cachePage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
         m.addAttribute("imageCounts", repo.collectionImageCounts(uid));
+        m.addAttribute("job", cacheClear.job(uid));
         return "cache";
     }
 
     @PostMapping("/cache/clear")
     public String cacheClear(@SessionAttribute("uid") long uid, @RequestParam long collection) {
+        Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         ImageImport.Job j = images.job(uid);
         // пока идёт импорт в эту коллекцию, он сразу дописал бы картинки обратно
         if (j != null && j.active() && j.collectionId == collection)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                     "В эту коллекцию идёт импорт — остановите его на вкладке «Импорт»");
-        int n = repo.clearCollectionImages(uid, collection);
-        return "redirect:/cache?c=" + collection + "&deleted=" + n;
+        cacheClear.start(uid, c, repo.collectionImageCounts(uid).getOrDefault(collection, 0)); // уже идёт — не запускается
+        return "redirect:/cache";
+    }
+
+    @GetMapping("/cache/status")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> cacheStatus(@SessionAttribute("uid") long uid) {
+        CacheClear.Job j = cacheClear.job(uid);
+        if (j == null) return Map.of("state", "none");
+        return Map.of("state", j.state, "total", j.total, "done", j.done);
     }
 
     // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
