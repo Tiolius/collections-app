@@ -1,22 +1,19 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <!-- Страница ошибки: без технических подробностей; message — только наш текст (см. ErrorPages) -->
 <main th:with="s=${status == null ? 500 : status}">
-  <h2 th:text="${s == 404 ? 'Страница не найдена' : s == 403 ? 'Доступ запрещён' : s == 413 ? 'Файл слишком большой'
-               : s >= 400 and s < 500 ? 'Не удалось выполнить действие' : 'Что-то пошло не так'}"></h2>
+  <h2 th:text="${#messages.msg(s == 404 ? 'error.404' : s == 403 ? 'error.403' : s == 413 ? 'error.413'
+               : s >= 400 and s < 500 ? 'error.4xx' : 'error.500')}"></h2>
   <p class="error" th:if="${message != null and !#strings.isEmpty(message)}" th:text="${message}"></p>
   <p class="muted" th:unless="${message != null and !#strings.isEmpty(message)}"
-     th:text="${s == 404 ? 'Такой страницы нет или она вам недоступна.'
-             : s == 403 ? 'У вас нет прав на это действие.'
-             : s == 413 ? 'Картинка должна быть не больше 10 МБ.'
-             : s >= 400 and s < 500 ? 'Проверьте введённые данные и попробуйте ещё раз.'
-             : 'Попробуйте ещё раз позже.'}"></p>
+     th:text="${#messages.msg(s == 404 ? 'error.404.text' : s == 403 ? 'error.403.text' : s == 413 ? 'error.413.text'
+             : s >= 400 and s < 500 ? 'error.4xx.text' : 'error.500.text')}"></p>
   <div class="bar">
-    <button type="button" class="btn gray" onclick="history.back()">Назад</button>
-    <a class="btn" href="/">На главную</a>
+    <button type="button" class="btn gray" onclick="history.back()" th:text="#{nav.back}">Назад</button>
+    <a class="btn" href="/" th:text="#{error.home}">На главную</a>
   </div>
 </main>
 </body>

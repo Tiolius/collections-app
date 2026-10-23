@@ -1,11 +1,47 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:fragment="head">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Коллекции</title>
+<title th:text="#{app.title}">Коллекции</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<script>
+<script th:inline="javascript">
+  // Тексты для скриптов страниц — на языке интерфейса (messages*.properties, ключи js.*)
+  var T = {
+    confirm: [[#{js.confirm}]], close: [[#{js.close}]], cancel: [[#{js.cancel}]], del: [[#{js.delete}]],
+    openFull: [[#{js.openFull}]], willRemove: [[#{js.willRemove}]], newImage: [[#{js.newImage}]],
+    ratingOf: [[#{js.ratingOf}]], ratingNone: [[#{js.ratingNone}]], decimal: [[#{js.decimal}]],
+    ogNeedId: [[#{js.ogNeedId}]], ogLoading: [[#{js.ogLoading}]], ogLoaded: [[#{js.ogLoaded}]], ogAnd: [[#{js.ogAnd}]],
+    ogNoImages: [[#{js.ogNoImages}]], ogImages: [[#{js.ogImages}]], ogSave: [[#{js.ogSave}]], ogFailed: [[#{js.ogFailed}]],
+    importQueued: [[#{js.importQueued}]], importRunning: [[#{js.importRunning}]]
+  };
+  // Слово для числа: forms — «картинка|картинки|картинок» (русский) или «image|images» (английский)
+  function plural(n, forms) {
+    var f = forms.split('|');
+    if (f.length < 3) return n === 1 ? f[0] : f[1];
+    var d = n % 10, h = n % 100;
+    return d === 1 && h !== 11 ? f[0] : d >= 2 && d <= 4 && (h < 12 || h > 14) ? f[1] : f[2];
+  }
+  // Язык интерфейса: cookie «lang» (читает сервер, I18n) и та же страница заново
+  function setLang(lang) {
+    document.cookie = 'lang=' + lang + '; path=/; max-age=31536000; SameSite=Lax';
+    location.replace(location.href);
+  }
+  // Меню языков (флажки) в шапке: открыть/закрыть; закрывается щелчком мимо и Esc
+  function toggleLangMenu(btn, open) {
+    var menu = btn.nextElementSibling;
+    if (open === undefined) open = menu.hidden;
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', open);
+  }
+  document.addEventListener('click', function (e) {
+    var btn = document.querySelector('header .lang-btn');
+    if (btn && !btn.parentNode.contains(e.target)) toggleLangMenu(btn, false);
+  });
+  document.addEventListener('keydown', function (e) {
+    var btn = document.querySelector('header .lang-btn');
+    if (e.key === 'Escape' && btn && !btn.nextElementSibling.hidden) { toggleLangMenu(btn, false); btn.focus(); }
+  });
   // Тема из прошлого раза (localStorage) — до отрисовки, чтобы не мигала светлая
   try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
   function toggleTheme() {
@@ -27,18 +63,18 @@
     if (!dlg) {
       dlg = document.createElement('dialog');
       dlg.id = 'confirm-dialog'; dlg.className = 'modal confirm';
-      dlg.innerHTML = '<div class="modal-head"><span>Подтверждение</span>'
-        + '<button type="button" class="icon" data-cancel title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button></div>'
+      dlg.innerHTML = '<div class="modal-head"><span>' + T.confirm + '</span>'
+        + '<button type="button" class="icon" data-cancel title="' + T.close + '" aria-label="' + T.close + '"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button></div>'
         + '<div class="confirm-body"><span class="confirm-icon"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M40-120 480-880l440 760H40Zm104-60h672L480-760 144-180Zm361.5-65.5Q517-257 517-274t-11.5-28.5Q494-314 477-314t-28.5 11.5Q437-291 437-274t11.5 28.5Q460-234 477-234t28.5-11.5ZM447-354h60v-224h-60v224Zm33-116Z"/></svg></span><p></p></div>'
         + '<div class="dlg-foot"><button type="button" class="btn red" data-ok></button>'
-        + '<button type="button" class="btn light" data-cancel>Отмена</button></div>';
+        + '<button type="button" class="btn light" data-cancel>' + T.cancel + '</button></div>';
       document.body.appendChild(dlg);
       dlg.querySelectorAll('[data-cancel]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
       dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); }); // щелчок мимо окна
       dlg.querySelector('[data-ok]').addEventListener('click', function () { dlg.close(); if (dlg.onOk) dlg.onOk(); });
     }
     dlg.querySelector('p').textContent = message;
-    dlg.querySelector('[data-ok]').textContent = okText || 'Удалить';
+    dlg.querySelector('[data-ok]').textContent = okText || T.del;
     dlg.onOk = function () {
       if (!btn) form.dataset.confirmed = '1';
       if (form.requestSubmit) form.requestSubmit(submitter); else form.submit();
@@ -121,11 +157,21 @@
   header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   header .right, header nav { display: flex; align-items: stretch; height: 100%; }
   header .right { border-right: 1px solid var(--bar-sep); }
-  header .user, header a.settings, header .theme, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
+  header .user, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
            padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
   header .user { cursor: default; }
   header .mi { width: 16px; height: 16px; }
-  header a.settings:hover, header .theme:hover, header .logout:hover { background: var(--bar-hover); }
+  header a.settings:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); }
+  /* Язык интерфейса: кнопка-глобус и меню из двух флажков под ней (у правого края кнопки) */
+  header .lang { position: relative; display: flex; height: 100%; }
+  header .lang-menu { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 150px; padding: 4px 0; margin-top: 1px;
+                      background: var(--paper); border: 1px solid var(--bar-border); box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+  header .lang-menu[hidden] { display: none; }
+  header .lang-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 12px; border: none;
+                             border-left: 3px solid transparent; background: none; color: var(--text); text-align: left; cursor: pointer; }
+  header .lang-menu button:hover { background: var(--hover); }
+  header .lang-menu button.active { border-left-color: var(--orange); font-weight: bold; }
+  .lang-flag { width: 21px; height: 14px; flex-shrink: 0; box-shadow: 0 0 0 1px var(--border); }  /* рамка: белая полоса видна на белом */
   header .theme .sun, :root[data-theme="dark"] header .theme .moon { display: none; }
   :root[data-theme="dark"] header .theme .sun { display: inline; }
 
@@ -472,18 +518,27 @@
   <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.25 21.05 16.35 7.3l2.95.45-2.1 13.75z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
-      <span class="user" th:title="${currentUser.isAdmin() ? 'Администратор' : 'Пользователь'}">
+      <span class="user" th:title="${currentUser.isAdmin() ? #messages.msg('role.admin') : #messages.msg('role.user')}">
         <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M372-523q-42-42-42-108t42-108q42-42 108-42t108 42q42 42 42 108t-42 108q-42 42-108 42t-108-42ZM160-160v-94q0-38 19-65t49-41q67-30 128.5-45T480-420q62 0 123 15.5T731-360q31 14 50 41t19 65v94H160Zm60-60h520v-34q0-16-9.5-30.5T707-306q-64-31-117-42.5T480-360q-57 0-111 11.5T252-306q-14 7-23 21.5t-9 30.5v34Zm324.5-346.5Q570-592 570-631t-25.5-64.5Q519-721 480-721t-64.5 25.5Q390-670 390-631t25.5 64.5Q441-541 480-541t64.5-25.5ZM480-631Zm0 411Z"/></svg>
         <span th:text="${currentUser.name()}"></span>
       </span>
-      <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? 'Типы коллекций, пароль, пользователи' : 'Типы коллекций, пароль'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg><span>Настройки</span></a>
+      <a class="settings" href="/kinds" th:title="${currentUser.isAdmin() ? #messages.msg('header.settingsAdmin') : #messages.msg('header.settingsUser')}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg><span th:text="#{settings.title}">Настройки</span></a>
     </nav>
-    <button type="button" class="theme" onclick="toggleTheme()" title="Светлая / Тёмная тема" aria-label="Переключить тему">
+    <button type="button" class="theme" onclick="toggleTheme()" th:title="#{header.theme}" th:aria-label="#{header.themeToggle}">
       <svg class="mi moon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q8 0 17 .5t23 1.5q-36 32-56 79t-20 99q0 90 63 153t153 63q52 0 99-18.5t79-51.5q1 12 1.5 19.5t.5 14.5q0 150-105 255T480-120Zm0-60q109 0 190-67.5T771-406q-25 11-53.67 16.5Q688.67-384 660-384q-114.69 0-195.34-80.66Q384-545.31 384-660q0-24 5-51.5t18-62.5q-98 27-162.5 109.5T180-480q0 125 87.5 212.5T480-180Zm-4-297Z"/></svg>
       <svg class="mi sun" viewBox="0 -960 960 960" aria-hidden="true"><path d="M579-381q41-41 41-99t-41-99q-41-41-99-41t-99 41q-41 41-41 99t41 99q41 41 99 41t99-41Zm-240.5 42.5Q280-397 280-480t58.5-141.5Q397-680 480-680t141.5 58.5Q680-563 680-480t-58.5 141.5Q563-280 480-280t-141.5-58.5ZM200-450H40v-60h160v60Zm720 0H760v-60h160v60ZM450-760v-160h60v160h-60Zm0 720v-160h60v160h-60ZM262-658l-100-97 43-44 96 100-39 41Zm494 496-98-100 41-41 99 98-42 43Zm-99-537 98-99 44 42-99 98-43-41ZM162-205l99-98 42 42-98 99-43-43Zm318-275Z"/></svg>
     </button>
+    <!-- Язык интерфейса: меню из двух флажков (названия языков — каждое на своём языке) -->
+    <div class="lang">
+      <button type="button" class="lang-btn" onclick="toggleLangMenu(this)" aria-haspopup="true" aria-expanded="false"
+              th:title="#{header.language}" th:aria-label="#{header.language}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M323-111.5Q250-143 196-197t-85-127.5Q80-398 80-482t31-156.5Q142-711 196-765t127-84.5Q396-880 480-880t157 30.5Q710-819 764-765t85 126.5Q880-566 880-482t-31 157.5Q818-251 764-197t-127 85.5Q564-80 480-80t-157-31.5ZM480-138q35-36 58.5-82.5T577-331H384q14 60 37.5 108t58.5 85Zm-85-12q-25-38-43-82t-30-99H172q38 71 88 111.5T395-150Zm171-1q72-23 129.5-69T788-331H639q-13 54-30.5 98T566-151ZM152-391h159q-3-27-3.5-48.5T307-482q0-25 1-44.5t4-43.5H152q-7 24-9.5 43t-2.5 45q0 26 2.5 46.5T152-391Zm221 0h215q4-31 5-50.5t1-40.5q0-20-1-38.5t-5-49.5H373q-4 31-5 49.5t-1 38.5q0 21 1 40.5t5 50.5Zm275 0h160q7-24 9.5-44.5T820-482q0-26-2.5-45t-9.5-43H649q3 35 4 53.5t1 34.5q0 22-1.5 41.5T648-391Zm-10-239h150q-33-69-90.5-115T565-810q25 37 42.5 80T638-630Zm-254 0h194q-11-53-37-102.5T480-820q-32 27-54 71t-42 119Zm-212 0h151q11-54 28-96.5t43-82.5q-75 19-131 64t-91 115Z"/></svg></button>
+      <div class="lang-menu" hidden>
+        <button type="button" lang="ru" onclick="setLang('ru')" th:classappend="${#locale.language != 'en'} ? 'active'"><svg class="lang-flag" viewBox="0 0 9 6" aria-hidden="true"><rect width="9" height="6" fill="#fff"/><rect y="2" width="9" height="2" fill="#0039a6"/><rect y="4" width="9" height="2" fill="#d52b1e"/></svg><span>Русский</span></button>
+        <button type="button" lang="en" onclick="setLang('en')" th:classappend="${#locale.language == 'en'} ? 'active'"><svg class="lang-flag" viewBox="0 0 7410 3900" aria-hidden="true"><rect width="7410" height="3900" fill="#b22234"/><path d="M0 300h7410v300H0zM0 900h7410v300H0zM0 1500h7410v300H0zM0 2100h7410v300H0zM0 2700h7410v300H0zM0 3300h7410v300H0z" fill="#fff"/><rect width="2964" height="2100" fill="#3c3b6e"/><path d="M152 210a95 95 0 1 0 190 0a95 95 0 1 0-190 0M646 210a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1140 210a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1634 210a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2128 210a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2622 210a95 95 0 1 0 190 0a95 95 0 1 0-190 0M399 420a95 95 0 1 0 190 0a95 95 0 1 0-190 0M893 420a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1387 420a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1881 420a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2375 420a95 95 0 1 0 190 0a95 95 0 1 0-190 0M152 630a95 95 0 1 0 190 0a95 95 0 1 0-190 0M646 630a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1140 630a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1634 630a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2128 630a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2622 630a95 95 0 1 0 190 0a95 95 0 1 0-190 0M399 840a95 95 0 1 0 190 0a95 95 0 1 0-190 0M893 840a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1387 840a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1881 840a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2375 840a95 95 0 1 0 190 0a95 95 0 1 0-190 0M152 1050a95 95 0 1 0 190 0a95 95 0 1 0-190 0M646 1050a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1140 1050a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1634 1050a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2128 1050a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2622 1050a95 95 0 1 0 190 0a95 95 0 1 0-190 0M399 1260a95 95 0 1 0 190 0a95 95 0 1 0-190 0M893 1260a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1387 1260a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1881 1260a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2375 1260a95 95 0 1 0 190 0a95 95 0 1 0-190 0M152 1470a95 95 0 1 0 190 0a95 95 0 1 0-190 0M646 1470a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1140 1470a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1634 1470a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2128 1470a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2622 1470a95 95 0 1 0 190 0a95 95 0 1 0-190 0M399 1680a95 95 0 1 0 190 0a95 95 0 1 0-190 0M893 1680a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1387 1680a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1881 1680a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2375 1680a95 95 0 1 0 190 0a95 95 0 1 0-190 0M152 1890a95 95 0 1 0 190 0a95 95 0 1 0-190 0M646 1890a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1140 1890a95 95 0 1 0 190 0a95 95 0 1 0-190 0M1634 1890a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2128 1890a95 95 0 1 0 190 0a95 95 0 1 0-190 0M2622 1890a95 95 0 1 0 190 0a95 95 0 1 0-190 0" fill="#fff"/></svg><span>English</span></button>
+      </div>
+    </div>
     <form autocomplete="off" class="inline" method="post" action="/logout" th:if="${currentUser != null}">
-      <button class="logout" title="Выйти" aria-label="Выйти">
+      <button class="logout" th:title="#{header.logout}" th:aria-label="#{header.logout}">
         <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M440-450q13 0 21.5-9t8.5-21q0-13-8.5-21.5T440-510q-12 0-21 8.5t-9 21.5q0 12 9 21t21 9ZM260-120v-60l280-49v-466q0-14-7.5-24.5T512-732l-252-39v-59l266 46q32 5 53 30.5t21 57.5v516l-340 60Zm-140 0v-60h80v-590q0-26 17.5-43t42.5-17h440q26 0 43 17t17 43v590h80v60H120Zm140-60h440v-590H260v-1 591Z"/></svg>
       </button>
     </form>
@@ -491,7 +546,7 @@
   <script>
     // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
     (function () {
-      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.settings, header .right .theme, header .right .logout');
+      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
       function fit() {
         items.forEach(function (e) { e.style.width = ''; });
         items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });
@@ -503,24 +558,23 @@
 </header>
 
 <!-- Подсказка под полем нового пароля (требования — Passwords.problem) -->
-<div th:fragment="passwordHint" class="muted hint">Не короче 12 символов, любые буквы, цифры, знаки и пробелы.
-  Удобно взять фразу из нескольких слов. Нельзя: имя пользователя, повторы, ряды клавиш и распространённые пароли.</div>
+<div th:fragment="passwordHint" class="muted hint" th:text="#{password.hint}"></div>
 
 <!-- Шапка страницы «Настройки»: заголовок и разделы (столбцом слева, см. main.settings); active — kinds | account | users -->
 <th:block th:fragment="settingsHead(active)">
   <div class="bar">
-    <a class="btn light back" href="/" title="Все коллекции" aria-label="Все коллекции"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
-    <h2>Настройки</h2>
+    <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
+    <h2 th:text="#{settings.title}">Настройки</h2>
   </div>
   <nav class="tabs">
-    <a href="/kinds" th:classappend="${active == 'kinds'} ? 'active'">Типы коллекций</a>
-    <a href="/display" th:classappend="${active == 'display'} ? 'active'">Отображение</a>
-    <a href="/account" th:classappend="${active == 'account'} ? 'active'">Пароль</a>
-    <a href="/import" th:classappend="${active == 'import'} ? 'active'">Импорт</a>
-    <a href="/export" th:classappend="${active == 'export'} ? 'active'">Экспорт</a>
-    <a href="/cache" th:classappend="${active == 'cache'} ? 'active'">Кэш</a>
-    <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'">Пользователи</a>
-    <a href="/about" th:classappend="${active == 'about'} ? 'active'">О приложении</a>
+    <a href="/kinds" th:classappend="${active == 'kinds'} ? 'active'" th:text="#{settings.kinds}"></a>
+    <a href="/display" th:classappend="${active == 'display'} ? 'active'" th:text="#{settings.display}"></a>
+    <a href="/account" th:classappend="${active == 'account'} ? 'active'" th:text="#{settings.account}"></a>
+    <a href="/import" th:classappend="${active == 'import'} ? 'active'" th:text="#{settings.import}"></a>
+    <a href="/export" th:classappend="${active == 'export'} ? 'active'" th:text="#{settings.export}"></a>
+    <a href="/cache" th:classappend="${active == 'cache'} ? 'active'" th:text="#{settings.cache}"></a>
+    <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'" th:text="#{settings.users}"></a>
+    <a href="/about" th:classappend="${active == 'about'} ? 'active'" th:text="#{settings.about}"></a>
   </nav>
 </th:block>
 
@@ -529,15 +583,15 @@
      Без поддержки <dialog> название ведёт на отдельную страницу /items/{id}/edit -->
 <!-- Рейтинг — 5 звёзд с шагом в половину (значение 0…10 половинок): контурные звёзды и поверх закрашенные,
      у закрашенных видна часть ширины (v × 10 %). stars(v) — только показ (таблица объектов) -->
-<span th:fragment="stars(v)" class="stars" th:title="${v == null ? 'Без рейтинга' : 'Рейтинг: ' + (v / 2) + (v % 2 == 1 ? ',5' : '') + ' из 5'}"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on" th:style="${'width:' + (v == null ? 0 : v * 10) + '%'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
+<span th:fragment="stars(v)" class="stars" th:title="${v == null ? #messages.msg('rating.none') : #messages.msg('rating.of', '' + (v / 2) + (v % 2 == 1 ? #messages.msg('js.decimal') + '5' : ''))}"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on" th:style="${'width:' + (v == null ? 0 : v * 10) + '%'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
 
 <!-- Поле «Рейтинг» в форме: скрытое rating (0…10) и звёзды; щелчок по левой половине звезды — половина, по правой — целая,
      щелчок по выбранному значению или крестик — без рейтинга; стрелки клавиатуры — на половину звезды (скрипт ratingScript) -->
 <span th:fragment="ratingInput(id, v)" class="rating-input">
   <input type="hidden" name="rating" th:id="${id}" th:value="${v == null ? 0 : v}">
-  <span class="stars edit" tabindex="0" role="slider" aria-label="Рейтинг" aria-valuemin="0" aria-valuemax="5"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
+  <span class="stars edit" tabindex="0" role="slider" th:aria-label="#{field.rating}" aria-valuemin="0" aria-valuemax="5"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
   <span class="rating-text muted"></span>
-  <button type="button" class="icon rating-clear" title="Без рейтинга" aria-label="Без рейтинга"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button>
+  <button type="button" class="icon rating-clear" th:title="#{rating.none}" th:aria-label="#{rating.none}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button>
 </span>
 
 <script th:fragment="ratingScript">
@@ -547,7 +601,7 @@
     box.querySelector('input').value = v;
     box.querySelector('.stars-on').style.width = v * 10 + '%';
     box.querySelector('.stars').setAttribute('aria-valuenow', v / 2);
-    box.querySelector('.rating-text').textContent = v ? String(v / 2).replace('.', ',') + ' из 5' : 'нет';
+    box.querySelector('.rating-text').textContent = v ? T.ratingOf.replace('{0}', String(v / 2).replace('.', T.decimal)) : T.ratingNone;
     box.querySelector('.rating-clear').style.visibility = v ? '' : 'hidden'; // место остаётся — звёзды не прыгают
   };
   document.querySelectorAll('.rating-input').forEach(function (box) {
@@ -576,8 +630,8 @@
 <th:block th:fragment="itemDialog">
   <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
     <div class="modal-head">
-      <span id="item-dialog-title">Редактировать объект</span>
-      <button type="button" class="icon" data-close title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
+      <span id="item-dialog-title" th:text="#{item.edit}">Редактировать объект</span>
+      <button type="button" class="icon" data-close th:title="#{js.close}" th:aria-label="#{js.close}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
     </div>
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
@@ -591,64 +645,64 @@
           <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
         </th:block>
         <div class="viewer">
-          <a class="pic" id="d-pic" target="_blank" rel="noopener" title="Открыть в полном размере"><img alt=""></a>
-          <label class="no-image" id="d-noimg" for="d-file-0" title="Выбрать файл"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
-          <b>Нет картинки</b><span>Нажмите, чтобы выбрать файл</span></label>
-          <button type="button" class="nav prev" id="d-prev" title="Предыдущая картинка" aria-label="Предыдущая картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></svg></button>
-          <button type="button" class="nav next" id="d-next" title="Следующая картинка" aria-label="Следующая картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></svg></button>
+          <a class="pic" id="d-pic" target="_blank" rel="noopener" th:title="#{js.openFull}"><img alt=""></a>
+          <label class="no-image" id="d-noimg" for="d-file-0" th:title="#{image.chooseFile}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
+          <b th:text="#{image.none}">Нет картинки</b><span th:text="#{image.clickToChoose}"></span></label>
+          <button type="button" class="nav prev" id="d-prev" th:title="#{image.prev}" th:aria-label="#{image.prev}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></svg></button>
+          <button type="button" class="nav next" id="d-next" th:title="#{image.next}" th:aria-label="#{image.next}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></svg></button>
           <span class="counter" id="d-count"></span>
         </div>
         <div class="img-tools" id="d-tools">
-          <label class="icon" id="d-replace" for="d-file-0" title="Заменить картинку" aria-label="Заменить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-313v-371L330-564l-43-43 193-193 193 193-43 43-120-120v371h-60ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg></label>
-          <a class="icon" id="d-open" target="_blank" title="Открыть в полном размере" aria-label="Открыть в полном размере"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
+          <label class="icon" id="d-replace" for="d-file-0" th:title="#{image.replace}" th:aria-label="#{image.replace}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-313v-371L330-564l-43-43 193-193 193 193-43 43-120-120v371h-60ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg></label>
+          <a class="icon" id="d-open" target="_blank" th:title="#{js.openFull}" th:aria-label="#{js.openFull}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
           <span class="spacer"></span>
-          <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
+          <button type="button" class="icon red" id="d-remove" th:title="#{image.remove}" th:aria-label="#{image.remove}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
     <!-- --rows — сколько строк до «Описания» (оно растягивается до низа окна); «Old-Games.ru» — строкой после него -->
     <div class="form" th:classappend="${fields.contains('oldgames')} ? 'after-desc'"
          th:style="${'--rows:' + (1 + fields.size() - (fields.contains('oldgames') ? 1 : 0))}">
       <input type="hidden" name="view" th:value="${view}">
-      <label for="d-name">Название *</label>
+      <label for="d-name" th:text="#{field.name} + ' *'">Название *</label>
       <input autocomplete="off" spellcheck="false" id="d-name" type="text" name="name" required>
       <th:block th:if="${fields.contains('platform')}">
-        <label for="d-platform">Платформа</label>
+        <label for="d-platform" th:text="#{field.platform}">Платформа</label>
         <input autocomplete="off" id="d-platform" type="text" name="platform">
       </th:block>
       <th:block th:if="${fields.contains('format')}">
-        <label for="d-format">Формат</label>
+        <label for="d-format" th:text="#{field.format}">Формат</label>
         <input autocomplete="off" id="d-format" type="text" name="format">
       </th:block>
       <th:block th:if="${fields.contains('status')}">
-        <label for="d-status">Статус прохождения</label>
+        <label for="d-status" th:text="#{field.status}">Статус прохождения</label>
         <select id="d-status" name="status">
           <option value="">—</option>
           <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
         </select>
       </th:block>
       <th:block th:if="${fields.contains('rating')}">
-        <label>Рейтинг</label>
+        <label th:text="#{field.rating}">Рейтинг</label>
         <span th:replace="~{base :: ratingInput('d-rating', null)}"></span>
       </th:block>
       <th:block th:if="${fields.contains('price')}">
-        <label for="d-price">Цена (₽)</label>
+        <label for="d-price" th:text="#{field.priceRub}">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
       <th:block th:if="${fields.contains('available')}">
-        <label for="d-available">Наличие</label>
+        <label for="d-available" th:text="#{field.available}">Наличие</label>
         <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
-        <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
+        <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> <span th:text="#{available.yesLower}">есть</span></label></span>
       </th:block>
-      <label for="d-description">Описание</label>
+      <label for="d-description" th:text="#{field.description}">Описание</label>
       <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <th:block th:if="${fields.contains('oldgames')}">
-        <label for="d-oldgames" class="og-label">Old games Id</label>
+        <label for="d-oldgames" class="og-label" th:text="#{field.oldgames}">Old games Id</label>
         <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
         <div class="og-box">
           <div class="og-row">
-            <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric" placeholder="номер игры в каталоге, например 11">
-            <button type="button" class="icon og-load" id="d-og-load" title="Загрузить описание и картинки со страницы" aria-label="Загрузить описание и картинки со страницы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg></button>
-            <a class="icon og-open" id="d-og-open" target="_blank" rel="noopener" title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
+            <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric" th:placeholder="#{og.placeholder}">
+            <button type="button" class="icon og-load" id="d-og-load" th:title="#{og.load}" th:aria-label="#{og.load}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg></button>
+            <a class="icon og-open" id="d-og-open" target="_blank" rel="noopener" th:title="#{og.open}" th:aria-label="#{og.open}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
           </div>
           <div class="og-status" id="d-og-status" hidden></div>
         </div>
@@ -659,9 +713,9 @@
          ставит скрипт), справа «Сохранить»; отмена — крестик в шапке (или Esc, щелчок мимо окна).
          «Сохранить» — первой в разметке: Enter в поле нажимает первую кнопку формы; слева «Удалить» ставит order -->
     <div class="dlg-foot">
-      <button class="btn">Сохранить</button>
+      <button class="btn" th:text="#{btn.save}">Сохранить</button>
       <button type="submit" class="btn light danger first" id="d-delete" formnovalidate
-              onclick="return appConfirm(event, 'Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
+              th:data-confirm="#{item.deleteConfirm}" onclick="return appConfirm(event, this.dataset.confirm)"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> <span th:text="#{item.delete}">Удалить объект</span></button>
     </div>
     </form>
   </dialog>
@@ -689,7 +743,7 @@
       if (src) document.querySelector('#d-pic img').src = src;
       // щелчок открывает только сохранённую картинку; у выбранного, ещё не сохранённого файла — ничего
       if (s.chosen) { $('d-pic').removeAttribute('href'); $('d-pic').removeAttribute('title'); }
-      else if (src) { $('d-pic').href = src; $('d-pic').title = 'Открыть в полном размере'; }
+      else if (src) { $('d-pic').href = src; $('d-pic').title = T.openFull; }
       ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
       $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
       if (s.saved) $('d-open').href = s.saved;
@@ -697,7 +751,7 @@
       $('d-prev').hidden = $('d-next').hidden = !many;
       $('d-count').hidden = !many;
       $('d-count').textContent = src ? (slots.slice(0, cur + 1).filter(srcOf).length + ' / ' + filled)
-          : s.removed ? 'будет удалена' : 'новая';
+          : s.removed ? T.willRemove : T.newImage;
     }
     function go(step) { cur = (cur + step + slots.length) % slots.length; render(); }
     $('d-prev').addEventListener('click', function () { go(-1); });
@@ -786,9 +840,9 @@
       $('d-oldgames').addEventListener('input', ogSync);
       $('d-og-load').addEventListener('click', function () {
         var btn = this, id = ogId($('d-oldgames').value);
-        if (!id) { ogStatus('Нужен номер игры в каталоге — число из адреса страницы …/game/11.html', false); return; }
+        if (!id) { ogStatus(T.ogNeedId, false); return; }
         var url = ogUrl(id);
-        btn.disabled = true; ogStatus('Загрузка…', true);
+        btn.disabled = true; ogStatus(T.ogLoading, true);
         fetch('/items/' + itemId + '/oldgames', { method: 'POST', body: new URLSearchParams({ url: url }) })
           .then(function (r) { return r.json(); })
           .then(function (d) {
@@ -810,10 +864,9 @@
               addEmptySlot(); cur = 0; render();
             }
             var n = d.images.length;
-            ogStatus('Загружено: описание' + (n ? ' и ' + n + (n === 1 ? ' картинка' : n < 5 ? ' картинки' : ' картинок') : ', картинок нет')
-                + '. Нажмите «Сохранить», чтобы сохранить', true);
+            ogStatus(T.ogLoaded + (n ? T.ogAnd.replace('{0}', n + ' ' + plural(n, T.ogImages)) : T.ogNoImages) + T.ogSave, true);
           })
-          .catch(function () { ogStatus('Не удалось загрузить — попробуйте ещё раз', false); })
+          .catch(function () { ogStatus(T.ogFailed, false); })
           .finally(function () { btn.disabled = false; });
       });
     }

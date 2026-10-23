@@ -117,7 +117,7 @@ public final class Xlsx {
     /** Название листа по правилам Excel: без []:*?/\, до 31 символа, не пустое и уникальное без учёта регистра. */
     static String sheetName(String name, Set<String> used) {
         String base = name.replaceAll("[\\[\\]:*?/\\\\]", " ").replaceAll("\\s+", " ").replaceAll("^'+|'+$", "").trim();
-        if (base.isEmpty()) base = "Лист";
+        if (base.isEmpty()) base = I18n.t("export.sheet");
         if (base.length() > 31) base = base.substring(0, 31).trim();
         String n = base;
         for (int i = 2; used.contains(n.toLowerCase(Locale.ROOT)); i++) {

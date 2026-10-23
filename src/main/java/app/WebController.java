@@ -61,7 +61,7 @@ public class WebController {
         String ipName = ip + "|" + name.trim().toLowerCase(java.util.Locale.ROOT);
         long locked = guard.lockedMinutes(ipName, ip);
         if (locked > 0) {
-            m.addAttribute("error", "Слишком много неудачных попыток входа. Попробуйте через " + locked + " мин.");
+            m.addAttribute("error", I18n.t("login.locked", locked));
             m.addAttribute("name", name);
             return loginForm(m);
         }
@@ -70,7 +70,7 @@ public class WebController {
         if (!ok) {
             guard.fail(ipName, LoginGuard.MAX_FAILS);
             guard.fail(ip, LoginGuard.MAX_FAILS_PER_IP);
-            m.addAttribute("error", "Неверное имя пользователя или пароль");
+            m.addAttribute("error", I18n.t("login.wrong"));
             m.addAttribute("name", name);
             return loginForm(m);
         }
@@ -136,7 +136,7 @@ public class WebController {
         // токен Discogs — латинские буквы и цифры; ограничение длины — с запасом
         if (!token.isEmpty() && !token.matches("[A-Za-z0-9]{10,200}"))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Токен Discogs — латинские буквы и цифры (Discogs → Settings → Developers)");
+                    I18n.t("import.token.bad"));
         repo.setToken(uid, ImageImport.DISCOGS, token);
         return "redirect:/import?token=" + (token.isEmpty() ? "deleted" : "saved");
     }
@@ -153,16 +153,16 @@ public class WebController {
         // пока у коллекции удаляются картинки («Кэш»), импорт в неё не запускается
         if (cacheClear.active(collection))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
-                    "У этой коллекции сейчас удаляются картинки («Настройки» → «Кэш») — дождитесь окончания");
+                    I18n.t("import.cacheBusy"));
         if (!ImageImport.SOURCES.containsKey(source))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, I18n.t("import.badSource"));
         // Обложки Discogs — только с токеном; без него — только описания
         String discogsToken = repo.token(uid, ImageImport.DISCOGS);
         if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Выберите, что загружать: картинки или описания");
+                    I18n.t("import.nothing"));
         images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
                 discogsToken);
         return "redirect:/import";
@@ -199,7 +199,7 @@ public class WebController {
         // пока идёт импорт в эту коллекцию, он сразу дописал бы картинки обратно
         if (j != null && j.active() && j.collectionId == collection)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
-                    "В эту коллекцию идёт импорт — остановите его на вкладке «Импорт»");
+                    I18n.t("cache.importBusy"));
         cacheClear.start(uid, c, repo.collectionImageCounts(uid).getOrDefault(collection, 0)); // уже идёт — не запускается
         return "redirect:/cache";
     }
@@ -226,19 +226,19 @@ public class WebController {
         List<Entry> chosen = repo.collections(uid).stream().filter(c -> ids != null && ids.contains(c.id())).toList();
         if (chosen.isEmpty()) {
             m.addAttribute("collections", repo.collections(uid));
-            m.addAttribute("error", "Выберите хотя бы одну коллекцию");
+            m.addAttribute("error", I18n.t("export.none"));
             return "export";
         }
         List<Xlsx.Sheet> sheets = new ArrayList<>();
         for (Entry c : chosen) {
             Set<String> fields = repo.itemFields(uid, c.kind());
-            List<String> headers = new ArrayList<>(List.of("Название"));
+            List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
-                headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
+                headers.add(I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
                 widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : f.equals("oldgames") ? 16 : 22);
             }
-            headers.add("Описание");
+            headers.add(I18n.t("field.description"));
             widths.add(80);
             List<List<Object>> rows = new ArrayList<>();
             for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
@@ -250,7 +250,7 @@ public class WebController {
                         case "format" -> it.format();
                         case "status" -> it.status();
                         case "price" -> it.price();
-                        case "available" -> it.available() ? "Есть" : "Нет";
+                        case "available" -> I18n.t(it.available() ? "available.yes" : "available.no");
                         case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
                         case "oldgames" -> it.oldGamesId(); // номер игры в каталоге Old-Games.ru
                         default -> null;
@@ -262,7 +262,7 @@ public class WebController {
         }
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         Xlsx.write(out, sheets);
-        String file = (chosen.size() == 1 ? chosen.get(0).name() : "Коллекции") + " " + java.time.LocalDate.now() + ".xlsx";
+        String file = (chosen.size() == 1 ? chosen.get(0).name() : I18n.t("export.file")) + " " + java.time.LocalDate.now() + ".xlsx";
         return ResponseEntity.ok()
                 // Имя файла: латиницей для старых браузеров и по-русски (filename*, RFC 5987) для остальных
                 .header("Content-Disposition", "attachment; filename=\"collections-" + java.time.LocalDate.now()
@@ -309,7 +309,7 @@ public class WebController {
                           @RequestParam(defaultValue = Repo.USER) String role, Model m) {
         requireAdmin(uid);
         String error = newUserError(name, password, password2);
-        if (error == null && !Repo.ROLES.containsKey(role)) error = "Неизвестная роль";
+        if (error == null && !Repo.ROLES.containsKey(role)) error = I18n.t("user.badRole");
         if (error != null) {
             m.addAttribute("userError", error);
             m.addAttribute("newUserName", name);
@@ -322,11 +322,11 @@ public class WebController {
 
     /** Проверка данных нового пользователя; null — всё в порядке. */
     private String newUserError(String name, String password, String password2) {
-        if (name.isBlank()) return "Укажите имя пользователя";
-        if (repo.userByName(name) != null) return "Пользователь «" + name.trim() + "» уже есть";
+        if (name.isBlank()) return I18n.t("user.nameRequired");
+        if (repo.userByName(name) != null) return I18n.t("user.exists", name.trim());
         String weak = Passwords.problem(password, name);
         if (weak != null) return weak;
-        if (!password.equals(password2)) return "Пароли не совпадают";
+        if (!password.equals(password2)) return I18n.t("user.passwordsDiffer");
         return null;
     }
 
@@ -334,7 +334,7 @@ public class WebController {
         Repo.User u = repo.user(uid);
         if (u == null || !u.isAdmin())
             throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.FORBIDDEN, "Доступно только администратору");
+                    org.springframework.http.HttpStatus.FORBIDDEN, I18n.t("user.adminOnly"));
     }
 
     @PostMapping("/logout")
@@ -351,13 +351,13 @@ public class WebController {
         // Подбор текущего пароля тоже ограничен: 5 неудачных попыток — блокировка
         String key = "pw:" + uid;
         long locked = guard.lockedMinutes(key);
-        if (locked > 0) error = "Слишком много неудачных попыток. Попробуйте через " + locked + " мин.";
+        if (locked > 0) error = I18n.t("account.locked", locked);
         else if (!Passwords.matches(current, repo.user(uid).passwordHash())) {
             guard.fail(key, LoginGuard.MAX_FAILS);
-            error = "Текущий пароль указан неверно";
+            error = I18n.t("account.wrongCurrent");
         } else {
             error = Passwords.problem(password, repo.user(uid).name());
-            if (error == null && !password.equals(password2)) error = "Новые пароли не совпадают";
+            if (error == null && !password.equals(password2)) error = I18n.t("account.newDiffer");
         }
         if (error != null) {
             m.addAttribute("passwordError", error);
@@ -400,7 +400,7 @@ public class WebController {
 
     @GetMapping("/collections/new")
     public String newCollectionForm(@SessionAttribute("uid") long uid, Model m) {
-        return form(uid, m, null, false, Set.of(), null, "Новая коллекция", "/");
+        return form(uid, m, null, false, Set.of(), null, "coll.new", "/");
     }
 
     @Transactional
@@ -413,7 +413,7 @@ public class WebController {
         return "redirect:/collections/" + id;
     }
 
-    /** Столбец таблицы объектов: ключ сортировки, заголовок, css-класс. */
+    /** Столбец таблицы объектов: ключ сортировки, заголовок (ключ текста), css-класс. */
     public record Col(String key, String label, String css) {}
 
     /** Размеры страницы для выпадающего списка: 25, 50, … 200. */
@@ -446,16 +446,16 @@ public class WebController {
         m.addAttribute("statusColors", repo.statusColors(uid, c.kind()));
 
         List<Col> cols = new ArrayList<>();
-        cols.add(new Col("name", "Название", "title"));
-        if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
-        if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
-        if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
-        if (fields.contains("rating")) cols.add(new Col("rating", "Рейтинг", "rating"));
+        cols.add(new Col("name", "field.name", "title"));
+        if (fields.contains("platform")) cols.add(new Col("platform", "field.platform", ""));
+        if (fields.contains("format")) cols.add(new Col("format", "field.format", ""));
+        if (fields.contains("status")) cols.add(new Col("status", "field.statusShort", ""));
+        if (fields.contains("rating")) cols.add(new Col("rating", "field.rating", "rating"));
         // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
-        if (fields.contains("price")) cols.add(showPrices ? new Col("price", "Цена", "num") : new Col("price", "₽", "eye"));
-        if (fields.contains("available")) cols.add(new Col("available", "Наличие", "flag"));
+        if (fields.contains("price")) cols.add(showPrices ? new Col("price", "field.price", "num") : new Col("price", "col.priceEye", "eye"));
+        if (fields.contains("available")) cols.add(new Col("available", "field.available", "flag"));
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
@@ -518,10 +518,10 @@ public class WebController {
                 if (i == 0 || !dupKey(found.get(i).name()).equals(dupKey(found.get(i - 1).name())))
                     groupStarts.add(found.get(i).id());
         m.addAttribute("groupStarts", groupStarts);
-        // Общая стоимость — только если у типа коллекции есть поле «Цена»; формат «717 841»
+        // Общая стоимость — только если у типа коллекции есть поле «Цена»; формат «717 841» (по-английски «717,841»)
         if (fields.contains("price"))
-            m.addAttribute("totalPrice", String.format(java.util.Locale.forLanguageTag("ru"), "%,d", repo.totalPrice(id))
-                    .replace('\u00a0', ' '));
+            m.addAttribute("totalPrice", String.format(org.springframework.context.i18n.LocaleContextHolder.getLocale(), "%,d",
+                    repo.totalPrice(id)).replace('\u00a0', ' ').replace('\u202f', ' '));
         m.addAttribute("dups", dups);
         m.addAttribute("dupGroups", dupGroups);
         m.addAttribute("modeQs", modeQs);
@@ -595,7 +595,7 @@ public class WebController {
     public String editCollectionForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
         Entry c = repo.collection(uid, id);
         return form(uid, m, c, false, Set.of(), c.hasImage() ? "/collections/" + id + "/image" : null,
-                "Редактировать коллекцию", "/collections/" + id);
+                "coll.editTitle", "/collections/" + id);
     }
 
     @PostMapping("/collections/{id}/edit")
@@ -620,7 +620,7 @@ public class WebController {
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@SessionAttribute("uid") long uid, @PathVariable long cid, Model m) {
         Set<String> fields = repo.itemFields(uid, repo.collection(uid, cid).kind());
-        return form(uid, m, null, true, fields, null, "Новый объект", "/collections/" + cid);
+        return form(uid, m, null, true, fields, null, "item.new", "/collections/" + cid);
     }
 
     @Transactional
@@ -648,7 +648,7 @@ public class WebController {
         Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
         m.addAttribute("view", view);
         return form(uid, m, it, true, fields, it.hasImage() ? "/items/" + id + "/image" : null,
-                "Редактировать объект", collectionUrl(it.collectionId(), view));
+                "item.edit", collectionUrl(it.collectionId(), view));
     }
 
     @PostMapping("/items/{id}/edit")
@@ -682,7 +682,7 @@ public class WebController {
         repo.item(uid, id); // чужой объект — 404
         try {
             OldGames.Result r = oldGames.load(url, ImageFiles.MAX_IMAGES);
-            if (r == null) return Map.of("error", "Страница не найдена — проверьте адрес");
+            if (r == null) return Map.of("error", I18n.t("og.notFound"));
             List<Map<String, String>> images = new ArrayList<>();
             for (byte[] b : r.images())
                 images.add(Map.of("mime", Repo.imageType(b), "data", java.util.Base64.getEncoder().encodeToString(b)));
@@ -691,9 +691,9 @@ public class WebController {
             return Map.of("error", e.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return Map.of("error", "Загрузка прервана");
+            return Map.of("error", I18n.t("og.interrupted"));
         } catch (Exception e) {
-            return Map.of("error", "Old-Games.ru недоступен, попробуйте позже");
+            return Map.of("error", I18n.t("og.unavailable"));
         }
     }
 
@@ -755,7 +755,7 @@ public class WebController {
 
     @GetMapping("/kinds/new")
     public String newKindForm(@SessionAttribute("uid") long uid, Model m) {
-        return kindForm(uid, m, null, "Новый тип коллекции");
+        return kindForm(uid, m, null, "kinds.newTitle");
     }
 
     @Transactional
@@ -769,7 +769,7 @@ public class WebController {
 
     @GetMapping("/kinds/{id}/edit")
     public String editKindForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
-        return kindForm(uid, m, repo.kind(uid, id), "Тип коллекции");
+        return kindForm(uid, m, repo.kind(uid, id), "kinds.kind");
     }
 
     @Transactional

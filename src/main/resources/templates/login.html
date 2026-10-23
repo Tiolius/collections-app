@@ -1,30 +1,30 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main class="auth">
-  <h2 th:text="${setup ? 'Первый запуск' : 'Вход'}"></h2>
-  <p class="muted" th:if="${setup}">Пользователей ещё нет. Создайте администратора — он сможет добавлять других пользователей в «Настройках».</p>
+  <h2 th:text="${setup ? #messages.msg('login.setupTitle') : #messages.msg('login.title')}"></h2>
+  <p class="muted" th:if="${setup}" th:text="#{login.setupText}"></p>
   <p class="error" th:if="${error != null}" th:text="${error}"></p>
   <!-- Подсказки браузера в полях входа отключены: autocomplete="off" для имени,
        "new-password" для пароля (на "off" у паролей браузеры не реагируют) -->
   <form class="form" method="post" autocomplete="off" th:action="${setup ? '/setup' : '/login'}">
-    <label for="f-name">Имя пользователя</label>
+    <label for="f-name" th:text="#{user.name}">Имя пользователя</label>
     <input id="f-name" type="text" name="name" required autofocus autocomplete="off" autocapitalize="off" spellcheck="false" th:value="${name}">
 
-    <label for="f-pw" th:classappend="${setup} ? 'at-field'">Пароль</label>
+    <label for="f-pw" th:classappend="${setup} ? 'at-field'" th:text="#{user.password}">Пароль</label>
     <div>
       <input id="f-pw" type="password" name="password" autocomplete="new-password">
       <th:block th:if="${setup}"><div th:replace="~{base :: passwordHint}"></div></th:block>
     </div>
 
     <th:block th:if="${setup}">
-      <label for="f-pw2">Повторите пароль</label>
+      <label for="f-pw2" th:text="#{user.password2}">Повторите пароль</label>
       <input id="f-pw2" type="password" name="password2" autocomplete="new-password">
     </th:block>
 
-    <div class="full end"><button class="btn" th:text="${setup ? 'Создать администратора' : 'Войти'}"></button></div>
+    <div class="full end"><button class="btn" th:text="${setup ? #messages.msg('login.createAdmin') : #messages.msg('login.signIn')}"></button></div>
   </form>
 </main>
 </body>

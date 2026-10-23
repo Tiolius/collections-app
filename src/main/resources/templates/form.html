@@ -1,47 +1,47 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
   <div class="bar">
-    <a class="btn light back" th:href="${back}" title="Назад" aria-label="Назад"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
-    <h2 th:text="${title}"></h2>
+    <a class="btn light back" th:href="${back}" th:title="#{nav.back}" th:aria-label="#{nav.back}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
+    <h2 th:text="#{${title}}"></h2>
   </div>
   <form autocomplete="off" class="form" method="post" enctype="multipart/form-data">
     <input type="hidden" name="view" th:if="${view != null}" th:value="${view}">
-    <label for="f-name">Название *</label>
+    <label for="f-name" th:text="#{field.name} + ' *'">Название *</label>
     <input autocomplete="off" spellcheck="false" id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
 
     <th:block th:unless="${isItem}">
-      <label for="f-kind">Тип коллекции *</label>
+      <label for="f-kind" th:text="#{kinds.kind} + ' *'">Тип коллекции *</label>
       <select id="f-kind" name="kind" required>
-        <option value="" th:selected="${obj == null or obj.kind() == null}" disabled>— выберите —</option>
+        <option value="" th:selected="${obj == null or obj.kind() == null}" disabled th:text="#{form.choose}">— выберите —</option>
         <option th:each="k : ${kinds}" th:value="${k}" th:text="${k}" th:selected="${obj != null and k == obj.kind()}"></option>
       </select>
 
-      <label>Картинка</label>
+      <label th:text="#{field.image}">Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
           <img class="preview" th:src="${imgUrl}" alt="">
-          <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+          <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
         </th:block>
         <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
       </div>
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('platform')}">
-      <label for="f-platform">Платформа</label>
+      <label for="f-platform" th:text="#{field.platform}">Платформа</label>
       <input autocomplete="off" id="f-platform" type="text" name="platform" th:value="${obj != null ? obj.platform() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('format')}">
-      <label for="f-format">Формат</label>
+      <label for="f-format" th:text="#{field.format}">Формат</label>
       <input autocomplete="off" id="f-format" type="text" name="format" th:value="${obj != null ? obj.format() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('status')}">
-      <label for="f-status">Статус прохождения</label>
+      <label for="f-status" th:text="#{field.status}">Статус прохождения</label>
       <select id="f-status" name="status" th:with="cur=${obj != null and obj.status() != null ? obj.status() : ''}">
         <option value="">—</option>
         <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${s == cur}"></option>
@@ -51,44 +51,44 @@
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('rating')}">
-      <label>Рейтинг</label>
+      <label th:text="#{field.rating}">Рейтинг</label>
       <span th:replace="~{base :: ratingInput('f-rating', ${obj != null ? obj.rating() : null})}"></span>
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('price')}">
-      <label for="f-price">Цена (₽)</label>
+      <label for="f-price" th:text="#{field.priceRub}">Цена (₽)</label>
       <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('available')}">
-      <label for="f-available">Наличие</label>
+      <label for="f-available" th:text="#{field.available}">Наличие</label>
       <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме»; у нового объекта — снята («Нет») -->
       <span><input type="hidden" name="available" value="0"><label class="radio"><input id="f-available" type="checkbox" name="available" value="1"
-             th:checked="${obj != null and obj.available()}"> есть</label></span>
+             th:checked="${obj != null and obj.available()}"> <span th:text="#{available.yesLower}">есть</span></label></span>
     </th:block>
 
     <th:block th:if="${isItem}">
-      <label class="at-field" for="f-description">Описание</label>
+      <label class="at-field" for="f-description" th:text="#{field.description}">Описание</label>
       <textarea autocomplete="off" spellcheck="false" id="f-description" name="description" rows="8" maxlength="5000" th:text="${obj != null ? obj.description() : ''}"></textarea>
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('oldgames')}">
-      <label for="f-oldgames">Old games Id</label>
+      <label for="f-oldgames" th:text="#{field.oldgames}">Old games Id</label>
       <!-- Номер игры в каталоге (можно вставить и адрес страницы — сервер возьмёт номер); загрузка — в окне объекта -->
       <div class="og-row">
         <input autocomplete="off" id="f-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric"
-               placeholder="номер игры в каталоге, например 11" th:value="${obj != null ? obj.oldGamesId() : ''}">
+               th:placeholder="#{og.placeholder}" th:value="${obj != null ? obj.oldGamesId() : ''}">
         <a class="icon" th:if="${obj != null and obj.oldGames() != null}" th:href="${obj.oldGames()}" target="_blank" rel="noopener"
-           title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
+           th:title="#{og.open}" th:aria-label="#{og.open}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
       </div>
     </th:block>
 
     <th:block th:if="${isItem}">
-      <label>Картинка</label>
+      <label th:text="#{field.image}">Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
-          <a th:href="${imgUrl}" target="_blank" title="Открыть в полном размере"><img class="preview" th:src="${imgUrl}" alt=""></a>
-          <label class="radio"><input type="checkbox" name="remove_image" value="1"> удалить картинку</label>
+          <a th:href="${imgUrl}" target="_blank" th:title="#{js.openFull}"><img class="preview" th:src="${imgUrl}" alt=""></a>
+          <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
         </th:block>
         <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
       </div>
@@ -97,10 +97,10 @@
     <!-- Объект — как в окне объекта: слева «Удалить объект», справа «Сохранить» («Сохранить» первой в разметке —
          Enter в поле сохраняет; назад — стрелкой вверху страницы). Коллекция — «Сохранить» и «Отмена» -->
     <div class="full" th:classappend="${isItem} ? (${obj != null} ? 'split' : 'end')">
-      <button class="btn">Сохранить</button>
-      <a class="btn gray" th:unless="${isItem}" th:href="${back}">Отмена</a>
+      <button class="btn" th:text="#{btn.save}">Сохранить</button>
+      <a class="btn gray" th:unless="${isItem}" th:href="${back}" th:text="#{btn.cancel}">Отмена</a>
       <button type="submit" class="btn light danger first" th:if="${isItem and obj != null}" formnovalidate
-              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return appConfirm(event, 'Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
+              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" th:data-confirm="#{item.deleteConfirm}" onclick="return appConfirm(event, this.dataset.confirm)"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> <span th:text="#{item.delete}">Удалить объект</span></button>
     </div>
   </form>
   <script th:if="${isItem and fields.contains('rating')}" th:replace="~{base :: ratingScript}"></script>

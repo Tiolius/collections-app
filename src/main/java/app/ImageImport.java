@@ -98,6 +98,8 @@ public class ImageImport {
         volatile boolean cancel;
         /** Личный токен Discogs пользователя (пусто — без токена); на страницу не попадает. */
         private final String discogsToken;
+        /** Язык сообщений (message) — язык интерфейса при запуске импорта. */
+        final java.util.Locale locale = org.springframework.context.i18n.LocaleContextHolder.getLocale();
 
         Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions,
             boolean screenshot, int maxImages, String discogsToken) {
@@ -230,7 +232,7 @@ public class ImageImport {
                     job.errors++;
                     if (++errorsInRow >= MAX_ERRORS_IN_ROW) {
                         job.processed++;
-                        job.message = job.sourceName() + " недоступен — импорт остановлен";
+                        job.message = I18n.t(job.locale, "import.unavailable", job.sourceName());
                         job.state = "failed";
                         return;
                     }
@@ -675,9 +677,9 @@ public class ImageImport {
             }
             if (code == 404) return null;
             if (discogs && code == 401)
-                throw new FatalImport("Discogs отклонил токен — проверьте токен Discogs выше. Импорт остановлен");
+                throw new FatalImport(I18n.t(job.locale, "import.badToken"));
             if ((code == 429 || code == 403 || code >= 500) && attempt < THROTTLE_RETRIES) {
-                job.message = job.sourceName() + " ограничил запросы — пауза " + throttlePauseMs / 1000 + " с";
+                job.message = I18n.t(job.locale, "import.throttled", job.sourceName(), String.valueOf(throttlePauseMs / 1000));
                 Thread.sleep(throttlePauseMs);
                 if (job.cancel) throw new InterruptedException();
                 continue;

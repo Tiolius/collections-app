@@ -49,26 +49,26 @@ public final class Passwords {
      */
     public static String problem(String password, String name) {
         int len = password.codePointCount(0, password.length());
-        if (len < MIN_LENGTH) return "Пароль должен быть не короче " + MIN_LENGTH + " символов";
-        if (len > MAX_LENGTH) return "Пароль должен быть не длиннее " + MAX_LENGTH + " символов";
+        if (len < MIN_LENGTH) return I18n.t("password.tooShort", MIN_LENGTH);
+        if (len > MAX_LENGTH) return I18n.t("password.tooLong", MAX_LENGTH);
         String p = password.toLowerCase(java.util.Locale.ROOT);
         if (p.codePoints().distinct().count() < MIN_DISTINCT)
-            return "В пароле слишком мало разных символов";
+            return I18n.t("password.fewChars");
         for (int k = 1; k <= p.length() / 2; k++)
             if (p.length() % k == 0 && p.substring(0, k).repeat(p.length() / k).equals(p))
-                return "Пароль не должен быть повтором одного фрагмента";
+                return I18n.t("password.repeat");
         for (String s : SEQUENCES) {
             String twice = s + s;
             if (twice.contains(p) || new StringBuilder(twice).reverse().toString().contains(p))
-                return "Пароль не должен быть рядом клавиш, букв алфавита или цифр";
+                return I18n.t("password.sequence");
         }
         String n = name == null ? "" : name.trim().toLowerCase(java.util.Locale.ROOT);
-        if (n.length() >= 3 && p.contains(n)) return "Пароль не должен содержать имя пользователя";
+        if (n.length() >= 3 && p.contains(n)) return I18n.t("password.hasName");
         // Буквы пароля без цифр и знаков; и вариант с заменами вида P@ssw0rd (цифры и знаки по краям не трогаем)
         String letters = p.replaceAll("[^\\p{L}]", "");
         String leet = deLeet(p.replaceAll("^[^\\p{L}]+|[^\\p{L}]+$", "")).replaceAll("[^\\p{L}]", "");
         if (letters.isEmpty() || weak(letters) || weak(leet))
-            return "Пароль слишком простой: распространённое слово или одни цифры и знаки. Лучше — фраза из нескольких слов";
+            return I18n.t("password.common");
         return null;
     }
 
