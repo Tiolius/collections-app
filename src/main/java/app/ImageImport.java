@@ -272,8 +272,17 @@ public class ImageImport {
     private Found findSteamTerm(Job job, String term, String key, boolean wantImage, boolean wantDescription) throws Exception {
         JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
         if (res == null) return null;
+        // Точное совпадение названия; если его нет — то же название без приписки издания (DX, Remastered, GOTY…):
+        // старое издание после выхода нового Steam часто снимает с продажи, и поиск находит только новое
+        JsonNode found = null, edition = null;
         for (JsonNode it : res.path("items")) {
-            if (!"app".equals(it.path("type").asText("app")) || !key.equals(norm(it.path("name").asText()))) continue;
+            if (!"app".equals(it.path("type").asText("app"))) continue;
+            String n = norm(it.path("name").asText());
+            if (key.equals(n)) { found = it; break; }
+            if (edition == null && editionBase(key).equals(editionBase(n))) edition = it;
+        }
+        if (found == null) found = edition;
+        for (JsonNode it : found == null ? List.<JsonNode>of() : List.of(found)) {
             long appId = it.path("id").asLong();
             String tiny = it.path("tiny_image").asText("");
             // скриншоты нужны, если картинка — скриншот или картинок больше одной
@@ -300,6 +309,21 @@ public class ImageImport {
             return new Found(imgs, description);
         }
         return null;
+    }
+
+    /** Приписки изданий в конце названия (после norm): одно и то же издание игры с ними и без них. */
+    private static final java.util.regex.Pattern EDITION = java.util.regex.Pattern.compile(
+            " (dx|hd|redux|remaster(ed)?|hd remaster(ed)?|goty|((definitive|complete|enhanced|deluxe|gold|platinum|ultimate|special"
+            + "|anniversary|standard|digital deluxe|game of the year|goty) edition)|director s cut|directors cut)$");
+
+    /** Название без приписок изданий в конце: «atelier ryza … dx» → «atelier ryza …» (можно несколько подряд). */
+    static String editionBase(String normName) {
+        String s = normName, prev;
+        do {
+            prev = s;
+            s = EDITION.matcher(s).replaceFirst("");
+        } while (!s.equals(prev) && !s.isEmpty());
+        return s.isEmpty() ? normName : s;
     }
 
     /** Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры; иначе маленькая картинка. */
