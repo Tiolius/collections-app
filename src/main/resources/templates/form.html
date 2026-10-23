@@ -67,6 +67,17 @@
              th:checked="${obj != null and obj.available()}"> есть</label></span>
     </th:block>
 
+    <th:block th:if="${isItem and fields.contains('oldgames')}">
+      <label for="f-oldgames">Old-Games.ru</label>
+      <!-- Ссылка на страницу игры; загрузка описания и картинок с неё — в окне объекта на странице коллекции -->
+      <div class="og-row">
+        <input autocomplete="off" id="f-oldgames" type="text" name="oldgames" maxlength="200" placeholder="https://www.old-games.ru/game/…"
+               th:value="${obj != null ? obj.oldGames() : ''}">
+        <a class="icon" th:if="${obj != null and obj.oldGames() != null}" th:href="${obj.oldGames()}" target="_blank" rel="noopener"
+           title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
+      </div>
+    </th:block>
+
     <th:block th:if="${isItem}">
       <label class="at-field" for="f-description">Описание</label>
       <textarea autocomplete="off" id="f-description" name="description" rows="8" maxlength="5000" th:text="${obj != null ? obj.description() : ''}"></textarea>

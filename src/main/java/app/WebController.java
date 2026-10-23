@@ -28,12 +28,14 @@ public class WebController {
     private final LoginGuard guard;
     private final ImageImport images;
     private final CacheClear cacheClear;
+    private final OldGames oldGames;
 
-    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear) {
+    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames) {
         this.repo = repo;
         this.guard = guard;
         this.images = images;
         this.cacheClear = cacheClear;
+        this.oldGames = oldGames;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -234,7 +236,7 @@ public class WebController {
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
-                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : 22);
+                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : f.equals("oldgames") ? 45 : 22);
             }
             headers.add("Описание");
             widths.add(80);
@@ -250,6 +252,7 @@ public class WebController {
                         case "price" -> it.price();
                         case "available" -> it.available() ? "Есть" : "Нет";
                         case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
+                        case "oldgames" -> it.oldGames();
                         default -> null;
                     });
                 row.add(it.description());
@@ -629,12 +632,13 @@ public class WebController {
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) List<String> available,
                              @RequestParam(required = false) Integer rating,
+                             @RequestParam(required = false) String oldgames,
                              @RequestParam Map<String, MultipartFile> files,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
         repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), rating,
-                newImages(files), Set.of(), description);
+                oldgames, newImages(files), Set.of(), description);
         return "redirect:/collections/" + cid;
     }
 
@@ -655,6 +659,7 @@ public class WebController {
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) List<String> available,
                            @RequestParam(required = false) Integer rating,
+                           @RequestParam(required = false) String oldgames,
                            @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
@@ -662,8 +667,34 @@ public class WebController {
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), rating, newImages(files), removed(remove, removeImage != null), description);
+                available(available), rating, oldgames, newImages(files), removed(remove, removeImage != null), description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /**
+     * Описание и картинки со страницы игры Old-Games.ru (кнопка «Загрузить» в окне объекта). Ничего не сохраняет:
+     * окно подставляет описание и картинки в форму, сохраняются они кнопкой «Сохранить».
+     * Ответ: {url, description, images: [{mime, data (base64)}]} или {error}.
+     */
+    @PostMapping("/items/{id}/oldgames")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> loadOldGames(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String url) {
+        repo.item(uid, id); // чужой объект — 404
+        try {
+            OldGames.Result r = oldGames.load(url, ImageFiles.MAX_IMAGES);
+            if (r == null) return Map.of("error", "Страница не найдена — проверьте адрес");
+            List<Map<String, String>> images = new ArrayList<>();
+            for (byte[] b : r.images())
+                images.add(Map.of("mime", Repo.imageType(b), "data", java.util.Base64.getEncoder().encodeToString(b)));
+            return Map.of("url", r.url(), "description", r.description(), "images", images);
+        } catch (IllegalArgumentException e) {
+            return Map.of("error", e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Map.of("error", "Загрузка прервана");
+        } catch (Exception e) {
+            return Map.of("error", "Old-Games.ru недоступен, попробуйте позже");
+        }
     }
 
     /**

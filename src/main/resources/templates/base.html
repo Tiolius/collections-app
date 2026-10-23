@@ -365,6 +365,14 @@
                            border-top: 1px solid var(--border); background: var(--panel); }
   /* Окно подтверждения (appConfirm): значок предупреждения и вопрос, внизу «Отмена» и красная «Удалить» */
   dialog.modal.confirm { width: 420px; }
+  /* Поле «Old-Games.ru»: адрес, «Загрузить», «Открыть»; под ними — итог загрузки */
+  .og-row { display: flex; gap: 6px; align-items: center; }
+  .og-row input { flex: 1; min-width: 0; max-width: none !important; }
+  .og-load { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .og-load .mi { width: 16px; height: 16px; }
+  .og-status { margin-top: 4px; }
+  .og-status.ok { color: var(--ok-text); }
+  .og-status.error { color: var(--red); }
   dialog.modal .confirm-body { display: flex; align-items: center; gap: 12px; padding: 20px 24px; }
   dialog.modal .confirm-body p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
   dialog.modal .confirm-icon { color: var(--red); flex-shrink: 0; }
@@ -625,6 +633,18 @@
         <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
       </th:block>
+      <th:block th:if="${fields.contains('oldgames')}">
+        <label for="d-oldgames">Old-Games.ru</label>
+        <!-- Ссылка на страницу игры; «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
+        <div class="og-box">
+          <div class="og-row">
+            <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" placeholder="https://www.old-games.ru/game/…">
+            <button type="button" class="btn light og-load" id="d-og-load" title="Загрузить описание и картинки со страницы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg> Загрузить</button>
+            <a class="icon og-open" id="d-og-open" target="_blank" rel="noopener" title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
+          </div>
+          <div class="og-status" id="d-og-status" hidden></div>
+        </div>
+      </th:block>
       <label for="d-description">Описание</label>
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
@@ -718,6 +738,8 @@
         if (rb) setRating(rb, +row.dataset.rating || 0);
         var avail = document.getElementById('d-available');
         if (avail) avail.checked = row.dataset.available === '1';
+        if ($('d-oldgames')) { $('d-oldgames').value = row.dataset.oldgames || ''; $('d-og-status').hidden = true; ogSync(); }
+        itemId = row.dataset.id;
         // Картинки: сохранённые (сколько есть) и пустой слот; выбор файлов и пометки удаления — сброшены
         var count = +row.dataset.images || 0, t = Date.now();
         slots = [];
@@ -733,6 +755,52 @@
     });
     dlg.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // щелчок мимо окна
+
+    // Old-Games.ru: «Загрузить» берёт описание и картинки со страницы игры (сервер, POST /items/{id}/oldgames) и
+    // подставляет их в окно: описание — в поле, картинки — в поля image_N (как выбранные файлы), прежние картинки —
+    // на удаление. На сервере всё меняется только при «Сохранить»
+    var itemId = null;
+    var OG = /^(https?:\/\/)?(www\.)?old-games\.ru\/game\/\d+\.html/i;
+    function ogSync() { // ссылка «открыть» — только для адреса страницы игры
+      var v = $('d-oldgames').value.trim(), ok = OG.test(v);
+      $('d-og-open').style.display = ok ? '' : 'none'; // атрибут hidden перебивается стилем .icon
+      if (ok) $('d-og-open').href = /^https?:/i.test(v) ? v : 'https://' + v;
+    }
+    function ogStatus(text, ok) { var s = $('d-og-status'); s.hidden = false; s.textContent = text; s.className = 'og-status ' + (ok ? 'ok' : 'error'); }
+    if ($('d-oldgames')) {
+      $('d-oldgames').addEventListener('input', ogSync);
+      $('d-og-load').addEventListener('click', function () {
+        var btn = this, url = $('d-oldgames').value.trim();
+        if (!OG.test(url)) { ogStatus('Нужен адрес страницы игры: https://www.old-games.ru/game/…html', false); return; }
+        btn.disabled = true; ogStatus('Загрузка…', true);
+        fetch('/items/' + itemId + '/oldgames', { method: 'POST', body: new URLSearchParams({ url: url }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.error) { ogStatus(d.error, false); return; }
+            $('d-oldgames').value = d.url; ogSync();
+            if (d.description) form.elements.description.value = d.description;
+            if (d.images.length) {
+              // прежние сохранённые картинки — на удаление, загруженные — на места 0…n-1
+              slots.forEach(function (s, k) { if (s.saved) $('d-remove-' + k).disabled = false; });
+              for (var j = 0; j < MAX; j++) $('d-file-' + j).value = '';
+              slots = d.images.map(function (im, k) {
+                var bin = atob(im.data), bytes = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                var file = new File([bytes], 'old-games-' + (k + 1) + '.' + im.mime.split('/')[1], { type: im.mime });
+                var dt = new DataTransfer(); dt.items.add(file); $('d-file-' + k).files = dt.files;
+                $('d-remove-' + k).disabled = true; // новый файл на этом месте сам заменит прежнюю картинку
+                return { chosen: URL.createObjectURL(file) };
+              });
+              addEmptySlot(); cur = 0; render();
+            }
+            var n = d.images.length;
+            ogStatus('Загружено: описание' + (n ? ' и ' + n + (n === 1 ? ' картинка' : n < 5 ? ' картинки' : ' картинок') : ', картинок нет')
+                + '. Нажмите «Сохранить», чтобы сохранить', true);
+          })
+          .catch(function () { ogStatus('Не удалось загрузить — попробуйте ещё раз', false); })
+          .finally(function () { btn.disabled = false; });
+      });
+    }
   })();
 </script>
 </th:block>

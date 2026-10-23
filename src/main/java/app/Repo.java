@@ -35,7 +35,8 @@ public class Repo {
             + "(SELECT COUNT(*) FROM item_pictures ip WHERE ip.item_id = items.id) AS image_count, "
             + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description, "
             + "EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id) AS available, "
-            + "(SELECT r.rating FROM item_ratings r WHERE r.item_id = items.id) AS rating";
+            + "(SELECT r.rating FROM item_ratings r WHERE r.item_id = items.id) AS rating, "
+            + "(SELECT o.url FROM item_oldgames o WHERE o.item_id = items.id) AS oldgames";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -55,7 +56,8 @@ public class Repo {
         FIELDS.put("status", "Статус прохождения");
         FIELDS.put("rating", "Рейтинг"); // не столбец items: таблица item_ratings, 1…10 половинок звезды (5 звёзд)
         FIELDS.put("price", "Цена");
-        FIELDS.put("available", "Наличие"); // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
+        FIELDS.put("available", "Наличие");
+        FIELDS.put("oldgames", "Old-Games.ru"); // не столбец items: ссылка на страницу игры (таблица item_oldgames) // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
     }
 
     /** Значения поля «Статус прохождения» (выпадающий список); пусто — статус не указан. */
@@ -85,7 +87,8 @@ public class Repo {
                 isItem ? rs.getString("description") : null,
                 isItem ? rs.getBoolean("available") : null,
                 isItem ? rs.getInt("image_count") : 0,
-                isItem ? rating(rs) : null);
+                isItem ? rating(rs) : null,
+                isItem ? rs.getString("oldgames") : null);
     }
 
     /** Рейтинг (1…10 половинок звезды) или null. */
@@ -296,7 +299,7 @@ public class Repo {
     /** Начальные типы коллекций нового пользователя: название → поля. */
     private static final Map<String, String> DEFAULT_KINDS = new LinkedHashMap<>();
     static {
-        DEFAULT_KINDS.put("Игры (диски)", "status,rating,price,available");
+        DEFAULT_KINDS.put("Игры (диски)", "status,rating,price,available,oldgames");
         DEFAULT_KINDS.put("Игры (цифровые)", "platform,format,status,rating,price,available");
         DEFAULT_KINDS.put("Книги", "price,available");
         DEFAULT_KINDS.put("Музыка (диски)", "price,available");
@@ -538,8 +541,8 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, Boolean available, Integer rating, Map<Integer, MultipartFile> newImages,
-                         Set<Integer> removed, String description) {
+                         Integer price, Boolean available, Integer rating, String oldGames,
+                         Map<Integer, MultipartFile> newImages, Set<Integer> removed, String description) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
@@ -563,6 +566,17 @@ public class Repo {
             if (rating == 0) jdbc.update("DELETE FROM item_ratings WHERE item_id = ?", id);
             else jdbc.update("INSERT INTO item_ratings (item_id, rating) VALUES (?, ?) "
                     + "ON CONFLICT (item_id) DO UPDATE SET rating = excluded.rating", id, rating);
+        }
+        // Ссылка на Old-Games.ru: пусто — убрать; только адрес страницы игры; null — поля нет в форме, не меняется
+        if (f.contains("oldgames") && oldGames != null) {
+            if (oldGames.isBlank()) jdbc.update("DELETE FROM item_oldgames WHERE item_id = ?", id);
+            else {
+                String url = OldGames.normalize(oldGames);
+                if (url == null)
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Old-Games.ru — нужен адрес страницы игры: https://www.old-games.ru/game/…html");
+                jdbc.update("INSERT INTO item_oldgames (item_id, url) VALUES (?, ?) "
+                        + "ON CONFLICT (item_id) DO UPDATE SET url = excluded.url", id, url);
+            }
         }
         if (f.contains("available") && available != null) {
             if (available) jdbc.update("INSERT OR IGNORE INTO item_present (item_id) VALUES (?)", id);

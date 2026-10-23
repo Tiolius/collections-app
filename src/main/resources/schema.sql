@@ -104,6 +104,12 @@ CREATE TABLE IF NOT EXISTS item_ratings (
     rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 10)
 );
 
+-- Ссылка на страницу игры на Old-Games.ru (поле типа «Old-Games.ru»): оттуда по кнопке загружаются описание и картинки
+CREATE TABLE IF NOT EXISTS item_oldgames (
+    item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    url TEXT NOT NULL
+);
+
 -- Разовые обновления данных: имя выполненного обновления (чтобы не повторять его при каждом старте)
 CREATE TABLE IF NOT EXISTS data_updates (
     name TEXT PRIMARY KEY
@@ -125,6 +131,12 @@ WHERE NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'rating-field')
 UPDATE kinds SET fields = trim(replace(fields, ',,', ','), ',')
 WHERE NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'rating-field') AND name LIKE 'Игры%';
 INSERT OR IGNORE INTO data_updates (name) VALUES ('rating-field');
+
+-- Поле «Old-Games.ru» включается у уже созданного типа «Игры (диски)» один раз (потом его можно снять в настройках типа)
+UPDATE kinds SET fields = CASE WHEN fields = '' THEN 'oldgames' ELSE fields || ',oldgames' END
+WHERE NOT EXISTS (SELECT 1 FROM data_updates WHERE name = 'oldgames-field')
+  AND name = 'Игры (диски)' AND (',' || fields || ',') NOT LIKE '%,oldgames,%';
+INSERT OR IGNORE INTO data_updates (name) VALUES ('oldgames-field');
 
 -- Статусы прохождения — выпадающий список (Repo.STATUSES): старые значения переименовываются один раз
 -- (Complete → Completed, Incomplete → Unfinished), вместе с цветами строк по статусу
