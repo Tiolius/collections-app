@@ -640,7 +640,7 @@
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
       </th:block>
       <label for="d-description">Описание</label>
-      <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
+      <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <th:block th:if="${fields.contains('oldgames')}">
         <label for="d-oldgames" class="og-label">Old games Id</label>
         <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
