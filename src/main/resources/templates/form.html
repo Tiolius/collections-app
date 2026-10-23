@@ -94,12 +94,13 @@
       </div>
     </th:block>
 
-    <div class="full">
+    <!-- Объект — как в окне объекта: слева «Удалить объект», справа «Сохранить» («Сохранить» первой в разметке —
+         Enter в поле сохраняет; назад — стрелкой вверху страницы). Коллекция — «Сохранить» и «Отмена» -->
+    <div class="full" th:classappend="${isItem} ? (${obj != null} ? 'split' : 'end')">
       <button class="btn">Сохранить</button>
-      <a class="btn gray" th:href="${back}">Отмена</a>
-      <!-- Удаление объекта (в таблице корзин нет) -->
-      <button type="submit" class="btn light danger" th:if="${isItem and obj != null}" formnovalidate
-              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return appConfirm(event, 'Удалить объект?')">Удалить объект</button>
+      <a class="btn gray" th:unless="${isItem}" th:href="${back}">Отмена</a>
+      <button type="submit" class="btn light danger first" th:if="${isItem and obj != null}" formnovalidate
+              th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return appConfirm(event, 'Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
     </div>
   </form>
   <script th:if="${isItem and fields.contains('rating')}" th:replace="~{base :: ratingScript}"></script>
