@@ -273,13 +273,22 @@ public class ImageImport {
         // если по названию как есть совпадения нет — ещё раз по названию без знаков препинания
         String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
         for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
-            Found f = findSteamTerm(job, term, key, wantImage, wantDescription);
+            Found f = findSteamTerm(job, term, key, false, wantImage, wantDescription);
             if (f != null) return f;
         }
+        // Последняя попытка — по части до двоеточия: консольные издания с подзаголовком продаются в Steam
+        // как ПК-издания («Disgaea 2: Dark Hero Days» → «Disgaea 2 PC», «Disgaea 4: A Promise Revisited» →
+        // «Disgaea 4 Complete+»). Засчитывается только результат с припиской издания или платформы:
+        // иначе консольная «Fallout: Brotherhood of Steel» получила бы картинки первой Fallout
+        int colon = name.indexOf(':');
+        String prefix = colon > 0 ? name.substring(0, colon).trim() : "";
+        if (!norm(prefix).isEmpty()) return findSteamTerm(job, prefix, norm(prefix), true, wantImage, wantDescription);
         return null;
     }
 
-    private Found findSteamTerm(Job job, String term, String key, boolean wantImage, boolean wantDescription) throws Exception {
+    /** Поиск в Steam по term; editionOnly — засчитывать только издания key (с припиской издания или платформы). */
+    private Found findSteamTerm(Job job, String term, String key, boolean editionOnly, boolean wantImage,
+                                boolean wantDescription) throws Exception {
         JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
         if (res == null) return null;
         // Точное совпадение названия; если его нет — то же название без «The» в начале и приписки издания
@@ -289,8 +298,8 @@ public class ImageImport {
         for (JsonNode it : res.path("items")) {
             if (!"app".equals(it.path("type").asText("app"))) continue;
             String n = norm(it.path("name").asText());
-            if (key.equals(n)) { found = it; break; }
-            if (edition == null && looseKey(key).equals(looseKey(n))) edition = it;
+            if (!editionOnly && key.equals(n)) { found = it; break; }
+            if (edition == null && looseKey(key).equals(looseKey(n)) && (!editionOnly || !editionBase(n).equals(n))) edition = it;
         }
         if (found == null) found = edition;
         for (JsonNode it : found == null ? List.<JsonNode>of() : List.of(found)) {
@@ -322,9 +331,9 @@ public class ImageImport {
         return null;
     }
 
-    /** Приписки изданий в конце названия (после norm): одно и то же издание игры с ними и без них. */
+    /** Приписки изданий и платформы в конце названия (после norm; «Complete+» → «complete»): та же игра с ними и без них. */
     private static final java.util.regex.Pattern EDITION = java.util.regex.Pattern.compile(
-            " (dx|hd|redux|remaster(ed)?|hd remaster(ed)?|goty|((definitive|complete|enhanced|deluxe|gold|platinum|ultimate|special"
+            " (dx|hd|pc|complete|redux|remaster(ed)?|hd remaster(ed)?|goty|((definitive|complete|enhanced|deluxe|gold|platinum|ultimate|special"
             + "|anniversary|standard|digital deluxe|game of the year|goty) edition)|director s cut|directors cut)$");
 
     /** Название без приписок изданий в конце: «atelier ryza … dx» → «atelier ryza …» (можно несколько подряд). */
