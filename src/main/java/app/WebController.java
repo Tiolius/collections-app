@@ -120,7 +120,40 @@ public class WebController {
         m.addAttribute("discogsReady", token != null);
         // сам токен на страницу не выводится — только последние 4 символа
         m.addAttribute("discogsTokenEnd", token == null ? null : token.substring(Math.max(0, token.length() - 4)));
+        m.addAttribute("igdbReady", repo.token(uid, ImageImport.IGDB_ID) != null && repo.token(uid, ImageImport.IGDB_SECRET) != null);
         return "import";
+    }
+
+    // Вкладка «Ключи»: ключи IGDB (Client ID и Client Secret приложения Twitch); на страницу не выводятся
+    @GetMapping("/keys")
+    public String keysPage(@SessionAttribute("uid") long uid, Model m) {
+        String id = repo.token(uid, ImageImport.IGDB_ID);
+        m.addAttribute("igdbReady", id != null && repo.token(uid, ImageImport.IGDB_SECRET) != null);
+        m.addAttribute("igdbIdEnd", id == null ? null : id.substring(Math.max(0, id.length() - 4)));
+        return "keys";
+    }
+
+    /** Ключи IGDB: сохранить (после проверки у Twitch) или удалить (кнопка «Удалить ключи»). */
+    @PostMapping("/keys/igdb")
+    public String igdbKeys(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String clientId,
+                           @RequestParam(defaultValue = "") String clientSecret,
+                           @RequestParam(defaultValue = "false") boolean delete) {
+        if (delete) {
+            repo.setToken(uid, ImageImport.IGDB_ID, "");
+            repo.setToken(uid, ImageImport.IGDB_SECRET, "");
+            return "redirect:/keys?igdb=deleted";
+        }
+        clientId = clientId.trim();
+        clientSecret = clientSecret.trim();
+        // ключи Twitch — латинские буквы и цифры; ограничение длины — с запасом
+        if (!clientId.matches("[A-Za-z0-9]{10,200}") || !clientSecret.matches("[A-Za-z0-9]{10,200}"))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Client ID и Client Secret — латинские буквы и цифры (dev.twitch.tv → Console → Applications)");
+        String check = images.checkIgdbKeys(clientId, clientSecret);
+        if (check.equals("invalid")) return "redirect:/keys?igdb=invalid";
+        repo.setToken(uid, ImageImport.IGDB_ID, clientId);
+        repo.setToken(uid, ImageImport.IGDB_SECRET, clientSecret);
+        return "redirect:/keys?igdb=" + (check.equals("ok") ? "saved" : "unchecked");
     }
 
     /** Личный токен Discogs пользователя: сохранить или удалить (кнопка «Удалить токен»). */
@@ -151,12 +184,17 @@ public class WebController {
         // Обложки Discogs — только с токеном; без него — только описания
         String discogsToken = repo.token(uid, ImageImport.DISCOGS);
         if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
+        // IGDB без ключей не работает
+        String igdbId = repo.token(uid, ImageImport.IGDB_ID), igdbSecret = repo.token(uid, ImageImport.IGDB_SECRET);
+        if (source.equals(ImageImport.IGDB) && (igdbId == null || igdbSecret == null))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Для IGDB укажите ключи в «Настройки» → «Ключи»");
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");
         images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
-                discogsToken);
+                discogsToken, igdbId, igdbSecret);
         return "redirect:/import";
     }
 

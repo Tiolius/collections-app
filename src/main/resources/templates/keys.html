@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main class="settings">
+  <th:block th:replace="~{base :: settingsHead('keys')}"></th:block>
+  <!-- Ключи IGDB: у каждого пользователя свои; сами ключи на страницу не выводятся -->
+  <h3 class="section">Ключи IGDB</h3>
+  <p class="ok" th:if="${param.igdb != null and param.igdb[0] == 'saved'}">Ключи IGDB сохранены и проверены.</p>
+  <p class="ok" th:if="${param.igdb != null and param.igdb[0] == 'unchecked'}">Ключи IGDB сохранены, но проверить их не удалось: Twitch недоступен.</p>
+  <p class="ok" th:if="${param.igdb != null and param.igdb[0] == 'deleted'}">Ключи IGDB удалены.</p>
+  <p class="error" th:if="${param.igdb != null and param.igdb[0] == 'invalid'}">Twitch отклонил ключи: проверьте Client ID и Client Secret. Ключи не сохранены.</p>
+  <form autocomplete="off" class="form" method="post" action="/keys/igdb">
+    <label for="f-igdb-id">Client ID
+      <span class="icon tip help" tabindex="0" aria-label="Справка о ключах IGDB"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M478-240q21 0 35.5-14.5T528-290q0-21-14.5-35.5T478-340q-21 0-35.5 14.5T428-290q0 21 14.5 35.5T478-240Zm-36-154h74q0-33 7.5-52t42.5-52q26-26 41-49.5t15-56.5q0-56-41-86t-97-30q-57 0-92.5 30T342-618l66 26q5-18 22.5-39t53.5-21q32 0 48 17.5t16 38.5q0 20-12 37.5T506-526q-44 39-54 59t-10 73Zm38 314q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+        <span class="tiptext">
+          <span>Нужны для импорта из IGDB (база игр, в том числе тех, которых нет в Steam).</span>
+          <span>Получить: войдите на dev.twitch.tv/console (нужна двухфакторная защита аккаунта Twitch) → Register Your Application:
+            любое название, OAuth Redirect URL — http://localhost, категория — Application Integration.
+            В созданном приложении скопируйте Client ID и нажмите New Secret.</span>
+          <span>Ключи видны только вам и используются только для запросов к IGDB.</span>
+        </span>
+      </span>
+    </label>
+    <div>
+      <input type="password" id="f-igdb-id" name="clientId" autocomplete="new-password" maxlength="200" required
+             th:placeholder="${igdbReady ? 'сохранён: …' + igdbIdEnd + ' (введите новый, чтобы заменить)' : 'не задан'}">
+    </div>
+    <label for="f-igdb-secret">Client Secret</label>
+    <div>
+      <input type="password" id="f-igdb-secret" name="clientSecret" autocomplete="new-password" maxlength="200" required
+             th:placeholder="${igdbReady ? 'сохранён' : 'не задан'}">
+    </div>
+    <div class="full split">  <!-- «Сохранить» слева, «Удалить ключи» — у правого края формы -->
+      <button class="btn">Сохранить</button>
+      <button class="btn light danger" name="delete" value="true" th:if="${igdbReady}" formnovalidate
+              onclick="return confirm('Удалить ключи IGDB?')">Удалить ключи</button>
+    </div>
+  </form>
+</main>
+</body>
+</html>
