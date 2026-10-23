@@ -27,11 +27,15 @@ public class WebController {
     private final Repo repo;
     private final LoginGuard guard;
     private final ImageImport images;
+    private final CacheClear cacheClear;
+    private final OldGames oldGames;
 
-    public WebController(Repo repo, LoginGuard guard, ImageImport images) {
+    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames) {
         this.repo = repo;
         this.guard = guard;
         this.images = images;
+        this.cacheClear = cacheClear;
+        this.oldGames = oldGames;
     }
 
     // ---------- Вход, пользователи, пароль ----------
@@ -146,6 +150,10 @@ public class WebController {
                               @RequestParam(defaultValue = "screenshot") String steamImage,
                               @RequestParam(defaultValue = "5") int imageCount) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
+        // пока у коллекции удаляются картинки («Кэш»), импорт в неё не запускается
+        if (cacheClear.active(collection))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "У этой коллекции сейчас удаляются картинки («Настройки» → «Кэш») — дождитесь окончания");
         if (!ImageImport.SOURCES.containsKey(source))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Неизвестный источник");
         // Обложки Discogs — только с токеном; без него — только описания
@@ -175,23 +183,33 @@ public class WebController {
                 "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
-    // Вкладка «Кэш»: удалить все картинки объектов выбранной коллекции
+    // Вкладка «Кэш»: удалить все картинки объектов выбранной коллекции (в фоне, прогресс — /cache/status)
     @GetMapping("/cache")
     public String cachePage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
         m.addAttribute("imageCounts", repo.collectionImageCounts(uid));
+        m.addAttribute("job", cacheClear.job(uid));
         return "cache";
     }
 
     @PostMapping("/cache/clear")
     public String cacheClear(@SessionAttribute("uid") long uid, @RequestParam long collection) {
+        Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         ImageImport.Job j = images.job(uid);
         // пока идёт импорт в эту коллекцию, он сразу дописал бы картинки обратно
         if (j != null && j.active() && j.collectionId == collection)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                     "В эту коллекцию идёт импорт — остановите его на вкладке «Импорт»");
-        int n = repo.clearCollectionImages(uid, collection);
-        return "redirect:/cache?c=" + collection + "&deleted=" + n;
+        cacheClear.start(uid, c, repo.collectionImageCounts(uid).getOrDefault(collection, 0)); // уже идёт — не запускается
+        return "redirect:/cache";
+    }
+
+    @GetMapping("/cache/status")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> cacheStatus(@SessionAttribute("uid") long uid) {
+        CacheClear.Job j = cacheClear.job(uid);
+        if (j == null) return Map.of("state", "none");
+        return Map.of("state", j.state, "total", j.total, "done", j.done);
     }
 
     // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
@@ -218,7 +236,7 @@ public class WebController {
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
-                widths.add(f.equals("price") || f.equals("available") ? 12 : 22);
+                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : f.equals("oldgames") ? 16 : 22);
             }
             headers.add("Описание");
             widths.add(80);
@@ -233,6 +251,8 @@ public class WebController {
                         case "status" -> it.status();
                         case "price" -> it.price();
                         case "available" -> it.available() ? "Есть" : "Нет";
+                        case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
+                        case "oldgames" -> it.oldGamesId(); // номер игры в каталоге Old-Games.ru
                         default -> null;
                     });
                 row.add(it.description());
@@ -412,6 +432,8 @@ public class WebController {
                              @RequestParam(name = "f_price_min", required = false) String fPriceMin,
                              @RequestParam(name = "f_price_max", required = false) String fPriceMax,
                              @RequestParam(name = "f_available", required = false) String fAvailable,
+                             @RequestParam(name = "f_images", required = false) String fImages,
+                             @RequestParam(name = "f_rating", required = false) String fRating,
                              @RequestParam(defaultValue = "false") boolean dups,
                              HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
@@ -428,6 +450,7 @@ public class WebController {
         if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
         if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
         if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
+        if (fields.contains("rating")) cols.add(new Col("rating", "Рейтинг", "rating"));
         // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
@@ -453,6 +476,10 @@ public class WebController {
         // Наличие: «1» — есть, «0» — нет
         if (fields.contains("available") && ("1".equals(fAvailable) || "0".equals(fAvailable)))
             filters.put("available", fAvailable);
+        // Рейтинг: «0» — без рейтинга, «1»…«5» — не меньше стольких звёзд
+        if (fields.contains("rating") && fRating != null && fRating.matches("[0-5]")) filters.put("rating", fRating);
+        // Картинки (есть у всех объектов): «any» — есть, «0» — нет, «1»…«5» — ровно столько
+        if (fImages != null && fImages.matches("any|[0-" + ImageFiles.MAX_IMAGES + "]")) filters.put("images", fImages);
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
@@ -604,12 +631,14 @@ public class WebController {
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) List<String> available,
+                             @RequestParam(required = false) Integer rating,
+                             @RequestParam(required = false) String oldgames,
                              @RequestParam Map<String, MultipartFile> files,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available),
-                newImages(files), Set.of(), description);
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), rating,
+                oldgames, newImages(files), Set.of(), description);
         return "redirect:/collections/" + cid;
     }
 
@@ -629,6 +658,8 @@ public class WebController {
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) List<String> available,
+                           @RequestParam(required = false) Integer rating,
+                           @RequestParam(required = false) String oldgames,
                            @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
@@ -636,8 +667,34 @@ public class WebController {
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), newImages(files), removed(remove, removeImage != null), description);
+                available(available), rating, oldgames, newImages(files), removed(remove, removeImage != null), description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
+    }
+
+    /**
+     * Описание и картинки со страницы игры Old-Games.ru (кнопка «Загрузить» в окне объекта). Ничего не сохраняет:
+     * окно подставляет описание и картинки в форму, сохраняются они кнопкой «Сохранить».
+     * Ответ: {url, description, images: [{mime, data (base64)}]} или {error}.
+     */
+    @PostMapping("/items/{id}/oldgames")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> loadOldGames(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String url) {
+        repo.item(uid, id); // чужой объект — 404
+        try {
+            OldGames.Result r = oldGames.load(url, ImageFiles.MAX_IMAGES);
+            if (r == null) return Map.of("error", "Страница не найдена — проверьте адрес");
+            List<Map<String, String>> images = new ArrayList<>();
+            for (byte[] b : r.images())
+                images.add(Map.of("mime", Repo.imageType(b), "data", java.util.Base64.getEncoder().encodeToString(b)));
+            return Map.of("url", r.url(), "description", r.description(), "images", images);
+        } catch (IllegalArgumentException e) {
+            return Map.of("error", e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Map.of("error", "Загрузка прервана");
+        } catch (Exception e) {
+            return Map.of("error", "Old-Games.ru недоступен, попробуйте позже");
+        }
     }
 
     /**

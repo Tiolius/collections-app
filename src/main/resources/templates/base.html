@@ -13,6 +13,40 @@
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
     try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
   }
+  /*
+   * Подтверждение в окне приложения (вместо браузерного confirm): onclick="return appConfirm(event, 'Удалить …?')"
+   * у кнопки или onsubmit="return appConfirm(event, '…')" у формы. Отправка отменяется, а после «Удалить»
+   * форма отправляется заново той же кнопкой (formaction, formnovalidate сохраняются). Esc, щелчок мимо окна,
+   * крестик и «Отмена» — ничего не делать. Кнопки: «Удалить» слева, «Отмена» справа, фокус — на «Отмене».
+   */
+  function appConfirm(e, message, okText) {
+    var btn = e.type === 'click' ? e.currentTarget : null, form = btn ? btn.form : e.currentTarget;
+    if (!btn && form.dataset.confirmed) { delete form.dataset.confirmed; return true; } // уже подтверждено
+    e.preventDefault();
+    var submitter = btn || e.submitter || undefined, dlg = document.getElementById('confirm-dialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'confirm-dialog'; dlg.className = 'modal confirm';
+      dlg.innerHTML = '<div class="modal-head"><span>Подтверждение</span>'
+        + '<button type="button" class="icon" data-cancel title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button></div>'
+        + '<div class="confirm-body"><span class="confirm-icon"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M40-120 480-880l440 760H40Zm104-60h672L480-760 144-180Zm361.5-65.5Q517-257 517-274t-11.5-28.5Q494-314 477-314t-28.5 11.5Q437-291 437-274t11.5 28.5Q460-234 477-234t28.5-11.5ZM447-354h60v-224h-60v224Zm33-116Z"/></svg></span><p></p></div>'
+        + '<div class="dlg-foot"><button type="button" class="btn red" data-ok></button>'
+        + '<button type="button" class="btn light" data-cancel>Отмена</button></div>';
+      document.body.appendChild(dlg);
+      dlg.querySelectorAll('[data-cancel]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
+      dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); }); // щелчок мимо окна
+      dlg.querySelector('[data-ok]').addEventListener('click', function () { dlg.close(); if (dlg.onOk) dlg.onOk(); });
+    }
+    dlg.querySelector('p').textContent = message;
+    dlg.querySelector('[data-ok]').textContent = okText || 'Удалить';
+    dlg.onOk = function () {
+      if (!btn) form.dataset.confirmed = '1';
+      if (form.requestSubmit) form.requestSubmit(submitter); else form.submit();
+    };
+    dlg.showModal();
+    dlg.querySelector('.dlg-foot [data-cancel]').focus();
+    return false;
+  }
 </script>
 <style>
   /* ===== Оформление в «каталожном» стиле: Tahoma, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
@@ -234,13 +268,25 @@
   table.items th.eye, table.items td.eye { text-align: center; }
   /* Наличие: галочка — есть, крестик (бледный) — нет */
   table.items th.flag, table.items td.flag { text-align: center; }
+  /* Рейтинг: контурные звёзды и поверх закрашенные (видна часть ширины) */
+  .stars { position: relative; display: inline-block; white-space: nowrap; line-height: 0; vertical-align: middle; }
+  .stars .mi { width: 14px; height: 14px; }
+  .stars-off { display: inline-block; color: var(--icon); opacity: .6; }
+  .stars-on { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; color: var(--orange); }
+  .stars.edit { cursor: pointer; }
+  .stars.edit .mi { width: 22px; height: 22px; }
+  .stars.edit:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .rating-input { display: inline-flex; align-items: center; gap: 8px; min-height: 26px; }
+  .rating-input .rating-text { min-width: 3.5em; }
+  table.items th.rating, table.items td.rating { text-align: center; white-space: nowrap; }
   table.items td.flag .avail { display: inline-flex; vertical-align: middle; }
   table.items td.flag .avail.yes { color: var(--link); }
   table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
   /* Колонка «есть картинка»: узкая, иконка по центру */
-  table.items th.pic-col, table.items td.pic-col { width: 34px; text-align: center; padding-left: 2px; padding-right: 2px; }
+  table.items th.pic-col, table.items td.pic-col { width: 64px; text-align: center; padding-left: 2px; padding-right: 2px; }
   table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
   table.items th.pic-col .mi { width: 15px; height: 15px; }
+  table.items tr.filters th.pic-col select { min-width: 0; padding-left: 2px; padding-right: 0; }
   table.items td.pic-col .has-pic { color: var(--icon); display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
   table.items td.pic-col .pic-n { line-height: 1; }
   table.items td.pic-col .mi { width: 16px; height: 16px; }
@@ -317,7 +363,26 @@
   dialog.modal { --pic-w: min(800px, calc(100vw - 600px), calc((100vh - 190px) * 4 / 3)); }
   dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 4px; padding: 10px 24px;
                            border-top: 1px solid var(--border); background: var(--panel); }
+  /* Кнопка, стоящая в разметке после «Сохранить» (чтобы Enter сохранял, а не удалял), но показанная слева */
+  .dlg-foot .first, .form .full.split > .first { order: -1; }
+  .form .full.split > .btn.danger { display: inline-flex; align-items: center; gap: 4px; }
+  /* Окно подтверждения (appConfirm): значок предупреждения и вопрос, внизу «Отмена» и красная «Удалить» */
+  dialog.modal.confirm { width: 420px; }
+  /* Поле «Old-Games.ru»: адрес, «Загрузить», «Открыть»; под ними — итог загрузки */
+  .og-row { display: flex; gap: 6px; align-items: center; }
+  .og-row input { flex: 1; min-width: 0; max-width: none !important; }
+  .og-load:disabled { opacity: .4; cursor: wait; }  /* идёт загрузка */
+  .og-status { margin-top: 4px; }
+  .form > label.og-label { align-self: start; padding-top: 6px; }  /* подпись — на уровне поля, а не по центру вместе с итогом */
+  .og-status.ok { color: var(--ok-text); }
+  .og-status.error { color: var(--red); }
+  dialog.modal .confirm-body { display: flex; align-items: center; gap: 12px; padding: 20px 24px; }
+  dialog.modal .confirm-body p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+  dialog.modal .confirm-icon { color: var(--red); flex-shrink: 0; }
+  dialog.modal .confirm-icon .mi { width: 28px; height: 28px; }
+  dialog.modal.confirm .dlg-foot { justify-content: flex-end; gap: 8px; }
   dialog.modal .pic { display: block; cursor: pointer; }
+  dialog.modal a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не сохранённый файл */
   /* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
   dialog.modal .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   dialog.modal .img-tools label.icon { cursor: pointer; }
@@ -347,6 +412,7 @@
   dialog.modal .dlg-body > .form { flex: 1; }
   /* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
   dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
+  dialog.modal.wide .dlg-body > .form.after-desc { grid-template-rows: repeat(var(--rows), min-content) 1fr min-content; }
   dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
   dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
   dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
@@ -461,6 +527,52 @@
 <!-- Окно изменения объекта (страницы коллекции и дублей): нужны fields и view в модели.
      Открывается щелчком по названию объекта в строке (a.edit-item), поля заполняются из data-атрибутов строки.
      Без поддержки <dialog> название ведёт на отдельную страницу /items/{id}/edit -->
+<!-- Рейтинг — 5 звёзд с шагом в половину (значение 0…10 половинок): контурные звёзды и поверх закрашенные,
+     у закрашенных видна часть ширины (v × 10 %). stars(v) — только показ (таблица объектов) -->
+<span th:fragment="stars(v)" class="stars" th:title="${v == null ? 'Без рейтинга' : 'Рейтинг: ' + (v / 2) + (v % 2 == 1 ? ',5' : '') + ' из 5'}"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on" th:style="${'width:' + (v == null ? 0 : v * 10) + '%'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
+
+<!-- Поле «Рейтинг» в форме: скрытое rating (0…10) и звёзды; щелчок по левой половине звезды — половина, по правой — целая,
+     щелчок по выбранному значению или крестик — без рейтинга; стрелки клавиатуры — на половину звезды (скрипт ratingScript) -->
+<span th:fragment="ratingInput(id, v)" class="rating-input">
+  <input type="hidden" name="rating" th:id="${id}" th:value="${v == null ? 0 : v}">
+  <span class="stars edit" tabindex="0" role="slider" aria-label="Рейтинг" aria-valuemin="0" aria-valuemax="5"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
+  <span class="rating-text muted"></span>
+  <button type="button" class="icon rating-clear" title="Без рейтинга" aria-label="Без рейтинга"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button>
+</span>
+
+<script th:fragment="ratingScript">
+  // Поля «Рейтинг» (ratingInput): показ значения, выбор щелчком и клавиатурой. setRating(поле, 0…10) — для окна объекта
+  window.setRating = function (box, v) {
+    v = Math.max(0, Math.min(10, v | 0));
+    box.querySelector('input').value = v;
+    box.querySelector('.stars-on').style.width = v * 10 + '%';
+    box.querySelector('.stars').setAttribute('aria-valuenow', v / 2);
+    box.querySelector('.rating-text').textContent = v ? String(v / 2).replace('.', ',') + ' из 5' : 'нет';
+    box.querySelector('.rating-clear').style.visibility = v ? '' : 'hidden'; // место остаётся — звёзды не прыгают
+  };
+  document.querySelectorAll('.rating-input').forEach(function (box) {
+    var stars = box.querySelector('.stars'), on = box.querySelector('.stars-on'), input = box.querySelector('input');
+    function at(e) { // сколько половинок под курсором: 1…10
+      var r = stars.getBoundingClientRect();
+      return Math.max(1, Math.min(10, Math.ceil((e.clientX - r.left) / r.width * 10)));
+    }
+    stars.addEventListener('mousemove', function (e) { on.style.width = at(e) * 10 + '%'; });
+    stars.addEventListener('mouseleave', function () { on.style.width = input.value * 10 + '%'; });
+    stars.addEventListener('click', function (e) { var v = at(e); setRating(box, v === +input.value ? 0 : v); });
+    stars.addEventListener('keydown', function (e) {
+      var v = +input.value;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') v++;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') v--;
+      else if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '0') v = 0;
+      else return;
+      e.preventDefault(); e.stopPropagation(); // стрелки не листают картинки в окне объекта
+      setRating(box, v);
+    });
+    box.querySelector('.rating-clear').addEventListener('click', function () { setRating(box, 0); });
+    setRating(box, +input.value);
+  });
+</script>
+
 <th:block th:fragment="itemDialog">
   <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
     <div class="modal-head">
@@ -470,7 +582,7 @@
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
       <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
-           Щелчок по картинке или заглушке «Нет картинки» — выбор файла (поле скрыто).
+           Щелчок по сохранённой картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
            Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div id="d-image" class="dlg-image">
         <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
@@ -479,7 +591,7 @@
           <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
         </th:block>
         <div class="viewer">
-          <label class="pic" id="d-pic" for="d-file-0" title="Нажмите, чтобы заменить картинку"><img alt=""></label>
+          <a class="pic" id="d-pic" target="_blank" rel="noopener" title="Открыть в полном размере"><img alt=""></a>
           <label class="no-image" id="d-noimg" for="d-file-0" title="Выбрать файл"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480ZM180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h365v60H180v600h600v-365h60v365q0 24-18 42t-42 18H180Zm60-162h480L576-474 449-307l-94-124-115 149Zm453-323v-87h-88v-60h88v-88h60v88h87v60h-87v87h-60Z"/></svg>
           <b>Нет картинки</b><span>Нажмите, чтобы выбрать файл</span></label>
           <button type="button" class="nav prev" id="d-prev" title="Предыдущая картинка" aria-label="Предыдущая картинка"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></svg></button>
@@ -493,10 +605,12 @@
           <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
-    <div class="form" th:style="${'--rows:' + (1 + fields.size())}">
+    <!-- --rows — сколько строк до «Описания» (оно растягивается до низа окна); «Old-Games.ru» — строкой после него -->
+    <div class="form" th:classappend="${fields.contains('oldgames')} ? 'after-desc'"
+         th:style="${'--rows:' + (1 + fields.size() - (fields.contains('oldgames') ? 1 : 0))}">
       <input type="hidden" name="view" th:value="${view}">
       <label for="d-name">Название *</label>
-      <input autocomplete="off" id="d-name" type="text" name="name" required>
+      <input autocomplete="off" spellcheck="false" id="d-name" type="text" name="name" required>
       <th:block th:if="${fields.contains('platform')}">
         <label for="d-platform">Платформа</label>
         <input autocomplete="off" id="d-platform" type="text" name="platform">
@@ -512,6 +626,10 @@
           <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
         </select>
       </th:block>
+      <th:block th:if="${fields.contains('rating')}">
+        <label>Рейтинг</label>
+        <span th:replace="~{base :: ratingInput('d-rating', null)}"></span>
+      </th:block>
       <th:block th:if="${fields.contains('price')}">
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
@@ -522,18 +640,32 @@
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
       </th:block>
       <label for="d-description">Описание</label>
-      <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
+      <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
+      <th:block th:if="${fields.contains('oldgames')}">
+        <label for="d-oldgames" class="og-label">Old games Id</label>
+        <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
+        <div class="og-box">
+          <div class="og-row">
+            <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric" placeholder="номер игры в каталоге, например 11">
+            <button type="button" class="icon og-load" id="d-og-load" title="Загрузить описание и картинки со страницы" aria-label="Загрузить описание и картинки со страницы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg></button>
+            <a class="icon og-open" id="d-og-open" target="_blank" rel="noopener" title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
+          </div>
+          <div class="og-status" id="d-og-status" hidden></div>
+        </div>
+      </th:block>
     </div>
     </div>
     <!-- Нижняя панель окна: слева «Удалить объект» (отправляет форму на /items/{id}/delete, адрес — formaction,
-         ставит скрипт), справа «Сохранить»; отмена — крестик в шапке (или Esc, щелчок мимо окна) -->
+         ставит скрипт), справа «Сохранить»; отмена — крестик в шапке (или Esc, щелчок мимо окна).
+         «Сохранить» — первой в разметке: Enter в поле нажимает первую кнопку формы; слева «Удалить» ставит order -->
     <div class="dlg-foot">
-      <button type="submit" class="btn light danger" id="d-delete" formnovalidate
-              onclick="return confirm('Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
       <button class="btn">Сохранить</button>
+      <button type="submit" class="btn light danger first" id="d-delete" formnovalidate
+              onclick="return appConfirm(event, 'Удалить объект?')"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg> Удалить объект</button>
     </div>
     </form>
   </dialog>
+  <script th:replace="~{base :: ratingScript}"></script>
 <script>
   // Изменение объекта в модальном окне
   (function () {
@@ -555,7 +687,10 @@
       $('d-noimg').hidden = !!src;
       $('d-tools').hidden = !src;
       if (src) document.querySelector('#d-pic img').src = src;
-      ['d-pic', 'd-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
+      // щелчок открывает только сохранённую картинку; у выбранного, ещё не сохранённого файла — ничего
+      if (s.chosen) { $('d-pic').removeAttribute('href'); $('d-pic').removeAttribute('title'); }
+      else if (src) { $('d-pic').href = src; $('d-pic').title = 'Открыть в полном размере'; }
+      ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
       $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
       if (s.saved) $('d-open').href = s.saved;
       var many = slots.length > 1, filled = slots.filter(srcOf).length;
@@ -606,8 +741,12 @@
           }
           st.value = v;
         }
+        var rb = document.querySelector('#item-dialog .rating-input');
+        if (rb) setRating(rb, +row.dataset.rating || 0);
         var avail = document.getElementById('d-available');
         if (avail) avail.checked = row.dataset.available === '1';
+        if ($('d-oldgames')) { $('d-oldgames').value = row.dataset.oldgames || ''; $('d-og-status').hidden = true; ogSync(); }
+        itemId = row.dataset.id;
         // Картинки: сохранённые (сколько есть) и пустой слот; выбор файлов и пометки удаления — сброшены
         var count = +row.dataset.images || 0, t = Date.now();
         slots = [];
@@ -623,6 +762,61 @@
     });
     dlg.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // щелчок мимо окна
+
+    // Old-Games.ru: «Загрузить» берёт описание и картинки со страницы игры (сервер, POST /items/{id}/oldgames) и
+    // подставляет их в окно: описание — в поле, картинки — в поля image_N (как выбранные файлы), прежние картинки —
+    // на удаление. На сервере всё меняется только при «Сохранить»
+    var itemId = null;
+    // номер игры: введённое число или число из вставленного адреса страницы …/game/11.html
+    function ogId(v) {
+      v = v.trim();
+      if (/^\d{1,7}$/.test(v)) return v;
+      var m = /old-games\.ru\/game\/(\d{1,7})\.html/i.exec(v);
+      return m ? m[1] : null;
+    }
+    function ogUrl(id) { return 'https://www.old-games.ru/game/' + id + '.html'; }
+    function ogSync() { // вставленный адрес — в номер; «открыть» — только при номере
+      var input = $('d-oldgames'), id = ogId(input.value);
+      if (id && input.value.trim() !== id) input.value = id;
+      $('d-og-open').style.display = id ? '' : 'none'; // атрибут hidden перебивается стилем .icon
+      if (id) $('d-og-open').href = ogUrl(id);
+    }
+    function ogStatus(text, ok) { var s = $('d-og-status'); s.hidden = false; s.textContent = text; s.className = 'og-status ' + (ok ? 'ok' : 'error'); }
+    if ($('d-oldgames')) {
+      $('d-oldgames').addEventListener('input', ogSync);
+      $('d-og-load').addEventListener('click', function () {
+        var btn = this, id = ogId($('d-oldgames').value);
+        if (!id) { ogStatus('Нужен номер игры в каталоге — число из адреса страницы …/game/11.html', false); return; }
+        var url = ogUrl(id);
+        btn.disabled = true; ogStatus('Загрузка…', true);
+        fetch('/items/' + itemId + '/oldgames', { method: 'POST', body: new URLSearchParams({ url: url }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.error) { ogStatus(d.error, false); return; }
+            $('d-oldgames').value = ogId(d.url) || id; ogSync();
+            if (d.description) form.elements.description.value = d.description;
+            if (d.images.length) {
+              // прежние сохранённые картинки — на удаление, загруженные — на места 0…n-1
+              slots.forEach(function (s, k) { if (s.saved) $('d-remove-' + k).disabled = false; });
+              for (var j = 0; j < MAX; j++) $('d-file-' + j).value = '';
+              slots = d.images.map(function (im, k) {
+                var bin = atob(im.data), bytes = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                var file = new File([bytes], 'old-games-' + (k + 1) + '.' + im.mime.split('/')[1], { type: im.mime });
+                var dt = new DataTransfer(); dt.items.add(file); $('d-file-' + k).files = dt.files;
+                $('d-remove-' + k).disabled = true; // новый файл на этом месте сам заменит прежнюю картинку
+                return { chosen: URL.createObjectURL(file) };
+              });
+              addEmptySlot(); cur = 0; render();
+            }
+            var n = d.images.length;
+            ogStatus('Загружено: описание' + (n ? ' и ' + n + (n === 1 ? ' картинка' : n < 5 ? ' картинки' : ' картинок') : ', картинок нет')
+                + '. Нажмите «Сохранить», чтобы сохранить', true);
+          })
+          .catch(function () { ogStatus('Не удалось загрузить — попробуйте ещё раз', false); })
+          .finally(function () { btn.disabled = false; });
+      });
+    }
   })();
 </script>
 </th:block>

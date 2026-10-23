@@ -34,11 +34,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class ImageImport {
 
-    public static final String STEAM = "steam", DISCOGS = "discogs", FANTLAB = "fantlab";
+    public static final String STEAM = "steam", GOG = "gog", DISCOGS = "discogs", FANTLAB = "fantlab";
     /** Источники: ключ → название для страницы. */
     public static final Map<String, String> SOURCES = new LinkedHashMap<>();
     static {
         SOURCES.put(STEAM, "Steam");
+        SOURCES.put(GOG, "GOG");
         SOURCES.put(DISCOGS, "Discogs");
         SOURCES.put(FANTLAB, "FantLab");
     }
@@ -46,6 +47,9 @@ public class ImageImport {
     /** Паузы между запросами к API, мс: Steam — около 200 за 5 минут, Discogs — до 60 в минуту с токеном. */
     @Value("${steam.api-interval-ms:1500}")
     private long steamIntervalMs;
+    /** GOG ограничений не публикует; раз в секунду — чтобы не нагружать. */
+    @Value("${gog.api-interval-ms:1000}")
+    private long gogIntervalMs;
     @Value("${discogs.api-interval-ms:1100}")
     private long discogsIntervalMs;
     /** FantLab просит не чаще раза в 1,2 с (Crawl-delay в robots.txt). */
@@ -69,6 +73,11 @@ public class ImageImport {
     /** Сайт FantLab: пути к обложкам в ответах API — относительно него. */
     @Value("${fantlab.site-url:https://fantlab.ru}")
     private String fantlabSite;
+    /** GOG (без ключа): каталог (поиск) и API (карточка игры с описанием). */
+    @Value("${gog.catalog-url:https://catalog.gog.com}")
+    private String gogCatalogUrl;
+    @Value("${gog.api-url:https://api.gog.com}")
+    private String gogApiUrl;
     @Value("${app.version}")
     private String appVersion;
 
@@ -155,7 +164,7 @@ public class ImageImport {
         // Без токена обложек у Discogs нет — только описания
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
         Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
-                screenshot && source.equals(STEAM), maxImages, discogsToken);
+                screenshot && (source.equals(STEAM) || source.equals(GOG)), maxImages, discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -192,6 +201,7 @@ public class ImageImport {
                     Found f = switch (job.source) {
                         case DISCOGS -> findDiscogs(job, item.name(), img, descr);
                         case FANTLAB -> findFantlab(job, item.name(), img, descr);
+                        case GOG -> findGog(job, item.name(), img, descr);
                         default -> findSteam(job, item.name(), img, descr);
                     };
                     if (f == null) {
@@ -263,17 +273,36 @@ public class ImageImport {
         // если по названию как есть совпадения нет — ещё раз по названию без знаков препинания
         String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
         for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
-            Found f = findSteamTerm(job, term, key, wantImage, wantDescription);
+            Found f = findSteamTerm(job, term, key, false, wantImage, wantDescription);
             if (f != null) return f;
         }
+        // Последняя попытка — по части до двоеточия: консольные издания с подзаголовком продаются в Steam
+        // как ПК-издания («Disgaea 2: Dark Hero Days» → «Disgaea 2 PC», «Disgaea 4: A Promise Revisited» →
+        // «Disgaea 4 Complete+»). Засчитывается только результат с припиской издания или платформы:
+        // иначе консольная «Fallout: Brotherhood of Steel» получила бы картинки первой Fallout
+        int colon = name.indexOf(':');
+        String prefix = colon > 0 ? name.substring(0, colon).trim() : "";
+        if (!norm(prefix).isEmpty()) return findSteamTerm(job, prefix, norm(prefix), true, wantImage, wantDescription);
         return null;
     }
 
-    private Found findSteamTerm(Job job, String term, String key, boolean wantImage, boolean wantDescription) throws Exception {
+    /** Поиск в Steam по term; editionOnly — засчитывать только издания key (с припиской издания или платформы). */
+    private Found findSteamTerm(Job job, String term, String key, boolean editionOnly, boolean wantImage,
+                                boolean wantDescription) throws Exception {
         JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
         if (res == null) return null;
+        // Точное совпадение названия; если его нет — то же название без «The» в начале и приписки издания
+        // (DX, Remastered, GOTY…): «Banner Saga 3» = «The Banner Saga 3»; старое издание после выхода нового
+        // Steam часто снимает с продажи, и поиск находит только новое
+        JsonNode found = null, edition = null;
         for (JsonNode it : res.path("items")) {
-            if (!"app".equals(it.path("type").asText("app")) || !key.equals(norm(it.path("name").asText()))) continue;
+            if (!"app".equals(it.path("type").asText("app"))) continue;
+            String n = norm(it.path("name").asText());
+            if (!editionOnly && key.equals(n)) { found = it; break; }
+            if (edition == null && looseKey(key).equals(looseKey(n)) && (!editionOnly || !editionBase(n).equals(n))) edition = it;
+        }
+        if (found == null) found = edition;
+        for (JsonNode it : found == null ? List.<JsonNode>of() : List.of(found)) {
             long appId = it.path("id").asLong();
             String tiny = it.path("tiny_image").asText("");
             // скриншоты нужны, если картинка — скриншот или картинок больше одной
@@ -302,6 +331,27 @@ public class ImageImport {
         return null;
     }
 
+    /** Приписки изданий и платформы в конце названия (после norm; «Complete+» → «complete»): та же игра с ними и без них. */
+    private static final java.util.regex.Pattern EDITION = java.util.regex.Pattern.compile(
+            " (dx|hd|pc|complete|redux|remaster(ed)?|hd remaster(ed)?|goty|((definitive|complete|enhanced|deluxe|gold|platinum|ultimate|special"
+            + "|anniversary|standard|digital deluxe|game of the year|goty) edition)|director s cut|directors cut)$");
+
+    /** Название без приписок изданий в конце: «atelier ryza … dx» → «atelier ryza …» (можно несколько подряд). */
+    static String editionBase(String normName) {
+        String s = normName, prev;
+        do {
+            prev = s;
+            s = EDITION.matcher(s).replaceFirst("");
+        } while (!s.equals(prev) && !s.isEmpty());
+        return s.isEmpty() ? normName : s;
+    }
+
+    /** Название для запасного сравнения: без «The» в начале и приписок изданий в конце. */
+    static String looseKey(String normName) {
+        String s = editionBase(normName);
+        return s.startsWith("the ") && s.length() > 4 ? s.substring(4) : s;
+    }
+
     /** Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры; иначе маленькая картинка. */
     private byte[] steamHeader(Job job, long appId, String tiny, JsonNode details) throws Exception {
         byte[] img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
@@ -314,10 +364,14 @@ public class ImageImport {
         return img;
     }
 
-    /** Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет. */
+    /**
+     * Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет.
+     * Регион — США, как у поиска: без него Steam берёт регион по адресу, и для игр, которые в России не продаются
+     * (например, Sword Art Online: Fatal Bullet), отдаёт пустую карточку — без скриншотов и описания.
+     */
     private JsonNode appDetails(Job job, long appId, boolean screenshots) throws Exception {
         JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic" + (screenshots ? ",screenshots" : "")
-                + "&l=russian&appids=" + appId);
+                + "&cc=us&l=russian&appids=" + appId);
         return d == null ? json.createObjectNode() : d.path(String.valueOf(appId)).path("data");
     }
 
@@ -328,6 +382,74 @@ public class ImageImport {
                 .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").trim();
         if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
         return t.isEmpty() ? null : t;
+    }
+
+    // ---------- GOG ----------
+
+    /**
+     * Игра GOG с таким же названием (старые игры для ПК часто есть только там): картинки и описание; null — не найдена.
+     * Поиск — в английском каталоге, затем в русском (у переведённых игр там русские названия);
+     * как у Steam — ещё раз без знаков препинания.
+     */
+    private Found findGog(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
+        String key = norm(name);
+        if (key.isEmpty()) return null;
+        String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
+        for (String locale : List.of("en-US", "ru-RU"))
+            for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
+                JsonNode res = api(job, gogCatalogUrl + "/v1/catalog?limit=20&productType=in:game,pack&order=desc:score"
+                        + "&countryCode=US&locale=" + locale + "&query=" + enc("like:" + term));
+                JsonNode p = res == null ? null : bestMatch(res.path("products"), "title", key);
+                if (p != null) return gogFound(job, p, wantImage, wantDescription);
+            }
+        return null;
+    }
+
+    /**
+     * Подходящий результат поиска: точное совпадение названия (поле field), иначе без «The» и приписки издания;
+     * из нескольких — первый (результаты уже упорядочены по релевантности).
+     */
+    private static JsonNode bestMatch(JsonNode results, String field, String key) {
+        JsonNode loose = null;
+        for (JsonNode it : results) {
+            String n = norm(it.path(field).asText());
+            if (key.equals(n)) return it;
+            if (loose == null && looseKey(key).equals(looseKey(n))) loose = it;
+        }
+        return loose;
+    }
+
+    /**
+     * Картинки и описание найденной игры GOG. Картинки — из результата поиска: скриншоты в полном размере
+     * (в адресе убирается «_{formatter}»), обложка коробки (coverVertical). Режим «скриншот» — скриншоты
+     * (если их нет — обложка), иначе — обложка, за ней скриншоты. Описание — из карточки игры по-русски,
+     * если перевод есть (иначе GOG отдаёт английское); только если оно нужно.
+     */
+    private Found gogFound(Job job, JsonNode p, boolean wantImage, boolean wantDescription) throws Exception {
+        String description = null;
+        if (wantDescription) {
+            JsonNode d = api(job, gogApiUrl + "/products/" + p.path("id").asLong() + "?expand=description&locale=ru-RU");
+            if (d != null) {
+                String full = d.path("description").path("full").asText("");
+                description = cleanDescription(full.isBlank() ? d.path("description").path("lead").asText("") : full);
+                if (description != null) description = description.replaceAll("[ \\t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();
+            }
+        }
+        List<byte[]> imgs = List.of();
+        if (wantImage) {
+            List<String> shots = new java.util.ArrayList<>();
+            for (JsonNode sh : p.path("screenshots")) shots.add(sh.asText("").replace("_{formatter}", ""));
+            String cover = p.path("coverVertical").asText("");
+            List<String> urls = new java.util.ArrayList<>();
+            if (job.screenshot && !shots.isEmpty()) {
+                urls.addAll(shots);
+            } else {
+                if (!cover.isEmpty()) urls.add(cover);
+                if (!job.screenshot) urls.addAll(shots);
+            }
+            imgs = downloadAll(urls, job.maxImages);
+        }
+        return new Found(imgs, description);
     }
 
     // ---------- Discogs ----------
@@ -535,7 +657,7 @@ public class ImageImport {
         // Discogs без токена — 25 запросов в минуту
         boolean token = discogs && !job.discogsToken.isEmpty();
         long interval = discogs ? (token ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500))
-                : job.source.equals(FANTLAB) ? fantlabIntervalMs : steamIntervalMs;
+                : job.source.equals(FANTLAB) ? fantlabIntervalMs : job.source.equals(GOG) ? gogIntervalMs : steamIntervalMs;
         for (int attempt = 0; ; attempt++) {
             synchronized (lastCall) {
                 long wait = lastCall.getOrDefault(job.source, 0L) + interval - System.currentTimeMillis();
@@ -566,13 +688,14 @@ public class ImageImport {
 
     /** Картинка по адресу сервиса или null (нет такой, не картинка или слишком большая). */
     private byte[] download(String url) throws Exception {
-        // Только адреса Steam и Discogs (и заглушек, если адреса сервисов подменены)
+        // Только адреса картинок Steam, GOG, Discogs и FantLab (и заглушек, если адреса сервисов подменены)
         URI u = URI.create(url);
         String host = u.getHost() == null ? "" : u.getHost();
         boolean known = "https".equals(u.getScheme()) && (host.endsWith(".steamstatic.com")
                 || host.endsWith(".steampowered.com") || host.endsWith(".discogs.com")
-                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru"));
-        if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")) return null;
+                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru") || host.endsWith(".gog-statics.com"));
+        if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")
+                && !url.startsWith(gogCatalogUrl + "/")) return null;
         HttpResponse<byte[]> r = http.send(HttpRequest.newBuilder(u).timeout(Duration.ofSeconds(30))
                 .header("User-Agent", "CollectionsApp/" + appVersion).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();
