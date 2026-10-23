@@ -90,7 +90,9 @@
     </tr>
     <tr class="filters">
       <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
+        <!-- Набор с клавиатуры — применяется по Enter; вставка (Ctrl+V, меню, перетаскивание) — сразу -->
         <input th:if="${col.key() == 'name'}" type="search" name="f_name" form="filter-form" placeholder="Поиск по названию…"
+               oninput="if (/^insertFrom(Paste|Drop)/.test(event.inputType)) this.form.requestSubmit()"
                autocomplete="off" th:value="${filters.get('name')}" th:classappend="${filters.containsKey('name')} ? 'active'">
         <select th:if="${filterOptions.containsKey(col.key())}" th:name="${'f_' + col.key()}" form="filter-form"
                 onchange="this.form.requestSubmit()" th:classappend="${filters.containsKey(col.key())} ? 'active'">
