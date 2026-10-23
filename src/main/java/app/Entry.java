@@ -12,4 +12,9 @@ package app;
 public record Entry(long id, String name, boolean hasImage, Long collectionId, int count,
                     String kind, String platform, String format, String status, Integer price,
                     String description, Boolean available, int imageCount, Integer rating, String oldGames) {
+
+    /** Номер игры на Old-Games.ru (из сохранённого адреса страницы) — его показывает поле; null — ссылки нет. */
+    public String oldGamesId() {
+        return OldGames.gameId(oldGames);
+    }
 }

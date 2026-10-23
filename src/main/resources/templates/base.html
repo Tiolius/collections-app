@@ -642,11 +642,11 @@
       <label for="d-description">Описание</label>
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <th:block th:if="${fields.contains('oldgames')}">
-        <label for="d-oldgames" class="og-label">Old-Games.ru</label>
-        <!-- Ссылка на страницу игры; значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
+        <label for="d-oldgames" class="og-label">Old games Id</label>
+        <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
         <div class="og-box">
           <div class="og-row">
-            <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" placeholder="https://www.old-games.ru/game/…">
+            <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric" placeholder="номер игры в каталоге, например 11">
             <button type="button" class="icon og-load" id="d-og-load" title="Загрузить описание и картинки со страницы" aria-label="Загрузить описание и картинки со страницы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg></button>
             <a class="icon og-open" id="d-og-open" target="_blank" rel="noopener" title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
           </div>
@@ -767,24 +767,33 @@
     // подставляет их в окно: описание — в поле, картинки — в поля image_N (как выбранные файлы), прежние картинки —
     // на удаление. На сервере всё меняется только при «Сохранить»
     var itemId = null;
-    var OG = /^(https?:\/\/)?(www\.)?old-games\.ru\/game\/\d+\.html/i;
-    function ogSync() { // ссылка «открыть» — только для адреса страницы игры
-      var v = $('d-oldgames').value.trim(), ok = OG.test(v);
-      $('d-og-open').style.display = ok ? '' : 'none'; // атрибут hidden перебивается стилем .icon
-      if (ok) $('d-og-open').href = /^https?:/i.test(v) ? v : 'https://' + v;
+    // номер игры: введённое число или число из вставленного адреса страницы …/game/11.html
+    function ogId(v) {
+      v = v.trim();
+      if (/^\d{1,7}$/.test(v)) return v;
+      var m = /old-games\.ru\/game\/(\d{1,7})\.html/i.exec(v);
+      return m ? m[1] : null;
+    }
+    function ogUrl(id) { return 'https://www.old-games.ru/game/' + id + '.html'; }
+    function ogSync() { // вставленный адрес — в номер; «открыть» — только при номере
+      var input = $('d-oldgames'), id = ogId(input.value);
+      if (id && input.value.trim() !== id) input.value = id;
+      $('d-og-open').style.display = id ? '' : 'none'; // атрибут hidden перебивается стилем .icon
+      if (id) $('d-og-open').href = ogUrl(id);
     }
     function ogStatus(text, ok) { var s = $('d-og-status'); s.hidden = false; s.textContent = text; s.className = 'og-status ' + (ok ? 'ok' : 'error'); }
     if ($('d-oldgames')) {
       $('d-oldgames').addEventListener('input', ogSync);
       $('d-og-load').addEventListener('click', function () {
-        var btn = this, url = $('d-oldgames').value.trim();
-        if (!OG.test(url)) { ogStatus('Нужен адрес страницы игры: https://www.old-games.ru/game/…html', false); return; }
+        var btn = this, id = ogId($('d-oldgames').value);
+        if (!id) { ogStatus('Нужен номер игры в каталоге — число из адреса страницы …/game/11.html', false); return; }
+        var url = ogUrl(id);
         btn.disabled = true; ogStatus('Загрузка…', true);
         fetch('/items/' + itemId + '/oldgames', { method: 'POST', body: new URLSearchParams({ url: url }) })
           .then(function (r) { return r.json(); })
           .then(function (d) {
             if (d.error) { ogStatus(d.error, false); return; }
-            $('d-oldgames').value = d.url; ogSync();
+            $('d-oldgames').value = ogId(d.url) || id; ogSync();
             if (d.description) form.elements.description.value = d.description;
             if (d.images.length) {
               // прежние сохранённые картинки — на удаление, загруженные — на места 0…n-1

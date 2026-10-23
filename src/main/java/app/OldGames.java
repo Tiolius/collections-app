@@ -25,7 +25,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class OldGames {
 
-    /** Адрес страницы игры: https://www.old-games.ru/game/<номер>.html (http, без www — тоже). */
+    /** Номер игры в каталоге (так его вводят в поле) или адрес страницы игры: https://www.old-games.ru/game/<номер>.html. */
+    private static final Pattern GAME_ID = Pattern.compile("^\\d{1,7}$");
     private static final Pattern GAME_URL = Pattern.compile("^(?:https?://)?(?:www\\.)?old-games\\.ru/game/(\\d{1,7})\\.html(?:[?#].*)?$",
             Pattern.CASE_INSENSITIVE);
     /** Сколько знаков обзора брать в описание (обрезка по абзацу; весь обзор бывает в десятки тысяч знаков). */
@@ -46,13 +47,16 @@ public class OldGames {
             .followRedirects(HttpClient.Redirect.NORMAL).proxy(java.net.ProxySelector.getDefault()).build();
     private long lastCall;
 
-    /** Номер игры из адреса страницы или null, если это не адрес страницы игры Old-Games.ru. */
-    public static String gameId(String url) {
-        Matcher m = url == null ? null : GAME_URL.matcher(url.trim());
-        return m != null && m.matches() ? m.group(1) : null;
+    /** Номер игры: введённый номер или номер из адреса страницы; null — ни то ни другое. */
+    public static String gameId(String value) {
+        if (value == null) return null;
+        String v = value.trim();
+        if (GAME_ID.matcher(v).matches()) return v.replaceFirst("^0+(?=\\d)", "");
+        Matcher m = GAME_URL.matcher(v);
+        return m.matches() ? m.group(1) : null;
     }
 
-    /** Адрес страницы игры в одном виде (https://www.old-games.ru/game/N.html) или null. */
+    /** Адрес страницы игры (https://www.old-games.ru/game/N.html) по номеру или адресу; null — не номер и не адрес. */
     public static String normalize(String url) {
         String id = gameId(url);
         return id == null ? null : "https://www.old-games.ru/game/" + id + ".html";
@@ -64,7 +68,7 @@ public class OldGames {
      */
     public synchronized Result load(String url, int max) throws Exception {
         String id = gameId(url);
-        if (id == null) throw new IllegalArgumentException("Нужен адрес страницы игры: https://www.old-games.ru/game/…html");
+        if (id == null) throw new IllegalArgumentException("Нужен номер игры в каталоге Old-Games.ru — число из адреса …/game/11.html");
         String page = get(site + "/game/" + id + ".html");
         if (page == null) return null;
         String description = review(page);

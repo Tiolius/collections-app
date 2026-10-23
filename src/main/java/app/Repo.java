@@ -57,7 +57,7 @@ public class Repo {
         FIELDS.put("rating", "Рейтинг"); // не столбец items: таблица item_ratings, 1…10 половинок звезды (5 звёзд)
         FIELDS.put("price", "Цена");
         FIELDS.put("available", "Наличие");
-        FIELDS.put("oldgames", "Old-Games.ru"); // не столбец items: ссылка на страницу игры (таблица item_oldgames) // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
+        FIELDS.put("oldgames", "Old games Id"); // не столбец items: ссылка на страницу игры (таблица item_oldgames) // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
     }
 
     /** Значения поля «Статус прохождения» (выпадающий список); пусто — статус не указан. */
@@ -573,7 +573,7 @@ public class Repo {
             else {
                 String url = OldGames.normalize(oldGames);
                 if (url == null)
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Old-Games.ru — нужен адрес страницы игры: https://www.old-games.ru/game/…html");
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Old-Games.ru — нужен номер игры в каталоге: число из адреса …/game/11.html");
                 jdbc.update("INSERT INTO item_oldgames (item_id, url) VALUES (?, ?) "
                         + "ON CONFLICT (item_id) DO UPDATE SET url = excluded.url", id, url);
             }

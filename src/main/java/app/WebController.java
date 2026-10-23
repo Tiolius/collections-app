@@ -236,7 +236,7 @@ public class WebController {
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
-                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : f.equals("oldgames") ? 45 : 22);
+                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : f.equals("oldgames") ? 16 : 22);
             }
             headers.add("Описание");
             widths.add(80);
@@ -252,7 +252,7 @@ public class WebController {
                         case "price" -> it.price();
                         case "available" -> it.available() ? "Есть" : "Нет";
                         case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
-                        case "oldgames" -> it.oldGames();
+                        case "oldgames" -> it.oldGamesId(); // номер игры в каталоге Old-Games.ru
                         default -> null;
                     });
                 row.add(it.description());
