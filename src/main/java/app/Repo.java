@@ -34,7 +34,8 @@ public class Repo {
             + "EXISTS (SELECT 1 FROM item_pictures ip WHERE ip.item_id = items.id) AS has_image, "
             + "(SELECT COUNT(*) FROM item_pictures ip WHERE ip.item_id = items.id) AS image_count, "
             + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description, "
-            + "EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id) AS available";
+            + "EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id) AS available, "
+            + "(SELECT r.rating FROM item_ratings r WHERE r.item_id = items.id) AS rating";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -52,6 +53,7 @@ public class Repo {
         FIELDS.put("platform", "Платформа");
         FIELDS.put("format", "Формат");
         FIELDS.put("status", "Статус прохождения");
+        FIELDS.put("rating", "Рейтинг"); // не столбец items: таблица item_ratings, 1…10 половинок звезды (5 звёзд)
         FIELDS.put("price", "Цена");
         FIELDS.put("available", "Наличие"); // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
     }
@@ -82,7 +84,14 @@ public class Repo {
                 isItem ? price(rs) : null,
                 isItem ? rs.getString("description") : null,
                 isItem ? rs.getBoolean("available") : null,
-                isItem ? rs.getInt("image_count") : 0);
+                isItem ? rs.getInt("image_count") : 0,
+                isItem ? rating(rs) : null);
+    }
+
+    /** Рейтинг (1…10 половинок звезды) или null. */
+    private static Integer rating(java.sql.ResultSet rs) throws java.sql.SQLException {
+        int v = rs.getInt("rating");
+        return rs.wasNull() ? null : v;
     }
 
     /** Цена или null (getObject(.., Integer.class) драйвер SQLite не умеет для NULL). */
@@ -287,8 +296,8 @@ public class Repo {
     /** Начальные типы коллекций нового пользователя: название → поля. */
     private static final Map<String, String> DEFAULT_KINDS = new LinkedHashMap<>();
     static {
-        DEFAULT_KINDS.put("Игры (диски)", "status,price,available");
-        DEFAULT_KINDS.put("Игры (цифровые)", "platform,format,status,price,available");
+        DEFAULT_KINDS.put("Игры (диски)", "status,rating,price,available");
+        DEFAULT_KINDS.put("Игры (цифровые)", "platform,format,status,rating,price,available");
         DEFAULT_KINDS.put("Книги", "price,available");
         DEFAULT_KINDS.put("Музыка (диски)", "price,available");
     }
@@ -332,7 +341,7 @@ public class Repo {
     /** Поля, по которым можно сортировать объекты: ключ из URL → столбец. */
     public static final Map<String, String> ITEM_SORT = Map.of(
             "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price",
-            "available", "available");
+            "available", "available", "rating", "rating");
 
     /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
     public long totalPrice(long collectionId) {
@@ -355,7 +364,7 @@ public class Repo {
     public List<Entry> items(long collectionId, String sort, boolean desc, Map<String, String> filters) {
         String col = ITEM_SORT.getOrDefault(sort, "name");
         String order = "(" + col + " IS NULL OR " + col + " = ''), "
-                + col + (col.equals("price") || col.equals("available") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
+                + col + (col.equals("price") || col.equals("available") || col.equals("rating") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
                 + ", name COLLATE NOCASE, id";
         StringBuilder where = new StringBuilder("collection_id = ?");
         List<Object> args = new java.util.ArrayList<>(List.of(collectionId));
@@ -377,6 +386,16 @@ public class Repo {
         if (filters.containsKey("available"))
             where.append("1".equals(filters.get("available")) ? " AND" : " AND NOT")
                     .append(" EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id)");
+        // Рейтинг: "0" — без рейтинга, "1".."5" — не меньше стольких звёзд
+        String rating = filters.get("rating");
+        if (rating != null) {
+            String r = "(SELECT r.rating FROM item_ratings r WHERE r.item_id = items.id)";
+            if (rating.equals("0")) where.append(" AND ").append(r).append(" IS NULL");
+            else {
+                where.append(" AND ").append(r).append(" >= ?");
+                args.add(Integer.parseInt(rating) * 2);
+            }
+        }
         // Картинки: "any" — есть хотя бы одна, "0" — нет ни одной, "1".."5" — ровно столько
         String images = filters.get("images");
         if (images != null) {
@@ -528,8 +547,8 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, Boolean available, Map<Integer, MultipartFile> newImages, Set<Integer> removed,
-                         String description) {
+                         Integer price, Boolean available, Integer rating, Map<Integer, MultipartFile> newImages,
+                         Set<Integer> removed, String description) {
         requireName(name);
         if (price != null && price < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цена не может быть отрицательной");
@@ -546,6 +565,14 @@ public class Repo {
             jdbc.update("UPDATE items SET status = ? WHERE id = ?", st, id);
         }
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
+        // Рейтинг: 0 — убрать, 1…10 — половинки звезды; null — поля нет в форме, не меняется
+        if (f.contains("rating") && rating != null) {
+            if (rating < 0 || rating > 10)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Рейтинг — от 0 до 5 звёзд");
+            if (rating == 0) jdbc.update("DELETE FROM item_ratings WHERE item_id = ?", id);
+            else jdbc.update("INSERT INTO item_ratings (item_id, rating) VALUES (?, ?) "
+                    + "ON CONFLICT (item_id) DO UPDATE SET rating = excluded.rating", id, rating);
+        }
         if (f.contains("available") && available != null) {
             if (available) jdbc.update("INSERT OR IGNORE INTO item_present (item_id) VALUES (?)", id);
             else jdbc.update("DELETE FROM item_present WHERE item_id = ?", id);

@@ -218,7 +218,7 @@ public class WebController {
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(f.equals("price") ? "Цена (₽)" : Repo.FIELDS.get(f));
-                widths.add(f.equals("price") || f.equals("available") ? 12 : 22);
+                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : 22);
             }
             headers.add("Описание");
             widths.add(80);
@@ -233,6 +233,7 @@ public class WebController {
                         case "status" -> it.status();
                         case "price" -> it.price();
                         case "available" -> it.available() ? "Есть" : "Нет";
+                        case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
                         default -> null;
                     });
                 row.add(it.description());
@@ -413,6 +414,7 @@ public class WebController {
                              @RequestParam(name = "f_price_max", required = false) String fPriceMax,
                              @RequestParam(name = "f_available", required = false) String fAvailable,
                              @RequestParam(name = "f_images", required = false) String fImages,
+                             @RequestParam(name = "f_rating", required = false) String fRating,
                              @RequestParam(defaultValue = "false") boolean dups,
                              HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
@@ -429,6 +431,7 @@ public class WebController {
         if (fields.contains("platform")) cols.add(new Col("platform", "Платформа", ""));
         if (fields.contains("format")) cols.add(new Col("format", "Формат", ""));
         if (fields.contains("status")) cols.add(new Col("status", "Статус", ""));
+        if (fields.contains("rating")) cols.add(new Col("rating", "Рейтинг", "rating"));
         // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
@@ -454,6 +457,8 @@ public class WebController {
         // Наличие: «1» — есть, «0» — нет
         if (fields.contains("available") && ("1".equals(fAvailable) || "0".equals(fAvailable)))
             filters.put("available", fAvailable);
+        // Рейтинг: «0» — без рейтинга, «1»…«5» — не меньше стольких звёзд
+        if (fields.contains("rating") && fRating != null && fRating.matches("[0-5]")) filters.put("rating", fRating);
         // Картинки (есть у всех объектов): «any» — есть, «0» — нет, «1»…«5» — ровно столько
         if (fImages != null && fImages.matches("any|[0-" + ImageFiles.MAX_IMAGES + "]")) filters.put("images", fImages);
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
@@ -607,11 +612,12 @@ public class WebController {
                              @RequestParam(required = false) String status,
                              @RequestParam(required = false) Integer price,
                              @RequestParam(required = false) List<String> available,
+                             @RequestParam(required = false) Integer rating,
                              @RequestParam Map<String, MultipartFile> files,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available),
+        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), rating,
                 newImages(files), Set.of(), description);
         return "redirect:/collections/" + cid;
     }
@@ -632,6 +638,7 @@ public class WebController {
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) Integer price,
                            @RequestParam(required = false) List<String> available,
+                           @RequestParam(required = false) Integer rating,
                            @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
@@ -639,7 +646,7 @@ public class WebController {
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), newImages(files), removed(remove, removeImage != null), description);
+                available(available), rating, newImages(files), removed(remove, removeImage != null), description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 

@@ -234,6 +234,17 @@
   table.items th.eye, table.items td.eye { text-align: center; }
   /* Наличие: галочка — есть, крестик (бледный) — нет */
   table.items th.flag, table.items td.flag { text-align: center; }
+  /* Рейтинг: контурные звёзды и поверх закрашенные (видна часть ширины) */
+  .stars { position: relative; display: inline-block; white-space: nowrap; line-height: 0; vertical-align: middle; }
+  .stars .mi { width: 14px; height: 14px; }
+  .stars-off { display: inline-block; color: var(--icon); opacity: .6; }
+  .stars-on { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; color: var(--orange); }
+  .stars.edit { cursor: pointer; }
+  .stars.edit .mi { width: 22px; height: 22px; }
+  .stars.edit:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .rating-input { display: inline-flex; align-items: center; gap: 8px; min-height: 26px; }
+  .rating-input .rating-text { min-width: 3.5em; }
+  table.items th.rating, table.items td.rating { text-align: center; white-space: nowrap; }
   table.items td.flag .avail { display: inline-flex; vertical-align: middle; }
   table.items td.flag .avail.yes { color: var(--link); }
   table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
@@ -463,6 +474,52 @@
 <!-- Окно изменения объекта (страницы коллекции и дублей): нужны fields и view в модели.
      Открывается щелчком по названию объекта в строке (a.edit-item), поля заполняются из data-атрибутов строки.
      Без поддержки <dialog> название ведёт на отдельную страницу /items/{id}/edit -->
+<!-- Рейтинг — 5 звёзд с шагом в половину (значение 0…10 половинок): контурные звёзды и поверх закрашенные,
+     у закрашенных видна часть ширины (v × 10 %). stars(v) — только показ (таблица объектов) -->
+<span th:fragment="stars(v)" class="stars" th:title="${v == null ? 'Без рейтинга' : 'Рейтинг: ' + (v / 2) + (v % 2 == 1 ? ',5' : '') + ' из 5'}"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on" th:style="${'width:' + (v == null ? 0 : v * 10) + '%'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
+
+<!-- Поле «Рейтинг» в форме: скрытое rating (0…10) и звёзды; щелчок по левой половине звезды — половина, по правой — целая,
+     щелчок по выбранному значению или крестик — без рейтинга; стрелки клавиатуры — на половину звезды (скрипт ratingScript) -->
+<span th:fragment="ratingInput(id, v)" class="rating-input">
+  <input type="hidden" name="rating" th:id="${id}" th:value="${v == null ? 0 : v}">
+  <span class="stars edit" tabindex="0" role="slider" aria-label="Рейтинг" aria-valuemin="0" aria-valuemax="5"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
+  <span class="rating-text muted"></span>
+  <button type="button" class="icon rating-clear" title="Без рейтинга" aria-label="Без рейтинга"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button>
+</span>
+
+<script th:fragment="ratingScript">
+  // Поля «Рейтинг» (ratingInput): показ значения, выбор щелчком и клавиатурой. setRating(поле, 0…10) — для окна объекта
+  window.setRating = function (box, v) {
+    v = Math.max(0, Math.min(10, v | 0));
+    box.querySelector('input').value = v;
+    box.querySelector('.stars-on').style.width = v * 10 + '%';
+    box.querySelector('.stars').setAttribute('aria-valuenow', v / 2);
+    box.querySelector('.rating-text').textContent = v ? String(v / 2).replace('.', ',') + ' из 5' : 'нет';
+    box.querySelector('.rating-clear').style.visibility = v ? '' : 'hidden'; // место остаётся — звёзды не прыгают
+  };
+  document.querySelectorAll('.rating-input').forEach(function (box) {
+    var stars = box.querySelector('.stars'), on = box.querySelector('.stars-on'), input = box.querySelector('input');
+    function at(e) { // сколько половинок под курсором: 1…10
+      var r = stars.getBoundingClientRect();
+      return Math.max(1, Math.min(10, Math.ceil((e.clientX - r.left) / r.width * 10)));
+    }
+    stars.addEventListener('mousemove', function (e) { on.style.width = at(e) * 10 + '%'; });
+    stars.addEventListener('mouseleave', function () { on.style.width = input.value * 10 + '%'; });
+    stars.addEventListener('click', function (e) { var v = at(e); setRating(box, v === +input.value ? 0 : v); });
+    stars.addEventListener('keydown', function (e) {
+      var v = +input.value;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') v++;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') v--;
+      else if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '0') v = 0;
+      else return;
+      e.preventDefault(); e.stopPropagation(); // стрелки не листают картинки в окне объекта
+      setRating(box, v);
+    });
+    box.querySelector('.rating-clear').addEventListener('click', function () { setRating(box, 0); });
+    setRating(box, +input.value);
+  });
+</script>
+
 <th:block th:fragment="itemDialog">
   <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
     <div class="modal-head">
@@ -514,6 +571,10 @@
           <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
         </select>
       </th:block>
+      <th:block th:if="${fields.contains('rating')}">
+        <label>Рейтинг</label>
+        <span th:replace="~{base :: ratingInput('d-rating', null)}"></span>
+      </th:block>
       <th:block th:if="${fields.contains('price')}">
         <label for="d-price">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
@@ -536,6 +597,7 @@
     </div>
     </form>
   </dialog>
+  <script th:replace="~{base :: ratingScript}"></script>
 <script>
   // Изменение объекта в модальном окне
   (function () {
@@ -611,6 +673,8 @@
           }
           st.value = v;
         }
+        var rb = document.querySelector('#item-dialog .rating-input');
+        if (rb) setRating(rb, +row.dataset.rating || 0);
         var avail = document.getElementById('d-available');
         if (avail) avail.checked = row.dataset.available === '1';
         // Картинки: сохранённые (сколько есть) и пустой слот; выбор файлов и пометки удаления — сброшены

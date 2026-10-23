@@ -50,6 +50,11 @@
       </select>
     </th:block>
 
+    <th:block th:if="${isItem and fields.contains('rating')}">
+      <label>Рейтинг</label>
+      <span th:replace="~{base :: ratingInput('f-rating', ${obj != null ? obj.rating() : null})}"></span>
+    </th:block>
+
     <th:block th:if="${isItem and fields.contains('price')}">
       <label for="f-price">Цена (₽)</label>
       <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
@@ -86,6 +91,7 @@
               th:formaction="@{/items/{id}/delete(id=${obj.id()})}" onclick="return confirm('Удалить объект?')">Удалить объект</button>
     </div>
   </form>
+  <script th:if="${isItem and fields.contains('rating')}" th:replace="~{base :: ratingScript}"></script>
 </main>
 </body>
 </html>
