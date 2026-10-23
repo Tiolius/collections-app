@@ -262,6 +262,8 @@
   table.items th, table.items td { padding: 3px 6px; text-align: left; }
   table.items th { position: relative; font-weight: bold; }
   table.items thead tr:first-child th { background: var(--blue); color: var(--on-blue); padding: 6px 16px 6px 6px; }
+  /* Названия столбцов — все по левому краю (числа, звёзды и отметки в ячейках — как были); иконка картинки — по центру */
+  table.items thead tr:first-child th:not(.pic-col) { text-align: left; }
   table.items th a.sort { color: inherit; display: block; }
   table.items th a.sort:hover { text-decoration: underline; }
   /* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
@@ -696,7 +698,7 @@
       <label for="d-description" th:text="#{field.description}">Описание</label>
       <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <th:block th:if="${fields.contains('oldgames')}">
-        <label for="d-oldgames" class="og-label" th:text="#{field.oldgames}">Old games Id</label>
+        <label for="d-oldgames" class="og-label" th:text="#{field.oldgames}">Old-games.ru ID</label>
         <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
         <div class="og-box">
           <div class="og-row">

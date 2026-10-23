@@ -73,7 +73,7 @@
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('oldgames')}">
-      <label for="f-oldgames" th:text="#{field.oldgames}">Old games Id</label>
+      <label for="f-oldgames" th:text="#{field.oldgames}">Old-games.ru ID</label>
       <!-- Номер игры в каталоге (можно вставить и адрес страницы — сервер возьмёт номер); загрузка — в окне объекта -->
       <div class="og-row">
         <input autocomplete="off" id="f-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric"
