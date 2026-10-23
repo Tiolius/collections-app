@@ -22,11 +22,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Импорт картинок и описаний объектов («Настройки» → «Импорт») из Steam или RAWG (игры), Discogs (музыка), FantLab (книги).
- * Steam: объект сопоставляется с игрой по названию, картинки — скриншоты галереи или шапка страницы игры,
+ * Импорт картинок и описаний объектов («Настройки» → «Импорт») из Steam (игры) или Discogs (музыка).
+ * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg),
  * описание — краткое описание игры (по-русски, если есть).
- * RAWG: игра с тем же названием, картинки — скриншоты или главная картинка игры, описание — по-английски;
- * нужен ключ RAWG пользователя («Настройки» → «Ключи»).
  * Discogs: картинка — обложка, описание — поле Notes альбома (главной версии, иначе её основного издания).
  * FantLab (книги): название объекта — «Автор - Название» или просто «Название»; картинка — обложка, описание — аннотация.
  * Discogs: название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы, картинка — обложка.
@@ -36,12 +34,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class ImageImport {
 
-    public static final String STEAM = "steam", RAWG = "rawg", DISCOGS = "discogs", FANTLAB = "fantlab";
+    public static final String STEAM = "steam", DISCOGS = "discogs", FANTLAB = "fantlab";
     /** Источники: ключ → название для страницы. */
     public static final Map<String, String> SOURCES = new LinkedHashMap<>();
     static {
         SOURCES.put(STEAM, "Steam");
-        SOURCES.put(RAWG, "RAWG");
         SOURCES.put(DISCOGS, "Discogs");
         SOURCES.put(FANTLAB, "FantLab");
     }
@@ -54,9 +51,6 @@ public class ImageImport {
     /** FantLab просит не чаще раза в 1,2 с (Crawl-delay в robots.txt). */
     @Value("${fantlab.api-interval-ms:1200}")
     private long fantlabIntervalMs;
-    /** RAWG: лимит — около 20 000 запросов в месяц, по времени не ограничен; пауза — чтобы не нагружать. */
-    @Value("${rawg.api-interval-ms:500}")
-    private long rawgIntervalMs;
     /** Пауза, если сервис ограничил запросы, мс, и сколько раз подряд её делать. */
     @Value("${import.throttle-pause-ms:60000}")
     private long throttlePauseMs;
@@ -75,11 +69,6 @@ public class ImageImport {
     /** Сайт FantLab: пути к обложкам в ответах API — относительно него. */
     @Value("${fantlab.site-url:https://fantlab.ru}")
     private String fantlabSite;
-    /** RAWG: API и картинки. Ключ — у каждого пользователя свой (вкладка «Ключи»). */
-    @Value("${rawg.api-url:https://api.rawg.io/api}")
-    private String rawgUrl;
-    @Value("${rawg.media-url:https://media.rawg.io}")
-    private String rawgMedia;
     @Value("${app.version}")
     private String appVersion;
 
@@ -89,7 +78,7 @@ public class ImageImport {
         public final String collectionName;
         public final String source;
         public final boolean images, descriptions;
-        /** Steam и RAWG: первая картинка — скриншот, а не шапка (Steam) или главная картинка игры (RAWG). */
+        /** Steam: картинка — первый скриншот из галереи игры (1920×1080), а не шапка. */
         public final boolean screenshot;
         /** Сколько картинок загружать на объект (1…ImageFiles.MAX_IMAGES), если у источника они есть. */
         public final int maxImages;
@@ -100,12 +89,9 @@ public class ImageImport {
         volatile boolean cancel;
         /** Личный токен Discogs пользователя (пусто — без токена); на страницу не попадает. */
         private final String discogsToken;
-        /** Ключ RAWG пользователя; на страницу не попадает. */
-        private final String rawgKey;
 
         Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions,
-            boolean screenshot, int maxImages, String discogsToken, String rawgKey) {
-            this.rawgKey = rawgKey == null ? "" : rawgKey;
+            boolean screenshot, int maxImages, String discogsToken) {
             this.screenshot = screenshot;
             this.maxImages = Math.max(1, Math.min(ImageFiles.MAX_IMAGES, maxImages));
             this.discogsToken = discogsToken == null ? "" : discogsToken.trim();
@@ -158,19 +144,18 @@ public class ImageImport {
      * Запускает импорт; false — у пользователя уже идёт импорт. Права на коллекцию и источник проверяет вызывающий код.
      * onlyMissing — не трогать уже заполненное: картинку загружать только тем, у кого её нет, описание — так же.
      * discogsToken — личный токен Discogs пользователя (null — нет): без него Discogs отдаёт результаты и Notes,
-     * но без обложек (и только 25 запросов в минуту). rawgKey — ключ RAWG (без него RAWG не работает, проверяет
-     * вызывающий код).
+     * но без обложек (и только 25 запросов в минуту).
      */
     public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source,
                                       boolean images, boolean descriptions, boolean screenshot, int maxImages,
-                                      String discogsToken, String rawgKey) {
+                                      String discogsToken) {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
         boolean hasToken = discogsToken != null && !discogsToken.isBlank();
         // Без токена обложек у Discogs нет — только описания
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
         Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
-                screenshot && (source.equals(STEAM) || source.equals(RAWG)), maxImages, discogsToken, rawgKey);
+                screenshot && source.equals(STEAM), maxImages, discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -207,7 +192,6 @@ public class ImageImport {
                     Found f = switch (job.source) {
                         case DISCOGS -> findDiscogs(job, item.name(), img, descr);
                         case FANTLAB -> findFantlab(job, item.name(), img, descr);
-                        case RAWG -> findRawg(job, item.name(), img, descr);
                         default -> findSteam(job, item.name(), img, descr);
                     };
                     if (f == null) {
@@ -344,83 +328,6 @@ public class ImageImport {
                 .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").trim();
         if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
         return t.isEmpty() ? null : t;
-    }
-
-    // ---------- RAWG ----------
-
-    /**
-     * Игра с таким же названием: картинки (если нужны) и описание (если нужно); null — не найдена.
-     * Как у Steam: если по названию как есть совпадения нет — ещё раз без знаков препинания.
-     */
-    private Found findRawg(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
-        String key = norm(name);
-        if (key.isEmpty()) return null;
-        String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
-        for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
-            Found f = findRawgTerm(job, term, key, wantImage, wantDescription);
-            if (f != null) return f;
-        }
-        return null;
-    }
-
-    /**
-     * Поиск RAWG; из совпавших по названию — самая популярная (added — сколько пользователей добавили игру):
-     * так основная игра идёт раньше одноимённых поделок. Картинки — из того же ответа: главная картинка игры
-     * (background_image) и скриншоты (short_screenshots; у главной картинки там id -1), сжатые до ширины 1920.
-     * Режим «скриншот» — скриншоты (если их нет — главная картинка), иначе — главная картинка, за ней скриншоты.
-     * Описание — из карточки игры (отдельный запрос, только если оно нужно).
-     */
-    private Found findRawgTerm(Job job, String term, String key, boolean wantImage, boolean wantDescription) throws Exception {
-        JsonNode res = api(job, rawgUrl + "/games?key=" + enc(job.rawgKey) + "&page_size=20&search=" + enc(term));
-        if (res == null) return null;
-        JsonNode best = null;
-        for (JsonNode g : res.path("results"))
-            if (key.equals(norm(g.path("name").asText()))
-                    && (best == null || g.path("added").asLong() > best.path("added").asLong())) best = g;
-        if (best == null) return null;
-        String description = null;
-        if (wantDescription) {
-            JsonNode d = api(job, rawgUrl + "/games/" + best.path("id").asLong() + "?key=" + enc(job.rawgKey));
-            if (d != null) description = cleanFantlab(d.path("description_raw").asText(""));
-        }
-        List<byte[]> imgs = List.of();
-        if (wantImage) {
-            String bg = best.path("background_image").asText("");
-            List<String> shots = new java.util.ArrayList<>();
-            for (JsonNode sh : best.path("short_screenshots"))
-                if (sh.path("id").asLong() != -1) shots.add(rawgResized(sh.path("image").asText("")));
-            List<String> urls = new java.util.ArrayList<>();
-            if (job.screenshot && !shots.isEmpty()) {
-                urls.addAll(shots);
-            } else {
-                if (!bg.isEmpty()) urls.add(rawgResized(bg));
-                if (!job.screenshot) urls.addAll(shots);
-            }
-            imgs = downloadAll(urls, job.maxImages);
-        }
-        return new Found(imgs, description);
-    }
-
-    /** Картинка RAWG, сжатая сервисом до ширины 1920 (оригиналы бывают 4K и по несколько МБ). */
-    private String rawgResized(String url) {
-        String m = rawgMedia + "/media/";
-        if (!url.startsWith(m) || url.startsWith(m + "resize/")) return url;
-        return m + "resize/1920/-/" + url.substring(m.length());
-    }
-
-    /** Проверка ключа RAWG при сохранении: "ok", "invalid" (RAWG его отклонил) или "unavailable" (нет связи). */
-    public String checkRawgKey(String key) {
-        try {
-            HttpResponse<String> r = http.send(HttpRequest.newBuilder(URI.create(rawgUrl + "/games?page_size=1&key=" + enc(key)))
-                    .timeout(Duration.ofSeconds(30)).header("User-Agent", "CollectionsApp/" + appVersion).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            return r.statusCode() == 200 ? "ok" : r.statusCode() == 401 || r.statusCode() == 403 ? "invalid" : "unavailable";
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return "unavailable";
-        } catch (Exception e) {
-            return "unavailable";
-        }
     }
 
     // ---------- Discogs ----------
@@ -628,7 +535,7 @@ public class ImageImport {
         // Discogs без токена — 25 запросов в минуту
         boolean token = discogs && !job.discogsToken.isEmpty();
         long interval = discogs ? (token ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500))
-                : job.source.equals(FANTLAB) ? fantlabIntervalMs : job.source.equals(RAWG) ? rawgIntervalMs : steamIntervalMs;
+                : job.source.equals(FANTLAB) ? fantlabIntervalMs : steamIntervalMs;
         for (int attempt = 0; ; attempt++) {
             synchronized (lastCall) {
                 long wait = lastCall.getOrDefault(job.source, 0L) + interval - System.currentTimeMillis();
@@ -647,9 +554,6 @@ public class ImageImport {
             if (code == 404) return null;
             if (discogs && code == 401)
                 throw new FatalImport("Discogs отклонил токен — проверьте токен Discogs выше. Импорт остановлен");
-            // RAWG на неверный ключ отвечает 401 (а 403 — только при сбоях, его повторяем, как у всех)
-            if (job.source.equals(RAWG) && code == 401)
-                throw new FatalImport("RAWG отклонил ключ — проверьте его в «Настройки» → «Ключи». Импорт остановлен");
             if ((code == 429 || code == 403 || code >= 500) && attempt < THROTTLE_RETRIES) {
                 job.message = job.sourceName() + " ограничил запросы — пауза " + throttlePauseMs / 1000 + " с";
                 Thread.sleep(throttlePauseMs);
@@ -662,14 +566,13 @@ public class ImageImport {
 
     /** Картинка по адресу сервиса или null (нет такой, не картинка или слишком большая). */
     private byte[] download(String url) throws Exception {
-        // Только адреса картинок Steam, RAWG, Discogs и FantLab (и заглушек, если адреса сервисов подменены)
+        // Только адреса Steam и Discogs (и заглушек, если адреса сервисов подменены)
         URI u = URI.create(url);
         String host = u.getHost() == null ? "" : u.getHost();
         boolean known = "https".equals(u.getScheme()) && (host.endsWith(".steamstatic.com")
                 || host.endsWith(".steampowered.com") || host.endsWith(".discogs.com")
-                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru") || host.equals("media.rawg.io"));
-        if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")
-                && !url.startsWith(rawgMedia + "/")) return null;
+                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru"));
+        if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")) return null;
         HttpResponse<byte[]> r = http.send(HttpRequest.newBuilder(u).timeout(Duration.ofSeconds(30))
                 .header("User-Agent", "CollectionsApp/" + appVersion).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();

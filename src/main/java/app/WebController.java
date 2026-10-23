@@ -120,36 +120,7 @@ public class WebController {
         m.addAttribute("discogsReady", token != null);
         // сам токен на страницу не выводится — только последние 4 символа
         m.addAttribute("discogsTokenEnd", token == null ? null : token.substring(Math.max(0, token.length() - 4)));
-        m.addAttribute("rawgReady", repo.token(uid, ImageImport.RAWG) != null);
         return "import";
-    }
-
-    // Вкладка «Ключи»: ключ RAWG; сам ключ на страницу не выводится — только последние 4 символа
-    @GetMapping("/keys")
-    public String keysPage(@SessionAttribute("uid") long uid, Model m) {
-        String key = repo.token(uid, ImageImport.RAWG);
-        m.addAttribute("rawgReady", key != null);
-        m.addAttribute("rawgKeyEnd", key == null ? null : key.substring(Math.max(0, key.length() - 4)));
-        return "keys";
-    }
-
-    /** Ключ RAWG: сохранить (после проверки у RAWG) или удалить (кнопка «Удалить ключ»). */
-    @PostMapping("/keys/rawg")
-    public String rawgKey(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String key,
-                          @RequestParam(defaultValue = "false") boolean delete) {
-        if (delete) {
-            repo.setToken(uid, ImageImport.RAWG, "");
-            return "redirect:/keys?rawg=deleted";
-        }
-        key = key.trim();
-        // ключ RAWG — латинские буквы и цифры (32 символа); ограничение длины — с запасом
-        if (!key.matches("[A-Za-z0-9]{10,200}"))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Ключ RAWG — латинские буквы и цифры (rawg.io/apidocs)");
-        String check = images.checkRawgKey(key);
-        if (check.equals("invalid")) return "redirect:/keys?rawg=invalid";
-        repo.setToken(uid, ImageImport.RAWG, key);
-        return "redirect:/keys?rawg=" + (check.equals("ok") ? "saved" : "unchecked");
     }
 
     /** Личный токен Discogs пользователя: сохранить или удалить (кнопка «Удалить токен»). */
@@ -180,17 +151,12 @@ public class WebController {
         // Обложки Discogs — только с токеном; без него — только описания
         String discogsToken = repo.token(uid, ImageImport.DISCOGS);
         if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
-        // RAWG без ключа не работает
-        String rawgKey = repo.token(uid, ImageImport.RAWG);
-        if (source.equals(ImageImport.RAWG) && rawgKey == null)
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Для RAWG укажите ключ в «Настройки» → «Ключи»");
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Выберите, что загружать: картинки или описания");
         images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
-                discogsToken, rawgKey);
+                discogsToken);
         return "redirect:/import";
     }
 

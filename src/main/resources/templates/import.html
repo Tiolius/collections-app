@@ -5,7 +5,7 @@
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
-  <h3 class="section">Картинки и описания объектов из Steam, RAWG, Discogs или FantLab</h3>
+  <h3 class="section">Картинки и описания объектов из Steam, Discogs или FantLab</h3>
   <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
   <div class="import-box" id="import-job" th:if="${job != null and job.active()}">
     <div><b th:text="${job.collectionName}"></b> (<span th:text="${job.sourceName()}"></span>) — <span id="ij-state" th:text="${job.state == 'queued' ? 'в очереди' : 'идёт импорт'}"></span></div>
@@ -42,14 +42,11 @@
         <span class="tiptext">
           <span><b>Steam</b> — для игр: ищется игра с таким же названием, как у объекта (без учёта регистра, знаков ™ ® © и пунктуации),
             картинки — скриншоты из галереи игры (или шапка страницы игры и за ней скриншоты), описание — краткое описание игры (по-русски, если есть).</span>
-          <span><b>RAWG</b> — для игр, в том числе тех, которых нет в Steam (старые, консольные): ищется игра с таким же названием,
-            картинки — скриншоты (или главная картинка игры и за ней скриншоты), описание — только по-английски.
-            Нужен ключ RAWG: «Настройки» → «Ключи».</span>
           <span><b>Discogs</b> — для музыки: название объекта должно быть в виде «Группа - Альбом»,
             ищется альбом с тем же названием у той же группы, картинки — обложка и другие картинки альбома (с токеном), описание — примечания альбома (Notes); объекты без « - » в названии пропускаются.</span>
           <span><b>FantLab</b> — для книг: название объекта «Автор - Книга» (как у дисков; без « - » ищется просто по названию), картинки — обложка и обложки изданий, описание — аннотация
             (FantLab — база фантастики, книги других жанров там есть не всегда).</span>
-          <span>Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд со скриншотом или описанием), около 1 секунды для RAWG (без учёта скачивания картинок),
+          <span>Сервисы ограничивают число запросов: на объект уходит около 1,5 секунды для Steam (около 3 секунд со скриншотом или описанием),
             около 2 секунд для Discogs (до 4 секунд вместе с описанием) и около 3 секунд для FantLab.
             Страницу можно закрыть: импорт продолжится, прогресс будет виден здесь.</span>
           <span>Картинок на объект — до скольких загружать, если у источника их несколько; уже загруженные картинки объекта при этом заменяются.</span>
@@ -58,10 +55,8 @@
     </label>
     <div>
       <label class="radio"><input type="radio" name="source" value="steam" checked> Steam (игры)</label>
-      <label class="radio"><input type="radio" name="source" value="rawg" th:disabled="${!rawgReady}"> RAWG (игры)</label>
       <label class="radio"><input type="radio" name="source" value="discogs"> Discogs (музыка)</label>
       <label class="radio"><input type="radio" name="source" value="fantlab"> FantLab (книги)</label>
-      <div class="muted" th:unless="${rawgReady}">Для RAWG укажите ключ в «<a href="/keys">Настройки → Ключи</a>».</div>
       <div class="muted" th:unless="${discogsReady}">Без токена Discogs отдаёт только описания, без обложек: для обложек укажите свой токен Discogs ниже.</div>
     </div>
 
@@ -79,11 +74,10 @@
       </select>
     </div>
 
-    <label>Первая картинка</label>
+    <label>Картинка из Steam</label>
     <div>
-      <!-- для игр (Steam, RAWG): с чего начинать картинки объекта -->
-      <label class="radio"><input type="radio" name="steamImage" value="screenshot" checked> скриншот</label>
-      <label class="radio"><input type="radio" name="steamImage" value="header"> шапка страницы игры (Steam) / главная картинка (RAWG)</label>
+      <label class="radio"><input type="radio" name="steamImage" value="screenshot" checked> первый скриншот (1920×1080)</label>
+      <label class="radio"><input type="radio" name="steamImage" value="header"> шапка страницы игры</label>
     </div>
 
     <span></span>
@@ -125,12 +119,12 @@
     document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
     sync();
   })();
-  // Выбор «скриншот / шапка (главная картинка)» — только для игр (Steam, RAWG) и когда загружаются картинки
+  // Выбор «скриншот / шапка» — только для Steam и когда загружаются картинки
   (function () {
     var img = document.getElementById('f-images');
     if (!img) return;
     function sync() {
-      var src = document.querySelector('input[name=source]:checked').value, steam = src === 'steam' || src === 'rawg';
+      var steam = document.querySelector('input[name=source]:checked').value === 'steam';
       document.querySelectorAll('input[name=steamImage]').forEach(function (r) { r.disabled = !steam || !img.checked || img.disabled; });
       document.getElementById('f-count').disabled = !img.checked || img.disabled;
     }
