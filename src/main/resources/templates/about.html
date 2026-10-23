@@ -18,6 +18,10 @@
     <label for="f-date">Дата обновления</label>
     <input autocomplete="off" id="f-date" type="text" readonly th:value="${appBuildDate}">
 
+    <!-- Источник данных об играх: RAWG просит ссылку на себя там, где используются их данные -->
+    <label>Данные об играх</label>
+    <div>частично — <a href="https://rawg.io" target="_blank" rel="noopener">RAWG</a> (rawg.io)</div>
+
     <!-- Год — из даты обновления (дд.мм.гггг) -->
     <div class="full muted" th:text="${'© ' + #strings.substring(appBuildDate, appBuildDate.length() - 4) + ' ' + appAuthor + '. Collections App'}"></div>
   </form>
