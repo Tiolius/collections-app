@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
     show_prices INTEGER NOT NULL DEFAULT 0
 );
 
--- Личные токены и ключи сервисов импорта: service = 'discogs' (вкладка «Импорт»), 'igdb-id' и 'igdb-secret' (вкладка «Ключи»)
+-- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
 CREATE TABLE IF NOT EXISTS user_tokens (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     service TEXT NOT NULL,
