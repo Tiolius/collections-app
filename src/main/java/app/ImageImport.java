@@ -314,10 +314,14 @@ public class ImageImport {
         return img;
     }
 
-    /** Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет. */
+    /**
+     * Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет.
+     * Регион — США, как у поиска: без него Steam берёт регион по адресу, и для игр, которые в России не продаются
+     * (например, Sword Art Online: Fatal Bullet), отдаёт пустую карточку — без скриншотов и описания.
+     */
     private JsonNode appDetails(Job job, long appId, boolean screenshots) throws Exception {
         JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic" + (screenshots ? ",screenshots" : "")
-                + "&l=russian&appids=" + appId);
+                + "&cc=us&l=russian&appids=" + appId);
         return d == null ? json.createObjectNode() : d.path(String.valueOf(appId)).path("data");
     }
 
