@@ -412,6 +412,7 @@ public class WebController {
                              @RequestParam(name = "f_price_min", required = false) String fPriceMin,
                              @RequestParam(name = "f_price_max", required = false) String fPriceMax,
                              @RequestParam(name = "f_available", required = false) String fAvailable,
+                             @RequestParam(name = "f_images", required = false) String fImages,
                              @RequestParam(defaultValue = "false") boolean dups,
                              HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
@@ -453,6 +454,8 @@ public class WebController {
         // Наличие: «1» — есть, «0» — нет
         if (fields.contains("available") && ("1".equals(fAvailable) || "0".equals(fAvailable)))
             filters.put("available", fAvailable);
+        // Картинки (есть у всех объектов): «any» — есть, «0» — нет, «1»…«5» — ровно столько
+        if (fImages != null && fImages.matches("any|[0-" + ImageFiles.MAX_IMAGES + "]")) filters.put("images", fImages);
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));

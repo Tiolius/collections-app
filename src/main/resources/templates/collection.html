@@ -111,7 +111,17 @@
                  autocomplete="off" th:value="${filters.get('price_max')}" th:classappend="${filters.containsKey('price_max')} ? 'active'">
         </div>
       </th>
-      <th class="pic-col"></th>
+      <th class="pic-col">
+        <!-- Картинки: есть / нет / ровно N (например, найти объекты, где после импорта одна картинка) -->
+        <select name="f_images" form="filter-form" onchange="this.form.requestSubmit()" title="Картинки"
+                th:classappend="${filters.containsKey('images')} ? 'active'">
+          <option value="">Все</option>
+          <option value="any" th:selected="${filters.get('images') == 'any'}">Есть</option>
+          <option value="0" th:selected="${filters.get('images') == '0'}">Нет</option>
+          <option th:each="n : ${#numbers.sequence(1, 5)}" th:value="${n}" th:text="${n}"
+                  th:selected="${filters.get('images') == '' + n}"></option>
+        </select>
+      </th>
     </tr></thead>
     <tbody><th:block th:each="it : ${items}" th:with="grp=${groupStarts.contains(it.id()) ? 'gstart' : null}">
     <tr th:fragment="itemRow" th:class="${grp}"

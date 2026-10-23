@@ -377,6 +377,16 @@ public class Repo {
         if (filters.containsKey("available"))
             where.append("1".equals(filters.get("available")) ? " AND" : " AND NOT")
                     .append(" EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id)");
+        // Картинки: "any" — есть хотя бы одна, "0" — нет ни одной, "1".."5" — ровно столько
+        String images = filters.get("images");
+        if (images != null) {
+            String count = "(SELECT COUNT(*) FROM item_pictures ip WHERE ip.item_id = items.id)";
+            if (images.equals("any")) where.append(" AND ").append(count).append(" > 0");
+            else {
+                where.append(" AND ").append(count).append(" = ?");
+                args.add(Integer.parseInt(images));
+            }
+        }
         List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
                 mapper(true, false), args.toArray());
         String name = filters.get("name");
