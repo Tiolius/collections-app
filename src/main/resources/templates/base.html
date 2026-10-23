@@ -371,6 +371,7 @@
   .og-load { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .og-load .mi { width: 16px; height: 16px; }
   .og-status { margin-top: 4px; }
+  .form > label.og-label { align-self: start; padding-top: 6px; }  /* подпись — на уровне поля, а не по центру вместе с итогом */
   .og-status.ok { color: var(--ok-text); }
   .og-status.error { color: var(--red); }
   dialog.modal .confirm-body { display: flex; align-items: center; gap: 12px; padding: 20px 24px; }
@@ -409,6 +410,7 @@
   dialog.modal .dlg-body > .form { flex: 1; }
   /* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
   dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
+  dialog.modal.wide .dlg-body > .form.after-desc { grid-template-rows: repeat(var(--rows), min-content) 1fr min-content; }
   dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
   dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
   dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
@@ -601,7 +603,9 @@
           <button type="button" class="icon red" id="d-remove" title="Удалить картинку" aria-label="Удалить картинку"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
-    <div class="form" th:style="${'--rows:' + (1 + fields.size())}">
+    <!-- --rows — сколько строк до «Описания» (оно растягивается до низа окна); «Old-Games.ru» — строкой после него -->
+    <div class="form" th:classappend="${fields.contains('oldgames')} ? 'after-desc'"
+         th:style="${'--rows:' + (1 + fields.size() - (fields.contains('oldgames') ? 1 : 0))}">
       <input type="hidden" name="view" th:value="${view}">
       <label for="d-name">Название *</label>
       <input autocomplete="off" id="d-name" type="text" name="name" required>
@@ -633,8 +637,10 @@
         <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> есть</label></span>
       </th:block>
+      <label for="d-description">Описание</label>
+      <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <th:block th:if="${fields.contains('oldgames')}">
-        <label for="d-oldgames">Old-Games.ru</label>
+        <label for="d-oldgames" class="og-label">Old-Games.ru</label>
         <!-- Ссылка на страницу игры; «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
         <div class="og-box">
           <div class="og-row">
@@ -645,8 +651,6 @@
           <div class="og-status" id="d-og-status" hidden></div>
         </div>
       </th:block>
-      <label for="d-description">Описание</label>
-      <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
     </div>
     </div>
     <!-- Нижняя панель окна: слева «Удалить объект» (отправляет форму на /items/{id}/delete, адрес — formaction,
