@@ -17,7 +17,7 @@
    * Подтверждение в окне приложения (вместо браузерного confirm): onclick="return appConfirm(event, 'Удалить …?')"
    * у кнопки или onsubmit="return appConfirm(event, '…')" у формы. Отправка отменяется, а после «Удалить»
    * форма отправляется заново той же кнопкой (formaction, formnovalidate сохраняются). Esc, щелчок мимо окна,
-   * крестик и «Отмена» — ничего не делать. Фокус — на «Отмене».
+   * крестик и «Отмена» — ничего не делать. Кнопки: «Удалить» слева, «Отмена» справа, фокус — на «Отмене».
    */
   function appConfirm(e, message, okText) {
     var btn = e.type === 'click' ? e.currentTarget : null, form = btn ? btn.form : e.currentTarget;
@@ -30,8 +30,8 @@
       dlg.innerHTML = '<div class="modal-head"><span>Подтверждение</span>'
         + '<button type="button" class="icon" data-cancel title="Закрыть" aria-label="Закрыть"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button></div>'
         + '<div class="confirm-body"><span class="confirm-icon"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M40-120 480-880l440 760H40Zm104-60h672L480-760 144-180Zm361.5-65.5Q517-257 517-274t-11.5-28.5Q494-314 477-314t-28.5 11.5Q437-291 437-274t11.5 28.5Q460-234 477-234t28.5-11.5ZM447-354h60v-224h-60v224Zm33-116Z"/></svg></span><p></p></div>'
-        + '<div class="dlg-foot"><button type="button" class="btn light" data-cancel>Отмена</button>'
-        + '<button type="button" class="btn red" data-ok></button></div>';
+        + '<div class="dlg-foot"><button type="button" class="btn red" data-ok></button>'
+        + '<button type="button" class="btn light" data-cancel>Отмена</button></div>';
       document.body.appendChild(dlg);
       dlg.querySelectorAll('[data-cancel]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
       dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); }); // щелчок мимо окна
