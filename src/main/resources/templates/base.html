@@ -368,8 +368,7 @@
   /* Поле «Old-Games.ru»: адрес, «Загрузить», «Открыть»; под ними — итог загрузки */
   .og-row { display: flex; gap: 6px; align-items: center; }
   .og-row input { flex: 1; min-width: 0; max-width: none !important; }
-  .og-load { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-  .og-load .mi { width: 16px; height: 16px; }
+  .og-load:disabled { opacity: .4; cursor: wait; }  /* идёт загрузка */
   .og-status { margin-top: 4px; }
   .form > label.og-label { align-self: start; padding-top: 6px; }  /* подпись — на уровне поля, а не по центру вместе с итогом */
   .og-status.ok { color: var(--ok-text); }
@@ -641,11 +640,11 @@
       <textarea autocomplete="off" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <th:block th:if="${fields.contains('oldgames')}">
         <label for="d-oldgames" class="og-label">Old-Games.ru</label>
-        <!-- Ссылка на страницу игры; «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
+        <!-- Ссылка на страницу игры; значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
         <div class="og-box">
           <div class="og-row">
             <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" placeholder="https://www.old-games.ru/game/…">
-            <button type="button" class="btn light og-load" id="d-og-load" title="Загрузить описание и картинки со страницы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg> Загрузить</button>
+            <button type="button" class="icon og-load" id="d-og-load" title="Загрузить описание и картинки со страницы" aria-label="Загрузить описание и картинки со страницы"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg></button>
             <a class="icon og-open" id="d-og-open" target="_blank" rel="noopener" title="Открыть страницу на Old-Games.ru" aria-label="Открыть страницу на Old-Games.ru"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h279v60H180v600h600v-279h60v279q0 24-18 42t-42 18H180Zm202-219-42-43 398-398H519v-60h321v321h-60v-218L382-339Z"/></svg></a>
           </div>
           <div class="og-status" id="d-og-status" hidden></div>
