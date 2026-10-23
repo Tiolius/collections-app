@@ -11,7 +11,7 @@
   <form autocomplete="off" class="form" method="post" enctype="multipart/form-data">
     <input type="hidden" name="view" th:if="${view != null}" th:value="${view}">
     <label for="f-name">Название *</label>
-    <input autocomplete="off" id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
+    <input autocomplete="off" spellcheck="false" id="f-name" type="text" name="name" required autofocus th:value="${obj != null ? obj.name() : ''}">
 
     <th:block th:unless="${isItem}">
       <label for="f-kind">Тип коллекции *</label>

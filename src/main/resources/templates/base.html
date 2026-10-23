@@ -610,7 +610,7 @@
          th:style="${'--rows:' + (1 + fields.size() - (fields.contains('oldgames') ? 1 : 0))}">
       <input type="hidden" name="view" th:value="${view}">
       <label for="d-name">Название *</label>
-      <input autocomplete="off" id="d-name" type="text" name="name" required>
+      <input autocomplete="off" spellcheck="false" id="d-name" type="text" name="name" required>
       <th:block th:if="${fields.contains('platform')}">
         <label for="d-platform">Платформа</label>
         <input autocomplete="off" id="d-platform" type="text" name="platform">
