@@ -272,14 +272,15 @@ public class ImageImport {
     private Found findSteamTerm(Job job, String term, String key, boolean wantImage, boolean wantDescription) throws Exception {
         JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
         if (res == null) return null;
-        // Точное совпадение названия; если его нет — то же название без приписки издания (DX, Remastered, GOTY…):
-        // старое издание после выхода нового Steam часто снимает с продажи, и поиск находит только новое
+        // Точное совпадение названия; если его нет — то же название без «The» в начале и приписки издания
+        // (DX, Remastered, GOTY…): «Banner Saga 3» = «The Banner Saga 3»; старое издание после выхода нового
+        // Steam часто снимает с продажи, и поиск находит только новое
         JsonNode found = null, edition = null;
         for (JsonNode it : res.path("items")) {
             if (!"app".equals(it.path("type").asText("app"))) continue;
             String n = norm(it.path("name").asText());
             if (key.equals(n)) { found = it; break; }
-            if (edition == null && editionBase(key).equals(editionBase(n))) edition = it;
+            if (edition == null && looseKey(key).equals(looseKey(n))) edition = it;
         }
         if (found == null) found = edition;
         for (JsonNode it : found == null ? List.<JsonNode>of() : List.of(found)) {
@@ -324,6 +325,12 @@ public class ImageImport {
             s = EDITION.matcher(s).replaceFirst("");
         } while (!s.equals(prev) && !s.isEmpty());
         return s.isEmpty() ? normName : s;
+    }
+
+    /** Название для запасного сравнения: без «The» в начале и приписок изданий в конце. */
+    static String looseKey(String normName) {
+        String s = editionBase(normName);
+        return s.startsWith("the ") && s.length() > 4 ? s.substring(4) : s;
     }
 
     /** Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры; иначе маленькая картинка. */
