@@ -1,0 +1,75 @@
+# Программа для Windows: CollectionsApp.exe со встроенной Java (jpackage), без Docker и без установки Java.
+# Собирается на серверах GitHub с Windows. При каждом пуше в main, если релиза с текущей версией (pom.xml) ещё нет,
+# создаётся релиз vX.Y.Z с архивом CollectionsApp-X.Y.Z-windows.zip. В PR архив только собирается (артефакт сборки).
+name: Программа для Windows
+
+on:
+  push:
+    branches: [main, work]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Модули Java во встроенной среде: найденные jdeps плюс подгружаемые во время работы
+  # (jdk.crypto.ec — HTTPS, jdk.localedata — русская сортировка, java.naming и java.logging — Tomcat, jdk.charsets)
+  MODULES: java.base,java.compiler,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql,java.sql.rowset,java.xml,jdk.charsets,jdk.crypto.ec,jdk.jfr,jdk.localedata,jdk.net,jdk.unsupported,jdk.zipfs
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Сборка app.jar
+        shell: bash
+        run: mvn -B -q package -DskipTests
+
+      - name: Версия из pom.xml
+        id: v
+        shell: bash
+        run: echo "version=$(mvn -B -q -DforceStdout help:evaluate -Dexpression=project.version)" >> "$GITHUB_OUTPUT"
+
+      - name: CollectionsApp.exe (jpackage)
+        shell: bash
+        run: |
+          mkdir -p dist/in && cp target/app.jar dist/in/
+          jpackage --type app-image --name CollectionsApp --app-version "${{ steps.v.outputs.version }}" \
+            --description "Collections App" --icon packaging/CollectionsApp.ico --win-console \
+            --input dist/in --main-jar app.jar --dest dist \
+            --add-modules "$MODULES" --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-6"
+
+      - name: Архив
+        shell: pwsh
+        run: Compress-Archive -Path dist/CollectionsApp -DestinationPath "dist/CollectionsApp-${{ steps.v.outputs.version }}-windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CollectionsApp-${{ steps.v.outputs.version }}-windows
+          path: dist/*.zip
+
+      - name: Релиз
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${{ steps.v.outputs.version }}"
+          if gh release view "v$ver" > /dev/null 2>&1; then
+            echo "Релиз v$ver уже есть — новая версия в pom.xml не задана"
+            exit 0
+          fi
+          gh release create "v$ver" dist/*.zip --target "${{ github.sha }}" --title "Collections App $ver" --notes "$(cat <<'EOF'
+          Программа для Windows: распакуйте архив и запустите CollectionsApp.exe — откроется браузер с приложением (http://localhost:47321). Чтобы остановить, закройте окно программы.
+
+          Данные (база и картинки) хранятся в папке data рядом с CollectionsApp.exe. Обновление: распакуйте новый архив поверх старой папки — папка data останется.
+          EOF
+          )"
