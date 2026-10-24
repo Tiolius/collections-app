@@ -36,11 +36,12 @@ public class App {
         String dataDir = System.getProperty("DATA_DIR", System.getenv().getOrDefault("DATA_DIR", "/data"));
         new File(dataDir).mkdirs();
         SpringApplication app = new SpringApplication(App.class);
+        // Сообщения в окне программы — по-английски (консоль Windows не всегда показывает кириллицу)
         if (desktop) app.addListeners((ApplicationReadyEvent e) -> {
             System.out.println();
-            System.out.println("Collections App запущено: http://localhost:" + DESKTOP_PORT);
-            System.out.println("Данные: " + new File(dataDir).getAbsolutePath());
-            System.out.println("Чтобы остановить приложение, закройте это окно.");
+            System.out.println("Collections App is running: http://localhost:" + DESKTOP_PORT);
+            System.out.println("Data folder: " + new File(dataDir).getAbsolutePath());
+            System.out.println("To stop the application, close this window.");
             openBrowser();
         });
         app.run(args);
@@ -65,7 +66,7 @@ public class App {
         try {
             new ProcessBuilder(cmd).start();
         } catch (Exception e) {
-            System.out.println("Откройте в браузере: " + url);
+            System.out.println("Open in your browser: " + url);
         }
     }
 }

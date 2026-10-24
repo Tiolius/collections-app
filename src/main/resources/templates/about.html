@@ -1,21 +1,21 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('about')}"></th:block>
   <form autocomplete="off" class="form" onsubmit="return false">
-    <label for="f-version">Версия</label>
+    <label for="f-version" th:text="#{about.version}">Версия</label>
     <input autocomplete="off" id="f-version" type="text" readonly th:value="${appVersion}">
 
-    <label for="f-author">Автор</label>
+    <label for="f-author" th:text="#{about.author}">Автор</label>
     <input autocomplete="off" id="f-author" type="text" readonly th:value="${appAuthor}">
 
     <label for="f-email">Email</label>
     <input autocomplete="off" id="f-email" type="text" readonly th:value="${appEmail}">
 
-    <label for="f-date">Дата обновления</label>
+    <label for="f-date" th:text="#{about.date}">Дата обновления</label>
     <input autocomplete="off" id="f-date" type="text" readonly th:value="${appBuildDate}">
 
     <!-- Год — из даты обновления (дд.мм.гггг) -->

@@ -1,26 +1,25 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('export')}"></th:block>
-  <h3 class="section">Выгрузка коллекций в Excel</h3>
-  <p class="muted">Выбранные коллекции выгружаются в один файл Excel (.xlsx): каждая коллекция — на своём листе,
-    столбцы — название и поля типа коллекции. Картинки не выгружаются.</p>
+  <h3 class="section" th:text="#{export.title}">Выгрузка коллекций в Excel</h3>
+  <p class="muted" th:text="#{export.text}"></p>
   <p class="error" th:if="${error != null}" th:text="${error}"></p>
-  <p class="empty" th:if="${collections.isEmpty()}">Коллекций пока нет.</p>
+  <p class="empty" th:if="${collections.isEmpty()}" th:text="#{collections.none}">Коллекций пока нет.</p>
 
   <form autocomplete="off" class="form" method="post" action="/export" th:unless="${collections.isEmpty()}">
-    <label class="at-field">Коллекции</label>
+    <label class="at-field" th:text="#{export.collections}">Коллекции</label>
     <div class="export-list">
-      <label class="radio all"><input type="checkbox" id="export-all"> <b>Все коллекции</b></label>
+      <label class="radio all"><input type="checkbox" id="export-all"> <b th:text="#{nav.allCollections}">Все коллекции</b></label>
       <label class="radio" th:each="c : ${collections}">
         <input type="checkbox" name="c" th:value="${c.id()}">
         <span th:text="${c.name()}"></span> <span class="muted" th:text="${'(' + c.count() + ')'}"></span>
       </label>
     </div>
-    <div class="full"><button class="btn">Скачать Excel</button></div>
+    <div class="full"><button class="btn" th:text="#{export.download}">Скачать Excel</button></div>
   </form>
 
 <script>

@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('display')}"></th:block>
-  <p class="ok" th:if="${param.saved != null}">Настройки сохранены.</p>
+  <p class="ok" th:if="${param.saved != null}" th:text="#{display.saved}">Настройки сохранены.</p>
   <form autocomplete="off" class="form" method="post" action="/display">
-    <label for="f-show">Цены</label>
+    <label for="f-show" th:text="#{display.prices}">Цены</label>
     <div>
-      <label class="radio"><input id="f-show" type="checkbox" name="showPrices" value="true" th:checked="${showPrices}"> Показывать цены</label>
-      <div class="muted">Цена объекта и стоимость коллекции видны сразу. Если выключено — только в подсказке у иконки глаза.</div>
+      <label class="radio"><input id="f-show" type="checkbox" name="showPrices" value="true" th:checked="${showPrices}"> <span th:text="#{display.showPrices}">Показывать цены</span></label>
+      <div class="muted" th:text="#{display.showPricesHint}"></div>
     </div>
 
-    <div class="full"><button class="btn">Сохранить</button></div>
+    <div class="full"><button class="btn" th:text="#{btn.save}">Сохранить</button></div>
   </form>
 </main>
 </body>

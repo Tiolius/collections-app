@@ -7,17 +7,17 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.0</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
     <groupId>app</groupId>
     <artifactId>collections-app</artifactId>
     <!-- Версия приложения: показывается в «Настройках» → «О приложении». Повышать при выпуске изменений -->
-    <version>1.9.0</version>
+    <version>1.10.0</version>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <!-- Дата сборки — «Дата обновления» в «Настройках» → «О приложении» (app.build-date) -->
         <maven.build.timestamp.format>dd.MM.yyyy</maven.build.timestamp.format>
         <build.date>${maven.build.timestamp}</build.date>
@@ -45,6 +45,18 @@
     <build>
         <finalName>app</finalName>
         <plugins>
+            <!-- Java 24+: SQLite загружает свою библиотеку — разрешаем без предупреждения при запуске -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

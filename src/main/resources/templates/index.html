@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
   <div class="bar">
-    <h2>Мои коллекции</h2>
+    <h2 th:text="#{index.title}">Мои коллекции</h2>
     <span class="pager pages" th:if="${pages > 1}">
       <th:block th:each="p : ${pageLinks}">
         <span th:if="${p == 0}" class="muted">…</span>
@@ -14,9 +14,9 @@
       </th:block>
     </span>
     <span class="spacer"></span>
-    <a class="icon big add" href="/collections/new" title="Новая коллекция" aria-label="Новая коллекция"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
+    <a class="icon big add" href="/collections/new" th:title="#{coll.new}" th:aria-label="#{coll.new}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
   </div>
-  <p class="empty" th:if="${collections.isEmpty()}">Пока нет ни одной коллекции.</p>
+  <p class="empty" th:if="${collections.isEmpty()}" th:text="#{index.empty}">Пока нет ни одной коллекции.</p>
   <div class="list">
     <a class="row" th:each="c : ${collections}" th:href="@{/collections/{id}(id=${c.id()})}">
       <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">

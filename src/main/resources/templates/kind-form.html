@@ -1,30 +1,30 @@
 <!doctype html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
 <main>
   <div class="bar">
-    <a class="btn light back" href="/kinds" title="Назад" aria-label="Назад"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
-    <h2 th:text="${title}"></h2>
+    <a class="btn light back" href="/kinds" th:title="#{nav.back}" th:aria-label="#{nav.back}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
+    <h2 th:text="#{${title}}"></h2>
   </div>
   <form autocomplete="off" class="form" method="post">
-    <label for="f-name">Название типа *</label>
+    <label for="f-name" th:text="#{kinds.name} + ' *'">Название типа *</label>
     <input autocomplete="off" id="f-name" type="text" name="name" required autofocus th:value="${kind != null ? kind.name() : ''}">
 
-    <label>Поля объектов</label>
+    <label th:text="#{kinds.fields}">Поля объектов</label>
     <div>
-      <label class="radio"><input type="checkbox" checked disabled> Название</label>
+      <label class="radio"><input type="checkbox" checked disabled> <span th:text="#{field.name}">Название</span></label>
       <label class="radio" th:each="f : ${fieldNames}">
         <input type="checkbox" name="fields" th:value="${f.key}" th:checked="${kind != null and kind.fields().contains(f.key)}">
-        <span th:text="${f.value}"></span>
+        <span th:text="${#messages.msg(f.value)}"></span>
       </label>
     </div>
 
-    <label class="top">Цвет строки по статусу</label>
+    <label class="top" th:text="#{kinds.rowColor}">Цвет строки по статусу</label>
     <div>
       <table class="status-colors">
-        <tr><th>Статус</th><th>Цвет</th></tr>
+        <tr><th th:text="#{field.statusShort}">Статус</th><th th:text="#{kinds.color}">Цвет</th></tr>
         <tr th:each="e : ${statusColors}">
           <td><select name="st">
             <option value="">—</option>
@@ -42,17 +42,15 @@
           <td><input type="color" name="stc" value="#fefcbf"></td>
         </tr>
       </table>
-      <div class="muted hint">Строки объектов с этим статусом закрашиваются выбранным цветом.
-        Чтобы убрать цвет, выберите «—».
-        Работает, если у типа отмечено поле «Статус прохождения».</div>
+      <div class="muted hint" th:text="#{kinds.colorHint}"></div>
     </div>
 
     <p class="full muted" style="margin:0" th:if="${kind != null and kind.used() > 0}"
-       th:text="${'Тип используется в коллекциях: ' + kind.used() + '. Если снять поле, его значения у объектов не удалятся, а только перестанут показываться.'}"></p>
+       th:text="#{kinds.usedHint(${kind.used()})}"></p>
 
     <div class="full">
-      <button class="btn">Сохранить</button>
-      <a class="btn gray" href="/kinds">Отмена</a>
+      <button class="btn" th:text="#{btn.save}">Сохранить</button>
+      <a class="btn gray" href="/kinds" th:text="#{btn.cancel}">Отмена</a>
     </div>
   </form>
 </main>

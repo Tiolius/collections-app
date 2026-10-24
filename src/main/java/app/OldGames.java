@@ -68,12 +68,12 @@ public class OldGames {
      */
     public synchronized Result load(String url, int max) throws Exception {
         String id = gameId(url);
-        if (id == null) throw new IllegalArgumentException("Нужен номер игры в каталоге Old-Games.ru — число из адреса …/game/11.html");
+        if (id == null) throw new IllegalArgumentException(I18n.t("og.needId"));
         String page = get(site + "/game/" + id + ".html");
         if (page == null) return null;
         String description = review(page);
         String source = normalize(url);
-        description = (description == null ? "" : description + "\n\n") + "Источник: " + source;
+        description = (description == null ? "" : description + "\n\n") + I18n.t("og.source", source);
 
         List<String> urls = new ArrayList<>();
         String covers = get(site + "/game/covers/" + id + ".html");
