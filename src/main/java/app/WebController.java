@@ -783,7 +783,7 @@ public class WebController {
     @GetMapping("/collections/{id}/edit")
     public String editCollectionForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
         Entry c = repo.collection(uid, id);
-        return form(uid, m, c, false, Set.of(), c.hasImage() ? "/collections/" + id + "/image" : null,
+        return form(uid, m, c, false, Set.of(), c.pic() != null ? "/img/" + c.pic() : null,
                 "coll.editTitle", "/collections/" + id);
     }
 
@@ -840,7 +840,7 @@ public class WebController {
         Entry it = repo.item(uid, id);
         Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
         m.addAttribute("view", view);
-        return form(uid, m, it, true, fields, it.hasImage() ? "/items/" + id + "/image" : null,
+        return form(uid, m, it, true, fields, it.pic() != null ? "/img/" + it.pic() : null,
                 "item.edit", collectionUrl(it.collectionId(), view));
     }
 
@@ -922,6 +922,24 @@ public class WebController {
      */
     private static Boolean available(List<String> values) {
         return values == null ? null : values.contains("1");
+    }
+
+    /**
+     * Картинка по хешу содержимого: /img/<хеш> — сама картинка, /img/<хеш>/thumb — уменьшенная копия (главная, шапка
+     * коллекции, поиск; если уменьшать нечего — сама картинка). Содержимое по адресу никогда не меняется (другая
+     * картинка — другой хеш), поэтому браузер хранит её год и не спрашивает снова. Только свои картинки, иначе 404.
+     */
+    @GetMapping({"/img/{hash}", "/img/{hash}/thumb"})
+    public ResponseEntity<byte[]> picture(@SessionAttribute("uid") long uid, @PathVariable String hash, HttpServletRequest req) {
+        ImageFiles.Pic pic = hash.matches("[0-9a-f]{64}") ? repo.ownedPicture(uid, hash) : null;
+        if (pic == null) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        ImageFiles.Thumb thumb = req.getRequestURI().endsWith("/thumb") ? repo.thumb(pic) : null;
+        byte[] body = thumb != null ? thumb.bytes() : repo.pictureBytes(pic);
+        if (body == null) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePrivate().immutable())
+                .contentType(MediaType.parseMediaType(thumb != null ? thumb.mime() : pic.mime()))
+                .body(body);
     }
 
     /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */

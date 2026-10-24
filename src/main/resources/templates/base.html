@@ -864,10 +864,8 @@
         if (avail) avail.checked = row.dataset.available === '1';
         if ($('d-oldgames')) { $('d-oldgames').value = row.dataset.oldgames || ''; $('d-og-status').hidden = true; ogSync(); }
         itemId = row.dataset.id;
-        // Картинки: сохранённые (сколько есть) и пустой слот; выбор файлов и пометки удаления — сброшены
-        var count = +row.dataset.images || 0, t = Date.now();
-        slots = [];
-        for (var k = 0; k < count; k++) slots.push({ saved: '/items/' + row.dataset.id + '/image?n=' + k + '&t=' + t });
+        // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены
+        slots = (row.dataset.pics || '').split(',').filter(Boolean).map(function (h) { return { saved: '/img/' + h }; });
         if (!slots.length) slots.push({});
         addEmptySlot();
         for (var j = 0; j < MAX; j++) { $('d-file-' + j).value = ''; $('d-remove-' + j).disabled = true; }

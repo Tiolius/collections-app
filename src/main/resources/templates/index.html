@@ -20,7 +20,7 @@
   <p class="empty" th:if="${collections.isEmpty()}" th:text="#{index.empty}">Пока нет ни одной коллекции.</p>
   <div class="list">
     <a class="row" th:each="c : ${collections}" th:href="@{/collections/{id}(id=${c.id()})}">
-      <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+      <img class="thumb" th:if="${c.hasImage()}" th:src="@{/img/{h}/thumb(h=${c.pic()})}" alt="">
       <div class="thumb" th:unless="${c.hasImage()}"></div>
       <div>
         <div class="name" th:text="${c.name()}"></div>

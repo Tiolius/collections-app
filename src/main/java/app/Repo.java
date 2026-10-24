@@ -29,7 +29,8 @@ public class Repo {
 
     // в запросах таблица collections — с псевдонимом c
     private static final String COLLECTION_COLS =
-            "id, name, EXISTS (SELECT 1 FROM collection_pictures cp WHERE cp.collection_id = c.id) AS has_image, kind";
+            "id, name, EXISTS (SELECT 1 FROM collection_pictures cp WHERE cp.collection_id = c.id) AS has_image, kind, "
+            + "(SELECT cp.hash FROM collection_pictures cp WHERE cp.collection_id = c.id) AS pics";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price, "
             + "EXISTS (SELECT 1 FROM item_pictures ip WHERE ip.item_id = items.id) AS has_image, "
             + "(SELECT COUNT(*) FROM item_pictures ip WHERE ip.item_id = items.id) AS image_count, "
@@ -40,7 +41,9 @@ public class Repo {
             + "(SELECT d.purchased FROM item_details d WHERE d.item_id = items.id) AS purchased, "
             + "(SELECT d.tags FROM item_details d WHERE d.item_id = items.id) AS tags, "
             + "(SELECT d.edition FROM item_details d WHERE d.item_id = items.id) AS edition, "
-            + "(SELECT d.notes FROM item_details d WHERE d.item_id = items.id) AS notes";
+            + "(SELECT d.notes FROM item_details d WHERE d.item_id = items.id) AS notes, "
+            // хеши картинок по порядку — адреса /img/<хеш> (кеш браузера по содержимому)
+            + "(SELECT group_concat(ip.hash, ',' ORDER BY ip.pos) FROM item_pictures ip WHERE ip.item_id = items.id) AS pics";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -101,7 +104,8 @@ public class Repo {
                 isItem ? rs.getString("purchased") : null,
                 isItem ? rs.getString("tags") : null,
                 isItem ? rs.getString("edition") : null,
-                isItem ? rs.getString("notes") : null);
+                isItem ? rs.getString("notes") : null,
+                rs.getString("pics"));
     }
 
     /** Рейтинг (1…10 половинок звезды) или null. */
@@ -585,6 +589,29 @@ public class Repo {
     public Map<String, Object> collectionImage(long uid, long id) {
         collection(uid, id); // чужая коллекция — 404
         return picture(files.collection(id));
+    }
+
+    /**
+     * Картинка по хешу содержимого (адрес /img/<хеш>), если на неё ссылается объект или коллекция этого пользователя;
+     * иначе null (чужие картинки не отдаются, даже если знать хеш).
+     */
+    public ImageFiles.Pic ownedPicture(long uid, String hash) {
+        List<String> mime = jdbc.queryForList("SELECT p.mime FROM pictures p WHERE p.hash = ? AND ("
+                + "EXISTS (SELECT 1 FROM item_pictures ip JOIN items i ON i.id = ip.item_id JOIN collections c ON c.id = i.collection_id "
+                + "WHERE ip.hash = p.hash AND c.user_id = ?) OR "
+                + "EXISTS (SELECT 1 FROM collection_pictures cp JOIN collections c ON c.id = cp.collection_id "
+                + "WHERE cp.hash = p.hash AND c.user_id = ?))", String.class, hash, uid, uid);
+        return mime.isEmpty() ? null : new ImageFiles.Pic(hash, mime.get(0));
+    }
+
+    /** Содержимое картинки (null — файла нет). */
+    public byte[] pictureBytes(ImageFiles.Pic pic) {
+        return files.read(pic);
+    }
+
+    /** Уменьшенная копия картинки или null — тогда отдаётся сама картинка. */
+    public ImageFiles.Thumb thumb(ImageFiles.Pic pic) {
+        return files.thumb(pic);
     }
 
     /** Картинка объекта номер n (с нуля): {image, image_mime} или 404 (в т.ч. если объект чужой). */

@@ -9,11 +9,17 @@ package app;
  * imageCount (сколько картинок, до ImageFiles.MAX_IMAGES), rating (рейтинг в половинках звезды: 1…10, null — нет),
  * oldGames (ссылка на страницу игры на Old-Games.ru или null), purchased (дата покупки ГГГГ-ММ-ДД), tags (теги через «, »),
  * edition (регион / издание), notes (заметки) — null, если не заполнено.
+ * pics — хеши картинок через запятую (у объекта — по порядку, у коллекции — обложка) для адресов /img/<хеш>; null — нет.
  */
 public record Entry(long id, String name, boolean hasImage, Long collectionId, int count,
                     String kind, String platform, String format, String status, Integer price,
                     String description, Boolean available, int imageCount, Integer rating, String oldGames,
-                    String purchased, String tags, String edition, String notes) {
+                    String purchased, String tags, String edition, String notes, String pics) {
+
+    /** Хеш первой картинки (обложки коллекции) или null. */
+    public String pic() {
+        return pics == null || pics.isEmpty() ? null : pics.split(",")[0];
+    }
 
     /** Номер игры на Old-Games.ru (из сохранённого адреса страницы) — его показывает поле; null — ссылки нет. */
     public String oldGamesId() {

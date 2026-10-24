@@ -23,7 +23,7 @@
       <label th:text="#{field.image}">Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
-          <img class="preview" th:src="${imgUrl}" alt="">
+          <img class="preview" th:src="${imgUrl + '/thumb'}" alt="">
           <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
         </th:block>
         <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
@@ -107,7 +107,7 @@
       <label th:text="#{field.image}">Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
-          <a th:href="${imgUrl}" target="_blank" th:title="#{js.openFull}"><img class="preview" th:src="${imgUrl}" alt=""></a>
+          <a th:href="${imgUrl}" target="_blank" th:title="#{js.openFull}"><img class="preview" th:src="${imgUrl + '/thumb'}" alt=""></a>
           <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
         </th:block>
         <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
