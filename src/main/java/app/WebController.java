@@ -236,14 +236,16 @@ public class WebController {
         }
         List<Xlsx.Sheet> sheets = new ArrayList<>();
         for (Entry c : chosen) {
-            // Описание и номер Old-Games.ru в Excel не выгружаются (по просьбе пользователя)
+            // Описание, заметки и номер Old-Games.ru в Excel не выгружаются (по просьбе пользователя)
             Set<String> fields = new java.util.LinkedHashSet<>(repo.itemFields(uid, c.kind()));
             fields.remove("oldgames");
+            fields.remove("notes");
             List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
-                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : 22);
+                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") || f.equals("purchased") ? 12
+                        : f.equals("tags") ? 30 : 22);
             }
             List<List<Object>> rows = new ArrayList<>();
             for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
@@ -257,6 +259,9 @@ public class WebController {
                         case "price" -> it.price();
                         case "available" -> I18n.t(it.available() ? "available.yes" : "available.no");
                         case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
+                        case "purchased" -> it.purchased(); // ГГГГ-ММ-ДД
+                        case "tags" -> it.tags();
+                        case "edition" -> it.edition();
                         default -> null;
                     });
                 rows.add(row);
@@ -459,6 +464,71 @@ public class WebController {
         return "index";
     }
 
+    /** Поиск по всем коллекциям: объекты (название, теги, регион / издание, заметки) и коллекции по названию. */
+    @GetMapping("/search")
+    public String search(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String q, Model m) {
+        String query = q.trim();
+        m.addAttribute("q", query);
+        List<Entry> all = repo.collections(uid);
+        Map<Long, Entry> byId = new java.util.HashMap<>();
+        for (Entry c : all) byId.put(c.id(), c);
+        m.addAttribute("collectionsById", byId);
+        if (!query.isEmpty()) {
+            String needle = query.toLowerCase(java.util.Locale.forLanguageTag("ru"));
+            m.addAttribute("foundCollections", all.stream()
+                    .filter(c -> c.name().toLowerCase(java.util.Locale.forLanguageTag("ru")).contains(needle)).toList());
+            Repo.SearchResult r = repo.search(uid, query);
+            m.addAttribute("found", r.items());
+            m.addAttribute("foundTotal", r.total());
+            // поля типа каждой коллекции — чтобы показывать статус и наличие только там, где они есть
+            Map<Long, Set<String>> fields = new java.util.HashMap<>();
+            for (Entry it : r.items())
+                fields.computeIfAbsent(it.collectionId(), cid -> repo.itemFields(uid, byId.get(cid).kind()));
+            m.addAttribute("kindFields", fields);
+        }
+        return "search";
+    }
+
+    /** Статистика: итоги по всем коллекциям и по каждой, рейтинги, покупки по годам, частые теги. */
+    @GetMapping("/stats")
+    public String stats(@SessionAttribute("uid") long uid, Model m) {
+        List<Entry> all = repo.collections(uid);
+        Map<Long, Repo.Stats> stats = repo.stats(uid);
+        Map<Long, Set<String>> fields = new java.util.HashMap<>();
+        Map<Long, String> prices = new java.util.HashMap<>();
+        long items = 0, available = 0, completed = 0, unfinished = 0, price = 0, images = 0;
+        for (Entry c : all) {
+            Repo.Stats s = stats.get(c.id());
+            Set<String> f = repo.itemFields(uid, c.kind());
+            fields.put(c.id(), f);
+            prices.put(c.id(), formatPrice(s.price()));
+            items += s.items();
+            images += s.withImages();
+            if (f.contains("available")) available += s.available();
+            if (f.contains("status")) { completed += s.completed(); unfinished += s.unfinished(); }
+            if (f.contains("price")) price += s.price();
+        }
+        m.addAttribute("collections", all);
+        m.addAttribute("stats", stats);
+        m.addAttribute("kindFields", fields);
+        m.addAttribute("prices", prices);
+        m.addAttribute("total", Map.of("items", items, "available", available, "completed", completed,
+                "unfinished", unfinished, "images", images));
+        m.addAttribute("totalPrice", formatPrice(price));
+        m.addAttribute("showPrices", repo.showPrices(uid));
+        int[] hist = repo.ratingHistogram(uid);
+        m.addAttribute("ratingHist", hist);
+        m.addAttribute("ratingMax", java.util.Arrays.stream(hist).max().orElse(0));
+        Map<String, long[]> years = repo.purchasesByYear(uid);
+        m.addAttribute("years", years);
+        m.addAttribute("yearsMax", years.values().stream().mapToLong(v -> v[0]).max().orElse(0));
+        Map<String, String> yearPrices = new java.util.HashMap<>();
+        years.forEach((y, v) -> yearPrices.put(y, formatPrice(v[1])));
+        m.addAttribute("yearPrices", yearPrices);
+        m.addAttribute("tags", repo.topTags(uid, 20));
+        return "stats";
+    }
+
     @GetMapping("/collections/new")
     public String newCollectionForm(@SessionAttribute("uid") long uid, Model m) {
         return form(uid, m, null, false, Set.of(), null, "coll.new", "/");
@@ -495,6 +565,9 @@ public class WebController {
                              @RequestParam(name = "f_available", required = false) String fAvailable,
                              @RequestParam(name = "f_images", required = false) String fImages,
                              @RequestParam(name = "f_rating", required = false) String fRating,
+                             @RequestParam(name = "f_edition", required = false) String fEdition,
+                             @RequestParam(name = "f_tags", required = false) String fTags,
+                             @RequestParam(name = "f_purchased", required = false) String fPurchased,
                              @RequestParam(defaultValue = "false") boolean dups,
                              HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
@@ -510,13 +583,16 @@ public class WebController {
         cols.add(new Col("name", "field.name", "title"));
         if (fields.contains("platform")) cols.add(new Col("platform", "field.platform", ""));
         if (fields.contains("format")) cols.add(new Col("format", "field.format", ""));
+        if (fields.contains("edition")) cols.add(new Col("edition", "field.edition", ""));
         if (fields.contains("status")) cols.add(new Col("status", "field.statusShort", ""));
         if (fields.contains("rating")) cols.add(new Col("rating", "field.rating", "rating"));
         // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
         if (fields.contains("price")) cols.add(showPrices ? new Col("price", "field.price", "num") : new Col("price", "col.priceEye", "eye"));
+        if (fields.contains("purchased")) cols.add(new Col("purchased", "field.purchased", "date"));
         if (fields.contains("available")) cols.add(new Col("available", "field.available", "flag"));
+        if (fields.contains("tags")) cols.add(new Col("tags", "field.tags", "tags"));
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
@@ -529,6 +605,9 @@ public class WebController {
         if (fields.contains("platform")) putFilter(filters, "platform", fPlatform);
         if (fields.contains("format")) putFilter(filters, "format", fFormat);
         if (fields.contains("status")) putFilter(filters, "status", fStatus);
+        if (fields.contains("edition")) putFilter(filters, "edition", fEdition);
+        if (fields.contains("tags")) putFilter(filters, "tags", fTags);
+        if (fields.contains("purchased") && fPurchased != null && fPurchased.matches("\\d{4}")) filters.put("purchased", fPurchased);
         // Цена «от — до» (включительно): только целые числа, остальное не учитывается
         if (fields.contains("price")) {
             putPriceFilter(filters, "price_min", fPriceMin);
@@ -544,6 +623,8 @@ public class WebController {
         Map<String, List<String>> filterOptions = new java.util.HashMap<>();
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
+        for (String f : List.of("edition", "tags", "purchased"))
+            if (fields.contains(f)) filterOptions.put(f, repo.detailValues(id, f));
         StringBuilder filterQs = new StringBuilder();
         filters.forEach((k, v) -> filterQs.append("&f_").append(k).append("=")
                 .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8)));
@@ -570,6 +651,9 @@ public class WebController {
         m.addAttribute("c", c);
         m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
+        m.addAttribute("sortable", Repo.ITEM_SORT.keySet());
+        // Массовые действия: куда можно перенести объекты — другие коллекции пользователя
+        m.addAttribute("moveTargets", repo.collections(uid).stream().filter(x -> x.id() != id).toList());
         List<Entry> pageItems = found.subList(fromIdx, Math.min(fromIdx + size, total));
         m.addAttribute("items", pageItems);
         // В режиме дублей при сортировке по названию — первая строка каждой группы (над ней линия)
@@ -612,6 +696,45 @@ public class WebController {
     private static String formatPrice(long sum) {
         return String.format(org.springframework.context.i18n.LocaleContextHolder.getLocale(), "%,d", sum)
                 .replace('\u00a0', ' ').replace('\u202f', ' ');
+    }
+
+    /**
+     * Массовое действие над выбранными объектами коллекции: наличие, статус, рейтинг (если поле есть у типа),
+     * перенос в другую коллекцию, удаление. Чужие и не из этой коллекции объекты — 404. Затем — тот же вид списка.
+     */
+    @PostMapping("/collections/{id}/bulk")
+    public String bulk(@SessionAttribute("uid") long uid, @PathVariable long id,
+                       @RequestParam(name = "ids", required = false) List<Long> ids, @RequestParam String action,
+                       @RequestParam(required = false) String value, @RequestParam(required = false) String view) {
+        Entry c = repo.collection(uid, id);
+        Set<String> fields = repo.itemFields(uid, c.kind());
+        String v = value == null ? "" : value.trim();
+        Long target = null;
+        if (action.equals("move")) {
+            if (!v.matches("\\d{1,18}")) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+            target = repo.collection(uid, Long.parseLong(v)).id(); // чужая коллекция — 404
+        } else if (!action.equals("delete") && !(Set.of("available", "status", "rating").contains(action) && fields.contains(action))) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+        List<Long> chosen = ids == null ? List.of() : ids;
+        // сначала проверка всех (чужой или из другой коллекции — 404, ничего не меняется), потом изменения
+        // (без общей транзакции: удаление сразу освобождает файлы картинок)
+        for (long itemId : chosen)
+            if (repo.item(uid, itemId).collectionId() != id)
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        if (action.equals("status")) Repo.checkStatus(v); // неверный статус — 400 до изменений
+        if (action.equals("rating") && !(v.matches("\\d{1,2}") && Integer.parseInt(v) <= 10))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+        for (long itemId : chosen) {
+            switch (action) {
+                case "available" -> repo.setAvailable(itemId, "1".equals(v));
+                case "status" -> repo.setStatus(itemId, v);
+                case "rating" -> repo.setRating(itemId, Integer.parseInt(v));
+                case "move" -> repo.moveItem(itemId, target);
+                default -> repo.delete("items", itemId);
+            }
+        }
+        return "redirect:" + collectionUrl(id, view);
     }
 
     /** Номера страниц для навигации: первая, последняя и соседние с текущей; 0 — пропуск («…»). */
@@ -699,12 +822,16 @@ public class WebController {
                              @RequestParam(required = false) List<String> available,
                              @RequestParam(required = false) Integer rating,
                              @RequestParam(required = false) String oldgames,
+                             @RequestParam(required = false) String purchased,
+                             @RequestParam(required = false) String tags,
+                             @RequestParam(required = false) String edition,
+                             @RequestParam(required = false) String notes,
                              @RequestParam Map<String, MultipartFile> files,
                              @RequestParam(required = false) String description) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
         repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), rating,
-                oldgames, newImages(files), Set.of(), description);
+                oldgames, new Repo.Details(purchased, tags, edition, notes), newImages(files), Set.of(), description);
         return "redirect:/collections/" + cid;
     }
 
@@ -726,6 +853,10 @@ public class WebController {
                            @RequestParam(required = false) List<String> available,
                            @RequestParam(required = false) Integer rating,
                            @RequestParam(required = false) String oldgames,
+                           @RequestParam(required = false) String purchased,
+                           @RequestParam(required = false) String tags,
+                           @RequestParam(required = false) String edition,
+                           @RequestParam(required = false) String notes,
                            @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
@@ -733,7 +864,8 @@ public class WebController {
                            @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), rating, oldgames, newImages(files), removed(remove, removeImage != null), description);
+                available(available), rating, oldgames, new Repo.Details(purchased, tags, edition, notes), newImages(files),
+                removed(remove, removeImage != null), description);
         return "redirect:" + collectionUrl(it.collectionId(), view);
     }
 

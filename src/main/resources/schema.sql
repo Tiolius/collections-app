@@ -110,6 +110,16 @@ CREATE TABLE IF NOT EXISTS item_oldgames (
     url TEXT NOT NULL
 );
 
+-- Дополнительные поля объекта (включаются в настройках типа, по умолчанию выключены у всех типов):
+-- дата покупки (ГГГГ-ММ-ДД), теги (через «, »), регион / издание, заметки; нет строки или NULL — не заполнено
+CREATE TABLE IF NOT EXISTS item_details (
+    item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    purchased TEXT,
+    tags TEXT,
+    edition TEXT,
+    notes TEXT
+);
+
 -- Разовые обновления данных: имя выполненного обновления (чтобы не повторять его при каждом старте)
 CREATE TABLE IF NOT EXISTS data_updates (
     name TEXT PRIMARY KEY
