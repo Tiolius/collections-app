@@ -29,8 +29,13 @@ public class WebController {
     private final ImageImport images;
     private final CacheClear cacheClear;
     private final OldGames oldGames;
+    private final Backup backup;
+    private final Updates updates;
 
-    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames) {
+    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames,
+                         Backup backup, Updates updates) {
+        this.backup = backup;
+        this.updates = updates;
         this.repo = repo;
         this.guard = guard;
         this.images = images;
@@ -288,7 +293,49 @@ public class WebController {
         m.addAttribute("appAuthor", appAuthor);
         m.addAttribute("appEmail", appEmail);
         m.addAttribute("appBuildDate", appBuildDate);
+        m.addAttribute("updateState", updates.state());
+        m.addAttribute("latestRelease", updates.latest());
         return "about";
+    }
+
+    // Вкладка «Резервная копия» (только администратор): все данные приложения в zip и восстановление из него
+
+    @GetMapping("/backup")
+    public String backupPage(@SessionAttribute("uid") long uid, Model m) {
+        requireAdmin(uid);
+        m.addAttribute("backupSize", String.format(org.springframework.context.i18n.LocaleContextHolder.getLocale(), "%.1f",
+                backup.approximateSize() / 1048576.0));
+        return "backup";
+    }
+
+    /** Архив копии — прямо в ответ (без промежуточного файла): база и картинки. */
+    @GetMapping("/backup/download")
+    public void backupDownload(@SessionAttribute("uid") long uid, jakarta.servlet.http.HttpServletResponse res)
+            throws java.io.IOException {
+        requireAdmin(uid);
+        res.setContentType("application/zip");
+        res.setHeader("Content-Disposition", "attachment; filename=\"collections-backup-" + java.time.LocalDate.now() + ".zip\"");
+        backup.write(res.getOutputStream());
+    }
+
+    /**
+     * Восстановление: файл копии приходит телом запроса (скрипт страницы, с прогрессом загрузки) — так на него
+     * не действует ограничение размера загружаемых картинок. Ответ: {ok} или {error}.
+     */
+    @PostMapping("/backup/restore")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> backupRestore(@SessionAttribute("uid") long uid, HttpServletRequest req) {
+        requireAdmin(uid);
+        if (images.anyActive() || cacheClear.anyActive()) return Map.of("error", I18n.t("backup.busy"));
+        try {
+            backup.restore(req.getInputStream());
+            return Map.of("ok", true);
+        } catch (Backup.BadBackup e) {
+            return Map.of("error", e.getMessage());
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(WebController.class).warn("Восстановление из копии не удалось", e);
+            return Map.of("error", I18n.t("backup.failed"));
+        }
     }
 
     @GetMapping("/users")

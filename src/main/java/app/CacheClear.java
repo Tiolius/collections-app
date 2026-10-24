@@ -55,6 +55,11 @@ public class CacheClear {
     }
 
     /** Есть ли идущая очистка этой коллекции (у кого угодно) — тогда импорт в неё не запускать. */
+    /** Идёт ли очистка у кого-нибудь (восстановление из копии в это время не запускается). */
+    public boolean anyActive() {
+        return jobs.values().stream().anyMatch(Job::active);
+    }
+
     public boolean active(long collectionId) {
         return jobs.values().stream().anyMatch(j -> j.active() && j.collectionId == collectionId);
     }

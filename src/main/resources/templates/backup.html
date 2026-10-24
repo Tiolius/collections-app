@@ -1,0 +1,87 @@
+<!doctype html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<main class="settings">
+  <th:block th:replace="~{base :: settingsHead('backup')}"></th:block>
+  <p class="ok" th:if="${param.restored != null}" th:text="#{backup.restored}">Данные восстановлены из копии.</p>
+
+  <!-- Скачать: zip с базой и картинками (Backup.write) -->
+  <h3 class="section" th:text="#{backup.download.title}">Скачать копию</h3>
+  <form autocomplete="off" class="form compact" onsubmit="return false">
+    <label><span th:text="#{backup.copy}">Копия</span>
+      <span class="icon tip help" tabindex="0" th:aria-label="#{help}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M478-240q21 0 35.5-14.5T528-290q0-21-14.5-35.5T478-340q-21 0-35.5 14.5T428-290q0 21 14.5 35.5T478-240Zm-36-154h74q0-33 7.5-52t42.5-52q26-26 41-49.5t15-56.5q0-56-41-86t-97-30q-57 0-92.5 30T342-618l66 26q5-18 22.5-39t53.5-21q32 0 48 17.5t16 38.5q0 20-12 37.5T506-526q-44 39-54 59t-10 73Zm38 314q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+        <span class="tiptext">
+          <span th:text="#{backup.help1}"></span>
+          <span th:text="#{backup.help2}"></span>
+        </span>
+      </span>
+    </label>
+    <div class="inline">
+      <span class="muted" th:text="#{backup.size(${backupSize})}">примерно 10 МБ</span>
+      <a class="btn" href="/backup/download"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-313 287-506l43-43 120 120v-371h60v371l120-120 43 43-193 193ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg><span th:text="#{backup.download}">Скачать копию</span></a>
+    </div>
+  </form>
+
+  <!-- Восстановить: файл уходит телом запроса (XMLHttpRequest — виден прогресс загрузки), ответ — {ok} или {error} -->
+  <h3 class="section" th:text="#{backup.restore.title}">Восстановить из копии</h3>
+  <p class="error" id="restore-error" hidden></p>
+  <div class="import-box" id="restore-job" hidden>
+    <div id="restore-state"></div>
+    <progress id="restore-bar" max="100" value="0"></progress>
+  </div>
+  <form autocomplete="off" class="form compact" id="restore-form" th:data-confirm="#{backup.confirm}" th:data-ok="#{backup.restore}"
+        onsubmit="return appConfirm(event, this.dataset.confirm, this.dataset.ok)">
+    <label for="f-backup"><span th:text="#{backup.file}">Файл копии</span>
+      <span class="icon tip help" tabindex="0" th:aria-label="#{help}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M478-240q21 0 35.5-14.5T528-290q0-21-14.5-35.5T478-340q-21 0-35.5 14.5T428-290q0 21 14.5 35.5T478-240Zm-36-154h74q0-33 7.5-52t42.5-52q26-26 41-49.5t15-56.5q0-56-41-86t-97-30q-57 0-92.5 30T342-618l66 26q5-18 22.5-39t53.5-21q32 0 48 17.5t16 38.5q0 20-12 37.5T506-526q-44 39-54 59t-10 73Zm38 314q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+        <span class="tiptext">
+          <span th:text="#{backup.restoreHelp1}"></span>
+          <span th:text="#{backup.restoreHelp2}"></span>
+        </span>
+      </span>
+    </label>
+    <div class="inline">
+      <input type="file" id="f-backup" name="file" accept=".zip,application/zip" required>
+      <button class="btn red"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-313v-371L330-564l-43-43 193-193 193 193-43 43-120-120v371h-60ZM220-160q-24 0-42-18t-18-42v-143h60v143h520v-143h60v143q0 24-18 42t-42 18H220Z"/></svg><span th:text="#{backup.restore}">Восстановить</span></button>
+    </div>
+  </form>
+<script th:inline="javascript">
+  (function () {
+    var form = document.getElementById('restore-form'), L = {
+      uploading: [[#{backup.uploading}]], restoring: [[#{backup.restoring}]], failed: [[#{backup.failed}]]
+    };
+    function $(id) { return document.getElementById(id); }
+    function showError(text) { $('restore-error').textContent = text; $('restore-error').hidden = false; $('restore-job').hidden = true; form.hidden = false; }
+    // после подтверждения (appConfirm отправляет форму заново) — загрузка файла скриптом вместо обычной отправки
+    form.addEventListener('submit', function (e) {
+      if (e.defaultPrevented) return; // ещё ждём подтверждения
+      e.preventDefault();
+      var file = $('f-backup').files[0];
+      if (!file) return;
+      $('restore-error').hidden = true; form.hidden = true; $('restore-job').hidden = false;
+      $('restore-state').textContent = L.uploading.replace('{0}', '0'); $('restore-bar').value = 0;
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/backup/restore');
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      xhr.upload.onprogress = function (ev) {
+        if (!ev.lengthComputable) return;
+        var p = Math.floor(ev.loaded / ev.total * 100);
+        $('restore-bar').value = p;
+        $('restore-state').textContent = p < 100 ? L.uploading.replace('{0}', p) : L.restoring;
+      };
+      xhr.upload.onload = function () { $('restore-state').textContent = L.restoring; $('restore-bar').removeAttribute('value'); };
+      xhr.onload = function () {
+        var d = null;
+        try { d = JSON.parse(xhr.responseText); } catch (err) {}
+        if (d && d.ok) location.href = '/backup?restored';
+        else showError(d && d.error ? d.error : L.failed);
+      };
+      xhr.onerror = function () { showError(L.failed); };
+      xhr.send(file);
+    });
+  })();
+</script>
+</main>
+</body>
+</html>

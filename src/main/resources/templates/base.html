@@ -157,11 +157,12 @@
   header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   header .right, header nav { display: flex; align-items: stretch; height: 100%; }
   header .right { border-right: 1px solid var(--bar-sep); }
-  header .user, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
+  header .user, header a.update, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
            padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
   header .user { cursor: default; }
   header .mi { width: 16px; height: 16px; }
-  header a.settings:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); }
+  header a.update { color: var(--orange); }  /* новая версия приложения — администратору */
+  header a.settings:hover, header a.update:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); }
   /* Язык интерфейса: кнопка-глобус и меню из двух флажков под ней (у правого края кнопки) */
   header .lang { position: relative; display: flex; height: 100%; }
   header .lang-menu { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 150px; padding: 4px 0; margin-top: 1px;
@@ -487,6 +488,7 @@
   .import-box { border: 1px solid var(--border); background: var(--form-bg); padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 900px; }
   .import-box progress { width: 100%; height: 16px; accent-color: var(--blue); }
   .import-box form { margin: 0; }
+  .import-box[hidden], .form[hidden] { display: none; }  /* атрибут hidden иначе перебивается display: grid */
 
   @media (max-width: 700px) {
     main.settings { grid-template-columns: 1fr; }
@@ -525,6 +527,9 @@
   <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.25 21.05 16.35 7.3l2.95.45-2.1 13.75z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
+      <!-- Новая версия приложения (Updates, только администратору): ссылка на страницу релиза -->
+      <a class="update" th:if="${update != null}" th:href="${update.url()}" target="_blank" rel="noopener"
+         th:title="#{update.available(${update.version()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m740-76 113-113-21-21-77 77v-171h-30v171l-77-77-21 21L740-76ZM480-823 213-669l267 155 266-155-266-154ZM120-310v-340q0-16 7.88-29.79Q135.75-693.57 150-702l300-173q8-5 14.95-6.5 6.95-1.5 15-1.5t15.55 1.5Q503-880 510-875l300 173q14.25 8.43 22.13 22.21Q840-666 840-650v210h-60v-180L481-445 180-619v309l300 173v69L150-258q-14.25-8.43-22.12-22.21Q120-294 120-310ZM596-55.4q-56-55.4-56-134T596-324q56-56 134-56t134 55.87q56 55.86 56 135.13 0 78.43-56 133.72Q808 0 730 0T596-55.4ZM480-478Z"/></svg><span th:text="${update.version()}"></span></a>
       <span class="user" th:title="${currentUser.isAdmin() ? #messages.msg('role.admin') : #messages.msg('role.user')}">
         <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M372-523q-42-42-42-108t42-108q42-42 108-42t108 42q42 42 42 108t-42 108q-42 42-108 42t-108-42ZM160-160v-94q0-38 19-65t49-41q67-30 128.5-45T480-420q62 0 123 15.5T731-360q31 14 50 41t19 65v94H160Zm60-60h520v-34q0-16-9.5-30.5T707-306q-64-31-117-42.5T480-360q-57 0-111 11.5T252-306q-14 7-23 21.5t-9 30.5v34Zm324.5-346.5Q570-592 570-631t-25.5-64.5Q519-721 480-721t-64.5 25.5Q390-670 390-631t25.5 64.5Q441-541 480-541t64.5-25.5ZM480-631Zm0 411Z"/></svg>
         <span th:text="${currentUser.name()}"></span>
@@ -553,7 +558,7 @@
   <script>
     // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
     (function () {
-      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
+      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.update, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
       function fit() {
         items.forEach(function (e) { e.style.width = ''; });
         items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });
@@ -580,6 +585,7 @@
     <a href="/import" th:classappend="${active == 'import'} ? 'active'" th:text="#{settings.import}"></a>
     <a href="/export" th:classappend="${active == 'export'} ? 'active'" th:text="#{settings.export}"></a>
     <a href="/cache" th:classappend="${active == 'cache'} ? 'active'" th:text="#{settings.cache}"></a>
+    <a href="/backup" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'backup'} ? 'active'" th:text="#{settings.backup}"></a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'" th:text="#{settings.users}"></a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'" th:text="#{settings.about}"></a>
   </nav>

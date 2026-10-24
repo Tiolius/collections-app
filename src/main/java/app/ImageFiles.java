@@ -76,6 +76,16 @@ public class ImageFiles implements ApplicationRunner {
         return p.isEmpty() ? null : p.get(0);
     }
 
+    /** Папка картинок (DATA_DIR/images). */
+    public Path dir() {
+        return dir;
+    }
+
+    /** Файлы всех картинок из справочника pictures (для резервной копии; вызывать под блокировкой). */
+    public List<Path> allFiles() {
+        return jdbc.query("SELECT hash, mime FROM pictures", (rs, n) -> file(rs.getString(1), rs.getString(2)));
+    }
+
     /** Содержимое картинки или null, если файла нет. */
     public byte[] read(Pic pic) {
         try {
