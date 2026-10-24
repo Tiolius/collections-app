@@ -29,14 +29,21 @@ public class Repo {
 
     // в запросах таблица collections — с псевдонимом c
     private static final String COLLECTION_COLS =
-            "id, name, EXISTS (SELECT 1 FROM collection_pictures cp WHERE cp.collection_id = c.id) AS has_image, kind";
+            "id, name, EXISTS (SELECT 1 FROM collection_pictures cp WHERE cp.collection_id = c.id) AS has_image, kind, "
+            + "(SELECT cp.hash FROM collection_pictures cp WHERE cp.collection_id = c.id) AS pics";
     private static final String ITEM_COLS = "id, name, collection_id, platform, format, status, price, "
             + "EXISTS (SELECT 1 FROM item_pictures ip WHERE ip.item_id = items.id) AS has_image, "
             + "(SELECT COUNT(*) FROM item_pictures ip WHERE ip.item_id = items.id) AS image_count, "
             + "(SELECT d.text FROM item_descriptions d WHERE d.item_id = items.id) AS description, "
             + "EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = items.id) AS available, "
             + "(SELECT r.rating FROM item_ratings r WHERE r.item_id = items.id) AS rating, "
-            + "(SELECT o.url FROM item_oldgames o WHERE o.item_id = items.id) AS oldgames";
+            + "(SELECT o.url FROM item_oldgames o WHERE o.item_id = items.id) AS oldgames, "
+            + "(SELECT d.purchased FROM item_details d WHERE d.item_id = items.id) AS purchased, "
+            + "(SELECT d.tags FROM item_details d WHERE d.item_id = items.id) AS tags, "
+            + "(SELECT d.edition FROM item_details d WHERE d.item_id = items.id) AS edition, "
+            + "(SELECT d.notes FROM item_details d WHERE d.item_id = items.id) AS notes, "
+            // хеши картинок по порядку — адреса /img/<хеш> (кеш браузера по содержимому)
+            + "(SELECT group_concat(ip.hash, ',' ORDER BY ip.pos) FROM item_pictures ip WHERE ip.item_id = items.id) AS pics";
 
     /** Сравнение по алфавиту для русского языка: без учёта регистра, «Ё» рядом с «Е», латиница перед кириллицей. */
     public static Comparator<String> alphabetical() {
@@ -54,10 +61,14 @@ public class Repo {
         // подпись — ключ текста (messages*.properties)
         FIELDS.put("platform", "field.platform");
         FIELDS.put("format", "field.format");
+        FIELDS.put("edition", "field.edition"); // не столбец items: регион / издание (таблица item_details)
         FIELDS.put("status", "field.status");
         FIELDS.put("rating", "field.rating"); // не столбец items: таблица item_ratings, 1…10 половинок звезды (5 звёзд)
         FIELDS.put("price", "field.price");
+        FIELDS.put("purchased", "field.purchased"); // не столбец items: дата покупки ГГГГ-ММ-ДД (item_details)
         FIELDS.put("available", "field.available"); // не столбец items: отметки «есть» — в таблице item_present, по умолчанию «нет»
+        FIELDS.put("tags", "field.tags"); // не столбец items: теги через «, » (item_details)
+        FIELDS.put("notes", "field.notes"); // не столбец items: заметки (item_details), в таблице объектов не показываются
         FIELDS.put("oldgames", "field.oldgames"); // не столбец items: ссылка на страницу игры (таблица item_oldgames)
     }
 
@@ -89,7 +100,12 @@ public class Repo {
                 isItem ? rs.getBoolean("available") : null,
                 isItem ? rs.getInt("image_count") : 0,
                 isItem ? rating(rs) : null,
-                isItem ? rs.getString("oldgames") : null);
+                isItem ? rs.getString("oldgames") : null,
+                isItem ? rs.getString("purchased") : null,
+                isItem ? rs.getString("tags") : null,
+                isItem ? rs.getString("edition") : null,
+                isItem ? rs.getString("notes") : null,
+                rs.getString("pics"));
     }
 
     /** Рейтинг (1…10 половинок звезды) или null. */
@@ -346,7 +362,7 @@ public class Repo {
     /** Поля, по которым можно сортировать объекты: ключ из URL → столбец. */
     public static final Map<String, String> ITEM_SORT = Map.of(
             "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price",
-            "available", "available", "rating", "rating");
+            "available", "available", "rating", "rating", "purchased", "purchased", "edition", "edition");
 
     /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
     /** Счётчики коллекции для главной: сколько объектов в наличии и общая стоимость (сумма цен). */
@@ -414,6 +430,15 @@ public class Repo {
                 args.add(Integer.parseInt(rating) * 2);
             }
         }
+        // Регион / издание — точное значение; год покупки — дата начинается с него
+        if (filters.containsKey("edition")) {
+            where.append(" AND (SELECT d.edition FROM item_details d WHERE d.item_id = items.id) = ?");
+            args.add(filters.get("edition"));
+        }
+        if (filters.containsKey("purchased")) {
+            where.append(" AND (SELECT d.purchased FROM item_details d WHERE d.item_id = items.id) LIKE ?");
+            args.add(filters.get("purchased") + "-%");
+        }
         // Картинки: "any" — есть хотя бы одна, "0" — нет ни одной, "1".."5" — ровно столько
         String images = filters.get("images");
         if (images != null) {
@@ -426,6 +451,12 @@ public class Repo {
         }
         List<Entry> list = jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE " + where + " ORDER BY " + order,
                 mapper(true, false), args.toArray());
+        // Тег — без учёта регистра (в т.ч. кириллицы), поэтому в Java
+        String tag = filters.get("tags");
+        if (tag != null) {
+            String t = tag.toLowerCase(RU);
+            list = list.stream().filter(e -> e.tagList().stream().anyMatch(x -> x.toLowerCase(RU).equals(t))).toList();
+        }
         String name = filters.get("name");
         if (name == null) return list;
         String needle = name.toLowerCase(RU);
@@ -434,7 +465,115 @@ public class Repo {
 
     private static final Locale RU = Locale.forLanguageTag("ru");
 
+    /** Сколько объектов показывать в поиске по всем коллекциям. */
+    public static final int SEARCH_LIMIT = 200;
+
+    /**
+     * Поиск по всем коллекциям пользователя: часть названия, тега, региона / издания или заметки без учёта регистра
+     * (в т.ч. кириллицы — поэтому в Java). Объекты — по алфавиту, не больше SEARCH_LIMIT; total — сколько найдено всего.
+     */
+    public record SearchResult(List<Entry> items, int total) {}
+
+    public SearchResult search(long uid, String query) {
+        String q = query == null ? "" : query.trim().toLowerCase(RU);
+        if (q.isEmpty()) return new SearchResult(List.of(), 0);
+        List<Long> ids = new java.util.ArrayList<>();
+        jdbc.query("SELECT i.id, i.name, d.tags, d.edition, d.notes FROM items i LEFT JOIN item_details d ON d.item_id = i.id "
+                + "WHERE i.collection_id IN (SELECT id FROM collections WHERE user_id = ?)", rs -> {
+            for (int col = 2; col <= 5; col++) {
+                String s = rs.getString(col);
+                if (s != null && s.toLowerCase(RU).contains(q)) {
+                    ids.add(rs.getLong(1));
+                    return;
+                }
+            }
+        }, uid);
+        if (ids.isEmpty()) return new SearchResult(List.of(), 0);
+        List<Entry> found = new java.util.ArrayList<>();
+        for (int i = 0; i < ids.size(); i += 500) { // по частям: у SQLite ограничено число параметров
+            List<Long> part = ids.subList(i, Math.min(ids.size(), i + 500));
+            found.addAll(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id IN ("
+                    + String.join(",", java.util.Collections.nCopies(part.size(), "?")) + ")", mapper(true, false), part.toArray()));
+        }
+        Comparator<String> abc = alphabetical();
+        return new SearchResult(found.stream().sorted(Comparator.comparing(Entry::name, abc).thenComparing(Entry::id))
+                .limit(SEARCH_LIMIT).toList(), found.size());
+    }
+
+    // ---------- статистика ----------
+
+    /**
+     * Счётчики коллекции для страницы «Статистика»: объектов, в наличии, пройдено / не пройдено, с рейтингом и средний
+     * рейтинг (в звёздах), стоимость, с картинками, с описанием.
+     */
+    public record Stats(long collectionId, int items, int available, int completed, int unfinished, int rated,
+                        double avgRating, long price, int withImages, int withDescription) {}
+
+    /** Счётчики всех коллекций пользователя: id коллекции → счётчики (коллекции без объектов — нули). */
+    public Map<Long, Stats> stats(long uid) {
+        Map<Long, Stats> res = new HashMap<>();
+        jdbc.query("SELECT c.id, COUNT(i.id), "
+                + "COALESCE(SUM(EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = i.id)), 0), "
+                + "COALESCE(SUM(i.status = 'Completed'), 0), COALESCE(SUM(i.status = 'Unfinished'), 0), "
+                + "COUNT(r.rating), COALESCE(AVG(r.rating), 0), COALESCE(SUM(i.price), 0), "
+                + "COALESCE(SUM(EXISTS (SELECT 1 FROM item_pictures p WHERE p.item_id = i.id)), 0), "
+                + "COALESCE(SUM(EXISTS (SELECT 1 FROM item_descriptions d WHERE d.item_id = i.id)), 0) "
+                + "FROM collections c LEFT JOIN items i ON i.collection_id = c.id LEFT JOIN item_ratings r ON r.item_id = i.id "
+                + "WHERE c.user_id = ? GROUP BY c.id", rs -> {
+            res.put(rs.getLong(1), new Stats(rs.getLong(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5),
+                    rs.getInt(6), rs.getDouble(7) / 2, rs.getLong(8), rs.getInt(9), rs.getInt(10)));
+        }, uid);
+        return res;
+    }
+
+    /** Сколько объектов с рейтингом в каждой целой звезде (округление вверх: 3,5 → 4): индекс 0 — 1 звезда … 4 — 5 звёзд. */
+    public int[] ratingHistogram(long uid) {
+        int[] res = new int[5];
+        jdbc.query("SELECT (r.rating + 1) / 2, COUNT(*) FROM item_ratings r JOIN items i ON i.id = r.item_id "
+                + "JOIN collections c ON c.id = i.collection_id WHERE c.user_id = ? GROUP BY 1",
+                rs -> { int s = rs.getInt(1); if (s >= 1 && s <= 5) res[s - 1] = rs.getInt(2); }, uid);
+        return res;
+    }
+
+    /** Покупки по годам (дата покупки): год → {объектов, сумма цен}; новые годы сверху. */
+    public Map<String, long[]> purchasesByYear(long uid) {
+        Map<String, long[]> res = new java.util.TreeMap<>(Comparator.reverseOrder());
+        jdbc.query("SELECT substr(d.purchased, 1, 4), COUNT(*), COALESCE(SUM(i.price), 0) FROM item_details d "
+                + "JOIN items i ON i.id = d.item_id JOIN collections c ON c.id = i.collection_id "
+                + "WHERE c.user_id = ? AND d.purchased IS NOT NULL GROUP BY 1",
+                rs -> { res.put(rs.getString(1), new long[] {rs.getLong(2), rs.getLong(3)}); }, uid);
+        return res;
+    }
+
+    /** Самые частые теги: тег → сколько объектов, не больше limit, по убыванию. */
+    public List<Map.Entry<String, Integer>> topTags(long uid, int limit) {
+        Map<String, Integer> count = new java.util.TreeMap<>(alphabetical());
+        jdbc.query("SELECT d.tags FROM item_details d JOIN items i ON i.id = d.item_id JOIN collections c ON c.id = i.collection_id "
+                + "WHERE c.user_id = ? AND d.tags IS NOT NULL", rs -> {
+            for (String t : splitTags(rs.getString(1))) count.merge(t, 1, Integer::sum);
+        }, uid);
+        return count.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(limit).toList();
+    }
+
     /** Значения столбца у объектов коллекции — для выпадающего списка фильтра (по алфавиту, без пустых). */
+    /** Значения дополнительных полей для фильтров: регион / издание, теги, годы покупки (новые сверху). */
+    public List<String> detailValues(long collectionId, String field) {
+        String sql = "SELECT d.%s FROM item_details d JOIN items i ON i.id = d.item_id WHERE i.collection_id = ? AND d.%s IS NOT NULL";
+        return switch (field) {
+            case "edition" -> jdbc.queryForList(String.format(sql, "edition", "edition"), String.class, collectionId).stream()
+                    .distinct().sorted(alphabetical()).toList();
+            case "tags" -> {
+                Map<String, String> tags = new java.util.TreeMap<>(alphabetical());
+                for (String s : jdbc.queryForList(String.format(sql, "tags", "tags"), String.class, collectionId))
+                    for (String t : splitTags(s)) tags.putIfAbsent(t, t);
+                yield List.copyOf(tags.values());
+            }
+            case "purchased" -> jdbc.queryForList(String.format(sql, "purchased", "purchased"), String.class, collectionId).stream()
+                    .map(d -> d.substring(0, 4)).distinct().sorted(Comparator.reverseOrder()).toList();
+            default -> throw new IllegalArgumentException(field);
+        };
+    }
+
     public List<String> distinctValues(long collectionId, String column) {
         if (!SELECT_FILTERS.contains(column)) throw new IllegalArgumentException(column);
         return jdbc.queryForList("SELECT DISTINCT " + column + " FROM items WHERE collection_id = ? AND "
@@ -450,6 +589,29 @@ public class Repo {
     public Map<String, Object> collectionImage(long uid, long id) {
         collection(uid, id); // чужая коллекция — 404
         return picture(files.collection(id));
+    }
+
+    /**
+     * Картинка по хешу содержимого (адрес /img/<хеш>), если на неё ссылается объект или коллекция этого пользователя;
+     * иначе null (чужие картинки не отдаются, даже если знать хеш).
+     */
+    public ImageFiles.Pic ownedPicture(long uid, String hash) {
+        List<String> mime = jdbc.queryForList("SELECT p.mime FROM pictures p WHERE p.hash = ? AND ("
+                + "EXISTS (SELECT 1 FROM item_pictures ip JOIN items i ON i.id = ip.item_id JOIN collections c ON c.id = i.collection_id "
+                + "WHERE ip.hash = p.hash AND c.user_id = ?) OR "
+                + "EXISTS (SELECT 1 FROM collection_pictures cp JOIN collections c ON c.id = cp.collection_id "
+                + "WHERE cp.hash = p.hash AND c.user_id = ?))", String.class, hash, uid, uid);
+        return mime.isEmpty() ? null : new ImageFiles.Pic(hash, mime.get(0));
+    }
+
+    /** Содержимое картинки (null — файла нет). */
+    public byte[] pictureBytes(ImageFiles.Pic pic) {
+        return files.read(pic);
+    }
+
+    /** Уменьшенная копия картинки или null — тогда отдаётся сама картинка. */
+    public ImageFiles.Thumb thumb(ImageFiles.Pic pic) {
+        return files.thumb(pic);
     }
 
     /** Картинка объекта номер n (с нуля): {image, image_mime} или 404 (в т.ч. если объект чужой). */
@@ -521,7 +683,7 @@ public class Repo {
         return counts;
     }
 
-    /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */
+    /** Содержимое загруженной картинки; если это не PNG, JPEG или GIF — ошибка 400. */
     private static byte[] readImage(MultipartFile image) {
         byte[] bytes;
         try {
@@ -535,12 +697,14 @@ public class Repo {
         return bytes;
     }
 
-    /** Тип картинки по первым байтам файла: PNG, JPEG, GIF, WebP; иначе null (в т.ч. SVG — в нём бывают скрипты). */
+    /**
+     * Тип картинки по первым байтам файла: PNG, JPEG, GIF; иначе null (в т.ч. SVG — в нём бывают скрипты).
+     * WebP не принимается (по просьбе пользователя): Java не умеет его читать, и для него не сделать уменьшенную копию.
+     */
     static String imageType(byte[] b) {
         if (starts(b, 0, 0x89, 'P', 'N', 'G')) return "image/png";
         if (starts(b, 0, 0xFF, 0xD8, 0xFF)) return "image/jpeg";
         if (starts(b, 0, 'G', 'I', 'F', '8')) return "image/gif";
-        if (starts(b, 0, 'R', 'I', 'F', 'F') && starts(b, 8, 'W', 'E', 'B', 'P')) return "image/webp";
         return null;
     }
 
@@ -556,7 +720,7 @@ public class Repo {
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
     public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, Boolean available, Integer rating, String oldGames,
+                         Integer price, Boolean available, Integer rating, String oldGames, Details details,
                          Map<Integer, MultipartFile> newImages, Set<Integer> removed, String description) {
         requireName(name);
         if (price != null && price < 0)
@@ -575,13 +739,7 @@ public class Repo {
         }
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
         // Рейтинг: 0 — убрать, 1…10 — половинки звезды; null — поля нет в форме, не меняется
-        if (f.contains("rating") && rating != null) {
-            if (rating < 0 || rating > 10)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badRating"));
-            if (rating == 0) jdbc.update("DELETE FROM item_ratings WHERE item_id = ?", id);
-            else jdbc.update("INSERT INTO item_ratings (item_id, rating) VALUES (?, ?) "
-                    + "ON CONFLICT (item_id) DO UPDATE SET rating = excluded.rating", id, rating);
-        }
+        if (f.contains("rating") && rating != null) setRating(id, rating);
         // Ссылка на Old-Games.ru: пусто — убрать; только адрес страницы игры; null — поля нет в форме, не меняется
         if (f.contains("oldgames") && oldGames != null) {
             if (oldGames.isBlank()) jdbc.update("DELETE FROM item_oldgames WHERE item_id = ?", id);
@@ -593,9 +751,14 @@ public class Repo {
                         + "ON CONFLICT (item_id) DO UPDATE SET url = excluded.url", id, url);
             }
         }
-        if (f.contains("available") && available != null) {
-            if (available) jdbc.update("INSERT OR IGNORE INTO item_present (item_id) VALUES (?)", id);
-            else jdbc.update("DELETE FROM item_present WHERE item_id = ?", id);
+        if (f.contains("available") && available != null) setAvailable(id, available);
+        // Дополнительные поля (item_details): null — поля нет в форме, не меняется; пусто — очистить
+        if (details != null) {
+            if (f.contains("purchased") && details.purchased() != null) setDetail(id, "purchased", purchaseDate(details.purchased()));
+            if (f.contains("tags") && details.tags() != null) setDetail(id, "tags", limit(normalizeTags(details.tags()), MAX_TAGS));
+            if (f.contains("edition") && details.edition() != null) setDetail(id, "edition", limit(trim(details.edition()), MAX_EDITION));
+            if (f.contains("notes") && details.notes() != null)
+                setDetail(id, "notes", limit(details.notes().replace("\r\n", "\n").trim(), MAX_NOTES));
         }
         // Описание и картинка есть у всех объектов, независимо от типа коллекции
         if (description != null) setItemDescription(id, description);
@@ -610,6 +773,84 @@ public class Repo {
             }
             setItemImages(id, result);
         }
+    }
+
+    /** Статус прохождения: пусто или значение из STATUSES (массовое изменение — без прежних значений не из списка). */
+    public void setStatus(long itemId, String status) {
+        jdbc.update("UPDATE items SET status = ? WHERE id = ?", checkStatus(status), itemId);
+    }
+
+    /** Статус из списка или пусто (без пробелов по краям); иначе — 400. */
+    public static String checkStatus(String status) {
+        String st = trim(status);
+        if (!st.isEmpty() && !STATUSES.contains(st)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badStatus"));
+        return st;
+    }
+
+    /** Переносит объект в другую коллекцию (владельца обеих проверяет вызывающий код); поля и картинки не меняются. */
+    public void moveItem(long itemId, long collectionId) {
+        jdbc.update("UPDATE items SET collection_id = ? WHERE id = ?", collectionId, itemId);
+    }
+
+    /** Дополнительные поля объекта из формы (null — поля нет в форме). */
+    public record Details(String purchased, String tags, String edition, String notes) {}
+
+    /** Наибольшая длина тегов (всех вместе), региона / издания и заметок. */
+    public static final int MAX_TAGS = 500, MAX_EDITION = 200, MAX_NOTES = 2000;
+
+    /** Наличие объекта: есть — строка в item_present, нет — строки нет. */
+    public void setAvailable(long itemId, boolean available) {
+        if (available) jdbc.update("INSERT OR IGNORE INTO item_present (item_id) VALUES (?)", itemId);
+        else jdbc.update("DELETE FROM item_present WHERE item_id = ?", itemId);
+    }
+
+    /** Рейтинг объекта: 0 — убрать, 1…10 — половинки звезды. */
+    public void setRating(long itemId, int rating) {
+        if (rating < 0 || rating > 10) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badRating"));
+        if (rating == 0) jdbc.update("DELETE FROM item_ratings WHERE item_id = ?", itemId);
+        else jdbc.update("INSERT INTO item_ratings (item_id, rating) VALUES (?, ?) "
+                + "ON CONFLICT (item_id) DO UPDATE SET rating = excluded.rating", itemId, rating);
+    }
+
+    /** Одно дополнительное поле (столбец item_details из фиксированного списка); пусто — NULL, пустая строка удаляется. */
+    private void setDetail(long itemId, String column, String value) {
+        if (!List.of("purchased", "tags", "edition", "notes").contains(column)) throw new IllegalArgumentException(column);
+        String v = value == null || value.isEmpty() ? null : value;
+        jdbc.update("INSERT INTO item_details (item_id, " + column + ") VALUES (?, ?) "
+                + "ON CONFLICT (item_id) DO UPDATE SET " + column + " = excluded." + column, itemId, v);
+        jdbc.update("DELETE FROM item_details WHERE item_id = ? AND purchased IS NULL AND tags IS NULL "
+                + "AND edition IS NULL AND notes IS NULL", itemId);
+    }
+
+    /** Дата покупки из поля даты (ГГГГ-ММ-ДД) или пусто; другое — 400. */
+    private static String purchaseDate(String value) {
+        String v = trim(value);
+        if (v.isEmpty()) return "";
+        try {
+            return java.time.LocalDate.parse(v).toString();
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badDate"));
+        }
+    }
+
+    /** Теги: через запятую, без пробелов по краям и повторов (без учёта регистра), в порядке ввода. */
+    public static List<String> splitTags(String tags) {
+        if (tags == null) return List.of();
+        Map<String, String> res = new LinkedHashMap<>();
+        for (String t : tags.split(",")) {
+            String s = t.trim().replaceAll("\\s+", " ");
+            if (!s.isEmpty()) res.putIfAbsent(s.toLowerCase(RU), s);
+        }
+        return List.copyOf(res.values());
+    }
+
+    private static String normalizeTags(String tags) {
+        return String.join(", ", splitTags(tags));
+    }
+
+    private static String limit(String s, int max) {
+        if (s.length() > max) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.tooLong", max));
+        return s;
     }
 
     /** Удаляет запись; владельца проверяет вызывающий код (collection/item с uid). */

@@ -14,12 +14,13 @@
       </th:block>
     </span>
     <span class="spacer"></span>
+    <a class="icon big" href="/stats" th:title="#{stats.title}" th:aria-label="#{stats.title}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M660-160v-280h140v280H660Zm-250 0v-640h140v640H410Zm-250 0v-440h140v440H160Z"/></svg></a>
     <a class="icon big add" href="/collections/new" th:title="#{coll.new}" th:aria-label="#{coll.new}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
   </div>
   <p class="empty" th:if="${collections.isEmpty()}" th:text="#{index.empty}">Пока нет ни одной коллекции.</p>
   <div class="list">
     <a class="row" th:each="c : ${collections}" th:href="@{/collections/{id}(id=${c.id()})}">
-      <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+      <img class="thumb" th:if="${c.hasImage()}" th:src="@{/img/{h}/thumb(h=${c.pic()})}" alt="">
       <div class="thumb" th:unless="${c.hasImage()}"></div>
       <div>
         <div class="name" th:text="${c.name()}"></div>

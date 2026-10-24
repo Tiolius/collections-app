@@ -1,0 +1,90 @@
+<!doctype html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<!-- Статистика: итоги, по коллекциям (числа — ссылки на коллекцию с нужным фильтром), рейтинги, покупки по годам, теги.
+     «В наличии», статусы и стоимость считаются только у коллекций, у типа которых есть эти поля; «—» — поля нет -->
+<main>
+  <div class="bar">
+    <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
+    <h2 th:text="#{stats.title}">Статистика</h2>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><b th:text="${collections.size()}"></b><span th:text="#{stats.collections}">коллекций</span></div>
+    <div class="tile"><b th:text="${total.items}"></b><span th:text="#{stats.items}">объектов</span></div>
+    <div class="tile"><b th:text="${total.available}"></b><span th:text="#{stats.available}">в наличии</span></div>
+    <div class="tile"><b th:text="${total.completed}"></b><span th:text="#{stats.completed}">пройдено</span></div>
+    <div class="tile"><b th:text="${total.unfinished}"></b><span th:text="#{stats.unfinished}">не пройдено</span></div>
+    <div class="tile"><b th:text="${total.images}"></b><span th:text="#{stats.withImages}">с картинками</span></div>
+    <div class="tile" th:if="${showPrices}"><b th:text="${totalPrice + ' ₽'}"></b><span th:text="#{stats.value}">стоимость</span></div>
+    <div class="tile" th:unless="${showPrices}">
+      <span class="icon tip small" tabindex="0" th:aria-label="#{coll.valueLabel}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
+        <span class="tiptext" th:text="#{coll.valueTip(${totalPrice})}"></span></span>
+      <span th:text="#{stats.value}">стоимость</span>
+    </div>
+  </div>
+
+  <h3 class="section" th:text="#{stats.byCollection}">По коллекциям</h3>
+  <p class="empty" th:if="${collections.isEmpty()}" th:text="#{collections.none}"></p>
+  <table class="items stats" th:unless="${collections.isEmpty()}">
+    <thead><tr>
+      <th class="title" th:text="#{search.collection}">Коллекция</th>
+      <th th:text="#{stats.itemsCol}">Объектов</th>
+      <th th:text="#{field.available}">В наличии</th>
+      <th th:text="#{stats.completedCol}">Пройдено</th>
+      <th th:text="#{stats.unfinishedCol}">Не пройдено</th>
+      <th th:text="#{field.rating}">Рейтинг</th>
+      <th th:text="#{stats.imagesCol}">С картинками</th>
+      <th th:text="#{stats.descriptionsCol}">С описанием</th>
+      <th th:if="${showPrices}" th:text="#{stats.valueCol}">Стоимость</th>
+    </tr></thead>
+    <tbody><tr th:each="c : ${collections}" th:with="s=${stats.get(c.id())}, f=${kindFields.get(c.id())}">
+      <td class="title"><a th:href="@{/collections/{id}(id=${c.id()})}" th:text="${c.name()}"></a></td>
+      <td th:text="${s.items()}"></td>
+      <td><a th:if="${f.contains('available')}" th:href="@{/collections/{id}(id=${c.id()},f_available=1)}" th:text="${s.available()}"></a><span th:unless="${f.contains('available')}" class="muted">—</span></td>
+      <td><a th:if="${f.contains('status')}" th:href="@{/collections/{id}(id=${c.id()},f_status='Completed')}" th:text="${s.completed()}"></a><span th:unless="${f.contains('status')}" class="muted">—</span></td>
+      <td><a th:if="${f.contains('status')}" th:href="@{/collections/{id}(id=${c.id()},f_status='Unfinished')}" th:text="${s.unfinished()}"></a><span th:unless="${f.contains('status')}" class="muted">—</span></td>
+      <td>
+        <th:block th:if="${f.contains('rating') and s.rated() > 0}"><span th:text="${'★ ' + #numbers.formatDecimal(s.avgRating(), 1, 1, #locale.language == 'en' ? 'POINT' : 'COMMA')}"></span> <span class="muted" th:text="${'(' + s.rated() + ')'}"></span></th:block>
+        <span th:unless="${f.contains('rating') and s.rated() > 0}" class="muted">—</span>
+      </td>
+      <td th:text="${s.withImages()}"></td>
+      <td th:text="${s.withDescription()}"></td>
+      <td th:if="${showPrices}"><span th:if="${f.contains('price')}" th:text="${prices.get(c.id()) + ' ₽'}"></span><span th:unless="${f.contains('price')}" class="muted">—</span></td>
+    </tr></tbody>
+  </table>
+
+  <div class="stat-blocks">
+    <!-- Рейтинг: сколько объектов в каждой звезде (3,5 считается как 4) -->
+    <section th:if="${ratingMax > 0}">
+      <h3 class="section" th:text="#{field.rating}">Рейтинг</h3>
+      <div class="bars">
+        <th:block th:each="i : ${#numbers.sequence(4, 0, -1)}">
+          <span class="bar-label" th:text="${'★ ' + (i + 1)}"></span>
+          <span class="bar-track"><span class="bar-fill" th:style="${'width:' + (ratingHist[i] * 100 / ratingMax) + '%'}"></span></span>
+          <span class="bar-value" th:text="${ratingHist[i]}"></span>
+        </th:block>
+      </div>
+    </section>
+    <!-- Покупки по годам (поле «Дата покупки») -->
+    <section th:unless="${years.isEmpty()}">
+      <h3 class="section" th:text="#{stats.byYear}">Покупки по годам</h3>
+      <div class="bars">
+        <th:block th:each="y : ${years}">
+          <span class="bar-label" th:text="${y.key}"></span>
+          <span class="bar-track"><span class="bar-fill" th:style="${'width:' + (y.value[0] * 100 / yearsMax) + '%'}"></span></span>
+          <span class="bar-value"><span th:text="${y.value[0]}"></span><span class="muted" th:if="${showPrices}" th:text="${' · ' + yearPrices.get(y.key) + ' ₽'}"></span></span>
+        </th:block>
+      </div>
+    </section>
+    <!-- Самые частые теги -->
+    <section th:unless="${tags.isEmpty()}">
+      <h3 class="section" th:text="#{stats.tags}">Частые теги</h3>
+      <div><span class="tag" th:each="t : ${tags}"><th:block th:text="${t.key}"></th:block> <span class="muted" th:text="${t.value}"></span></span></div>
+    </section>
+  </div>
+</main>
+</body>
+</html>

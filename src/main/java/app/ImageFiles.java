@@ -43,7 +43,7 @@ public class ImageFiles implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(ImageFiles.class);
     private static final Map<String, String> EXT = Map.of(
-            "image/png", "png", "image/jpeg", "jpg", "image/gif", "gif", "image/webp", "webp");
+            "image/png", "png", "image/jpeg", "jpg", "image/gif", "gif");
 
     /** Сколько картинок может быть у объекта. */
     public static final int MAX_IMAGES = 5;
@@ -52,11 +52,14 @@ public class ImageFiles implements ApplicationRunner {
     public record Pic(String hash, String mime) {}
 
     private final Path dir;
+    /** Уменьшенные копии (thumb): DATA_DIR/thumbs/ab/cd/<sha256>.<jpg|png> — создаются при первом запросе, в копию не входят. */
+    private final Path thumbs;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
 
     public ImageFiles(@Value("${DATA_DIR:/data}") String dataDir, JdbcTemplate jdbc, TransactionTemplate tx) {
         this.dir = Path.of(dataDir, "images");
+        this.thumbs = Path.of(dataDir, "thumbs");
         this.jdbc = jdbc;
         this.tx = tx;
     }
@@ -76,6 +79,80 @@ public class ImageFiles implements ApplicationRunner {
         return p.isEmpty() ? null : p.get(0);
     }
 
+    /** Папка картинок (DATA_DIR/images). */
+    public Path dir() {
+        return dir;
+    }
+
+    /** Файлы всех картинок из справочника pictures (для резервной копии; вызывать под блокировкой). */
+    public List<Path> allFiles() {
+        return jdbc.query("SELECT hash, mime FROM pictures", (rs, n) -> file(rs.getString(1), rs.getString(2)));
+    }
+
+    /** Наибольшая сторона уменьшенной копии: с запасом для экранов с двойной плотностью (обложка на главной — 76px). */
+    public static final int THUMB = 200;
+
+    /**
+     * Уменьшенная копия картинки (не больше THUMB по большей стороне): из папки thumbs, а если её нет — создаётся.
+     * null — уменьшать нечего (картинка и так маленькая) или ImageIO не смог её прочитать — тогда отдаётся сама картинка.
+     * Копия с прозрачностью — PNG, без — JPEG.
+     */
+    public Thumb thumb(Pic pic) {
+        try {
+            for (String ext : List.of("jpg", "png")) {
+                Path t = thumbFile(pic.hash(), ext);
+                if (Files.exists(t)) return new Thumb(Files.readAllBytes(t), ext.equals("png") ? "image/png" : "image/jpeg");
+            }
+            byte[] src = read(pic);
+            if (src == null) return null;
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(src));
+            if (img == null || Math.max(img.getWidth(), img.getHeight()) <= THUMB) return null;
+            boolean alpha = img.getColorModel().hasAlpha();
+            java.awt.image.BufferedImage small = scale(img, THUMB, alpha);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            String ext = alpha ? "png" : "jpg";
+            if (!javax.imageio.ImageIO.write(small, alpha ? "png" : "jpeg", out)) return null;
+            Path t = thumbFile(pic.hash(), ext);
+            Files.createDirectories(t.getParent());
+            Path tmp = Files.createTempFile(t.getParent(), pic.hash() + "-", ".tmp");
+            Files.write(tmp, out.toByteArray());
+            Files.move(tmp, t, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            return new Thumb(out.toByteArray(), alpha ? "image/png" : "image/jpeg");
+        } catch (Exception e) { // не картинка для ImageIO (например, CMYK JPEG) — отдаётся сама картинка
+            log.debug("Не удалось уменьшить картинку {}: {}", pic.hash(), e.toString());
+            return null;
+        }
+    }
+
+    /** Уменьшенная копия: содержимое и тип. */
+    public record Thumb(byte[] bytes, String mime) {}
+
+    /** Уменьшение по шагам вдвое (плавнее, чем сразу в несколько раз), последний шаг — до max по большей стороне. */
+    private static java.awt.image.BufferedImage scale(java.awt.image.BufferedImage img, int max, boolean alpha) {
+        int type = alpha ? java.awt.image.BufferedImage.TYPE_INT_ARGB : java.awt.image.BufferedImage.TYPE_INT_RGB;
+        double k = (double) max / Math.max(img.getWidth(), img.getHeight());
+        int tw = Math.max(1, (int) Math.round(img.getWidth() * k)), th = Math.max(1, (int) Math.round(img.getHeight() * k));
+        java.awt.image.BufferedImage cur = img;
+        int w = img.getWidth(), h = img.getHeight();
+        do {
+            w = Math.max(tw, w / 2);
+            h = Math.max(th, h / 2);
+            java.awt.image.BufferedImage next = new java.awt.image.BufferedImage(w, h, type);
+            java.awt.Graphics2D g = next.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+            if (!alpha) { g.setColor(java.awt.Color.WHITE); g.fillRect(0, 0, w, h); }
+            g.drawImage(cur, 0, 0, w, h, null);
+            g.dispose();
+            cur = next;
+        } while (w != tw || h != th);
+        return cur;
+    }
+
+    private Path thumbFile(String hash, String ext) {
+        return thumbs.resolve(hash.substring(0, 2)).resolve(hash.substring(2, 4)).resolve(hash + "." + ext);
+    }
+
     /** Содержимое картинки или null, если файла нет. */
     public byte[] read(Pic pic) {
         try {
@@ -90,7 +167,7 @@ public class ImageFiles implements ApplicationRunner {
 
     /**
      * Заменяет все картинки объекта (до MAX_IMAGES, по порядку; пустой список — удаляет все).
-     * Не картинки (не PNG, JPEG, GIF, WebP) пропускаются.
+     * Не картинки (не PNG, JPEG, GIF) пропускаются.
      */
     public synchronized void setItem(long itemId, List<byte[]> images) {
         Set<String> old = new HashSet<>(hashes("SELECT hash FROM item_pictures WHERE item_id = ?", itemId));
@@ -187,6 +264,8 @@ public class ImageFiles implements ApplicationRunner {
         for (Path f : gone) {
             try {
                 Files.deleteIfExists(f);
+                String h = f.getFileName().toString().replaceFirst("\\..*", "");
+                for (String ext : List.of("jpg", "png")) Files.deleteIfExists(thumbFile(h, ext)); // и уменьшенные копии
             } catch (IOException e) {
                 log.warn("Не удалось удалить картинку {}: {}", f.getFileName(), e.toString());
             }
@@ -245,7 +324,10 @@ public class ImageFiles implements ApplicationRunner {
                 + "AND hash NOT IN (SELECT hash FROM collection_pictures)", String.class));
         Set<Path> keep = new HashSet<>();
         jdbc.query("SELECT hash, mime FROM pictures", rs -> { keep.add(file(rs.getString(1), rs.getString(2))); });
-        if (!Files.isDirectory(dir)) return;
+        if (!Files.isDirectory(dir)) {
+            cleanThumbs();
+            return;
+        }
         int removed = 0;
         try (Stream<Path> all = Files.walk(dir)) {
             // сначала вложенное, потом папки — чтобы опустевшие папки тоже удалились
@@ -264,6 +346,27 @@ public class ImageFiles implements ApplicationRunner {
             log.warn("Не удалось очистить папку картинок: {}", e.toString());
         }
         if (removed > 0) log.info("Удалены лишние файлы картинок: {}", removed);
+        cleanThumbs();
+    }
+
+    /** Уменьшенные копии картинок, которых больше нет в pictures (и недописанные .tmp), удаляются. */
+    private void cleanThumbs() {
+        if (!Files.isDirectory(thumbs)) return;
+        Set<String> keep = new HashSet<>(jdbc.queryForList("SELECT hash FROM pictures", String.class));
+        try (Stream<Path> all = Files.walk(thumbs)) {
+            for (Path f : all.sorted(Comparator.reverseOrder()).toList()) {
+                if (f.equals(thumbs)) continue;
+                if (Files.isDirectory(f)) {
+                    try (Stream<Path> inside = Files.list(f)) {
+                        if (inside.findAny().isEmpty()) Files.delete(f);
+                    }
+                } else if (!keep.contains(f.getFileName().toString().replaceFirst("\\..*", ""))) {
+                    Files.delete(f);
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Не удалось очистить папку уменьшенных копий: {}", e.toString());
+        }
     }
 
     /**

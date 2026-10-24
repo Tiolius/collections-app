@@ -157,11 +157,12 @@
   header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   header .right, header nav { display: flex; align-items: stretch; height: 100%; }
   header .right { border-right: 1px solid var(--bar-sep); }
-  header .user, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
+  header .user, header a.update, header a.search, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
            padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
   header .user { cursor: default; }
   header .mi { width: 16px; height: 16px; }
-  header a.settings:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); }
+  header a.update { color: var(--orange); }  /* новая версия приложения — администратору */
+  header a.settings:hover, header a.update:hover, header a.search:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); }
   /* Язык интерфейса: кнопка-глобус и меню из двух флажков под ней (у правого края кнопки) */
   header .lang { position: relative; display: flex; height: 100%; }
   header .lang-menu { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 150px; padding: 4px 0; margin-top: 1px;
@@ -268,7 +269,15 @@
   table.items thead tr:first-child th { text-align: left; }
   table.items[data-cols] thead tr:first-child th { text-align: center; padding-left: 16px; }  /* отступы поровну — текст ровно по центру */
   table.items[data-cols] thead tr:first-child th.pic-col { padding-left: 2px; }
-  table.items[data-cols] thead tr:first-child th:first-child { text-align: left; padding-left: 6px; }
+  table.items[data-cols] thead tr:first-child th.c-name { text-align: left; padding-left: 6px; }
+  /* Галочки строк (массовые действия): узкий первый столбец; выбранная строка подсвечена */
+  table.items th.sel, table.items td.sel { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
+  table.items[data-cols] thead tr:first-child th.sel { padding: 6px 2px; }
+  table.items tbody tr.picked td { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--blue) 12%, transparent); }
+  /* Панель массовых действий — над таблицей, пока выбран хотя бы один объект */
+  .bulk { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px; padding: 8px 12px;
+          border: 1px solid var(--blue); background: var(--form-bg); }
+  .bulk[hidden], .bulk select[hidden] { display: none; }
   table.items th a.sort { color: inherit; display: block; }
   table.items th a.sort:hover { text-decoration: underline; }
   /* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
@@ -321,6 +330,10 @@
   table.items th.eye, table.items td.eye { text-align: center; }
   /* Наличие: галочка — есть, крестик (бледный) — нет */
   table.items th.flag, table.items td.flag { text-align: center; }
+  table.items td.date { text-align: center; }
+  /* Теги: небольшие ярлыки в строке */
+  .tag { display: inline-block; padding: 0 6px; margin: 1px 4px 1px 0; border: 1px solid var(--line); border-radius: 8px;
+         background: var(--panel); line-height: 18px; }
   /* Рейтинг: контурные звёзды и поверх закрашенные (видна часть ширины) */
   .stars { position: relative; display: inline-block; white-space: nowrap; line-height: 0; vertical-align: middle; }
   .stars .mi { width: 14px; height: 14px; }
@@ -487,7 +500,27 @@
   .import-box { border: 1px solid var(--border); background: var(--form-bg); padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 900px; }
   .import-box progress { width: 100%; height: 16px; accent-color: var(--blue); }
   .import-box form { margin: 0; }
+  .import-box[hidden], .form[hidden] { display: none; }
+  /* Поиск по всем коллекциям */
+  .search-form { display: flex; gap: 8px; max-width: 900px; margin-bottom: 16px; }
+  .search-form input { flex: 1; min-width: 0; }
+  table.items.found { max-width: 1200px; }
+  /* Статистика: плитки итогов, полосы (рейтинг, покупки по годам) */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .tile { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); background: var(--form-bg); }
+  .tile b { font-size: 18px; color: var(--heading); }
+  .tile span { color: var(--muted); }
+  .tile .icon { color: var(--icon); }
+  table.items.stats td a { display: block; }
+  .stat-blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); column-gap: 24px; }
+  .bars { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; max-width: 560px; }
+  .bar-track { height: 14px; background: var(--panel); border: 1px solid var(--line); }
+  .bar-fill { display: block; height: 100%; background: var(--blue); }
+  .bar-value { white-space: nowrap; }  /* атрибут hidden иначе перебивается display: grid */
 
+  @media (max-width: 420px) {
+    header .logo span { display: none; }  /* узкий телефон: в шапке только значок логотипа, иначе кнопки не помещаются */
+  }
   @media (max-width: 700px) {
     main.settings { grid-template-columns: 1fr; }
     main.settings > nav.tabs { grid-row: auto; margin-bottom: 14px; }
@@ -501,9 +534,10 @@
     .tip.help .tiptext { left: 0; right: 0; top: calc(100% + 4px); width: auto; }
     .form, .form.compact { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
-    header .user span, header a.settings span { display: none; }
+    header .user span, header a.settings span, header a.update span { display: none; }
     /* Таблица объектов на телефоне: название, статус, цена и корзина; платформа, формат и иконка картинки — в окне объекта */
-    table.items .c-platform, table.items .c-format, table.items .pic-col { display: none; }
+    table.items .c-platform, table.items .c-format, table.items .c-edition, table.items .c-purchased, table.items .c-tags,
+    table.items .c-rating, table.items .c-available, table.items .pic-col { display: none; }
     table.items .grip, #reset-widths { display: none; }
     table.items tr.filters select, table.items tr.filters .range input { min-width: 0; }
     table.items tr.filters .range { flex-direction: column; gap: 2px; }
@@ -525,6 +559,11 @@
   <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.25 21.05 16.35 7.3l2.95.45-2.1 13.75z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
+      <!-- Поиск по всем коллекциям -->
+      <a class="search" href="/search" th:title="#{search.title}" th:aria-label="#{search.title}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M796-121 533-384q-30 26-70 40.5T378-329q-108 0-183-75t-75-181q0-106 75-181t182-75q106 0 180.5 75T632-585q0 43-14 83t-42 75l264 262-44 44ZM377-389q81 0 138-57.5T572-585q0-81-57-138.5T377-781q-82 0-139.5 57.5T180-585q0 81 57.5 138.5T377-389Z"/></svg></a>
+      <!-- Новая версия приложения (Updates, только администратору): ссылка на страницу релиза -->
+      <a class="update" th:if="${update != null}" th:href="${update.url()}" target="_blank" rel="noopener"
+         th:title="#{update.available(${update.version()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m740-76 113-113-21-21-77 77v-171h-30v171l-77-77-21 21L740-76ZM480-823 213-669l267 155 266-155-266-154ZM120-310v-340q0-16 7.88-29.79Q135.75-693.57 150-702l300-173q8-5 14.95-6.5 6.95-1.5 15-1.5t15.55 1.5Q503-880 510-875l300 173q14.25 8.43 22.13 22.21Q840-666 840-650v210h-60v-180L481-445 180-619v309l300 173v69L150-258q-14.25-8.43-22.12-22.21Q120-294 120-310ZM596-55.4q-56-55.4-56-134T596-324q56-56 134-56t134 55.87q56 55.86 56 135.13 0 78.43-56 133.72Q808 0 730 0T596-55.4ZM480-478Z"/></svg><span th:text="${update.version()}"></span></a>
       <span class="user" th:title="${currentUser.isAdmin() ? #messages.msg('role.admin') : #messages.msg('role.user')}">
         <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M372-523q-42-42-42-108t42-108q42-42 108-42t108 42q42 42 42 108t-42 108q-42 42-108 42t-108-42ZM160-160v-94q0-38 19-65t49-41q67-30 128.5-45T480-420q62 0 123 15.5T731-360q31 14 50 41t19 65v94H160Zm60-60h520v-34q0-16-9.5-30.5T707-306q-64-31-117-42.5T480-360q-57 0-111 11.5T252-306q-14 7-23 21.5t-9 30.5v34Zm324.5-346.5Q570-592 570-631t-25.5-64.5Q519-721 480-721t-64.5 25.5Q390-670 390-631t25.5 64.5Q441-541 480-541t64.5-25.5ZM480-631Zm0 411Z"/></svg>
         <span th:text="${currentUser.name()}"></span>
@@ -553,7 +592,7 @@
   <script>
     // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
     (function () {
-      var items = document.querySelectorAll('header .logo, header .right .user, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
+      var items = document.querySelectorAll('header .logo, header .right a.search, header .right .user, header .right a.update, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
       function fit() {
         items.forEach(function (e) { e.style.width = ''; });
         items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });
@@ -580,6 +619,7 @@
     <a href="/import" th:classappend="${active == 'import'} ? 'active'" th:text="#{settings.import}"></a>
     <a href="/export" th:classappend="${active == 'export'} ? 'active'" th:text="#{settings.export}"></a>
     <a href="/cache" th:classappend="${active == 'cache'} ? 'active'" th:text="#{settings.cache}"></a>
+    <a href="/backup" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'backup'} ? 'active'" th:text="#{settings.backup}"></a>
     <a href="/users" th:if="${currentUser.isAdmin()}" th:classappend="${active == 'users'} ? 'active'" th:text="#{settings.users}"></a>
     <a href="/about" th:classappend="${active == 'about'} ? 'active'" th:text="#{settings.about}"></a>
   </nav>
@@ -648,7 +688,7 @@
       <div id="d-image" class="dlg-image">
         <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
         <th:block th:each="n : ${#numbers.sequence(0, 4)}">
-          <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif" hidden>
           <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
         </th:block>
         <div class="viewer">
@@ -680,6 +720,10 @@
         <label for="d-format" th:text="#{field.format}">Формат</label>
         <input autocomplete="off" id="d-format" type="text" name="format">
       </th:block>
+      <th:block th:if="${fields.contains('edition')}">
+        <label for="d-edition" th:text="#{field.edition}">Регион / издание</label>
+        <input autocomplete="off" id="d-edition" type="text" name="edition" maxlength="200">
+      </th:block>
       <th:block th:if="${fields.contains('status')}">
         <label for="d-status" th:text="#{field.status}">Статус прохождения</label>
         <select id="d-status" name="status">
@@ -695,10 +739,22 @@
         <label for="d-price" th:text="#{field.priceRub}">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
       </th:block>
+      <th:block th:if="${fields.contains('purchased')}">
+        <label for="d-purchased" th:text="#{field.purchased}">Дата покупки</label>
+        <input autocomplete="off" id="d-purchased" type="date" name="purchased">
+      </th:block>
       <th:block th:if="${fields.contains('available')}">
         <label for="d-available" th:text="#{field.available}">Наличие</label>
         <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> <span th:text="#{available.yesLower}">есть</span></label></span>
+      </th:block>
+      <th:block th:if="${fields.contains('tags')}">
+        <label for="d-tags" th:text="#{field.tags}">Теги</label>
+        <input autocomplete="off" id="d-tags" type="text" name="tags" maxlength="500" th:placeholder="#{tags.placeholder}">
+      </th:block>
+      <th:block th:if="${fields.contains('notes')}">
+        <label for="d-notes" th:text="#{field.notes}">Заметки</label>
+        <textarea autocomplete="off" spellcheck="false" id="d-notes" name="notes" rows="2" maxlength="2000"></textarea>
       </th:block>
       <label for="d-description" th:text="#{field.description}">Описание</label>
       <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
@@ -789,7 +845,7 @@
         var row = a.closest('tr');
         form.action = '/items/' + row.dataset.id + '/edit';
         document.getElementById('d-delete').formAction = '/items/' + row.dataset.id + '/delete';
-        ['name', 'platform', 'format', 'status', 'price', 'description'].forEach(function (f) {
+        ['name', 'platform', 'format', 'status', 'price', 'description', 'purchased', 'tags', 'edition', 'notes'].forEach(function (f) {
           if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
         });
         // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
@@ -808,10 +864,8 @@
         if (avail) avail.checked = row.dataset.available === '1';
         if ($('d-oldgames')) { $('d-oldgames').value = row.dataset.oldgames || ''; $('d-og-status').hidden = true; ogSync(); }
         itemId = row.dataset.id;
-        // Картинки: сохранённые (сколько есть) и пустой слот; выбор файлов и пометки удаления — сброшены
-        var count = +row.dataset.images || 0, t = Date.now();
-        slots = [];
-        for (var k = 0; k < count; k++) slots.push({ saved: '/items/' + row.dataset.id + '/image?n=' + k + '&t=' + t });
+        // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены
+        slots = (row.dataset.pics || '').split(',').filter(Boolean).map(function (h) { return { saved: '/img/' + h }; });
         if (!slots.length) slots.push({});
         addEmptySlot();
         for (var j = 0; j < MAX; j++) { $('d-file-' + j).value = ''; $('d-remove-' + j).disabled = true; }

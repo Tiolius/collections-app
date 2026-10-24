@@ -1,0 +1,57 @@
+<!doctype html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{base :: head}"></head>
+<body>
+<header th:replace="~{base :: header}"></header>
+<!-- Поиск по всем коллекциям: коллекции по названию и объекты (название, теги, регион / издание, заметки) -->
+<main>
+  <div class="bar">
+    <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
+    <h2 th:text="#{search.title}">Поиск</h2>
+  </div>
+  <form autocomplete="off" class="search-form" method="get" action="/search">
+    <input type="search" name="q" th:value="${q}" autofocus autocomplete="off" spellcheck="false" th:placeholder="#{search.placeholder}" th:aria-label="#{search.title}">
+    <button class="btn" th:text="#{search.find}">Найти</button>
+  </form>
+
+  <th:block th:unless="${#strings.isEmpty(q)}">
+    <p class="empty" th:if="${foundCollections.isEmpty() and found.isEmpty()}" th:text="#{search.none(${q})}"></p>
+
+    <th:block th:unless="${foundCollections.isEmpty()}">
+      <h3 class="section" th:text="#{search.collections}">Коллекции</h3>
+      <div class="list">
+        <a class="row" th:each="c : ${foundCollections}" th:href="@{/collections/{id}(id=${c.id()})}">
+          <img class="thumb" th:if="${c.hasImage()}" th:src="@{/img/{h}/thumb(h=${c.pic()})}" alt="">
+          <div class="thumb" th:unless="${c.hasImage()}"></div>
+          <div>
+            <div class="name" th:text="${c.name()}"></div>
+            <div class="type" th:text="${c.kind() == null ? '—' : c.kind()}"></div>
+          </div>
+        </a>
+      </div>
+    </th:block>
+
+    <th:block th:unless="${found.isEmpty()}">
+      <h3 class="section" th:text="#{search.items}">Объекты</h3>
+      <p class="muted" th:if="${foundTotal > found.size()}" th:text="#{search.limited(${found.size()}, ${foundTotal})}"></p>
+      <table class="items found">
+        <thead><tr><th class="title" th:text="#{field.name}">Название</th><th th:text="#{search.collection}">Коллекция</th>
+          <th th:text="#{field.statusShort}">Статус</th><th th:text="#{field.available}">Наличие</th></tr></thead>
+        <tbody><tr th:each="it : ${found}" th:with="col=${collectionsById.get(it.collectionId())}, f=${kindFields.get(it.collectionId())}">
+          <td class="title"><a th:href="@{/items/{id}/edit(id=${it.id()})}" th:text="${it.name()}"></a>
+            <span class="tag" th:each="t : ${it.tagList()}" th:text="${t}"></span></td>
+          <td><a th:href="@{/collections/{id}(id=${col.id()})}" th:text="${col.name()}"></a></td>
+          <td th:text="${f.contains('status') ? it.status() : ''}"></td>
+          <td class="flag">
+            <th:block th:if="${f.contains('available')}">
+              <span th:if="${it.available()}" class="avail yes" th:title="#{available.yes}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg></span>
+              <span th:unless="${it.available()}" class="avail no" th:title="#{available.no}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></span>
+            </th:block>
+          </td>
+        </tr></tbody>
+      </table>
+    </th:block>
+  </th:block>
+</main>
+</body>
+</html>

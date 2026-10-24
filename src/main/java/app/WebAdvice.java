@@ -19,9 +19,18 @@ import org.springframework.web.servlet.ModelAndView;
 public class WebAdvice {
 
     private final Repo repo;
+    private final Updates updates;
 
-    public WebAdvice(Repo repo) {
+    public WebAdvice(Repo repo, Updates updates) {
         this.repo = repo;
+        this.updates = updates;
+    }
+
+    /** Новая версия приложения (или null) — администратору, для ссылки в шапке. */
+    @ModelAttribute("update")
+    public Updates.Release update(HttpSession session) {
+        Repo.User u = currentUser(session);
+        return u != null && u.isAdmin() ? updates.available() : null;
     }
 
     /** Вошедший пользователь (или null) — для шапки страниц и прав администратора в шаблонах. */

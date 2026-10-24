@@ -23,10 +23,10 @@
       <label th:text="#{field.image}">Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
-          <img class="preview" th:src="${imgUrl}" alt="">
+          <img class="preview" th:src="${imgUrl + '/thumb'}" alt="">
           <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
         </th:block>
-        <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
+        <input type="file" name="image" accept="image/png,image/jpeg,image/gif">
       </div>
     </th:block>
 
@@ -38,6 +38,11 @@
     <th:block th:if="${isItem and fields.contains('format')}">
       <label for="f-format" th:text="#{field.format}">Формат</label>
       <input autocomplete="off" id="f-format" type="text" name="format" th:value="${obj != null ? obj.format() : ''}">
+    </th:block>
+
+    <th:block th:if="${isItem and fields.contains('edition')}">
+      <label for="f-edition" th:text="#{field.edition}">Регион / издание</label>
+      <input autocomplete="off" id="f-edition" type="text" name="edition" maxlength="200" th:value="${obj != null ? obj.edition() : ''}">
     </th:block>
 
     <th:block th:if="${isItem and fields.contains('status')}">
@@ -60,11 +65,26 @@
       <input autocomplete="off" id="f-price" type="number" name="price" min="0" step="1" th:value="${obj != null ? obj.price() : ''}">
     </th:block>
 
+    <th:block th:if="${isItem and fields.contains('purchased')}">
+      <label for="f-purchased" th:text="#{field.purchased}">Дата покупки</label>
+      <input autocomplete="off" id="f-purchased" type="date" name="purchased" th:value="${obj != null ? obj.purchased() : ''}">
+    </th:block>
+
     <th:block th:if="${isItem and fields.contains('available')}">
       <label for="f-available" th:text="#{field.available}">Наличие</label>
       <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме»; у нового объекта — снята («Нет») -->
       <span><input type="hidden" name="available" value="0"><label class="radio"><input id="f-available" type="checkbox" name="available" value="1"
              th:checked="${obj != null and obj.available()}"> <span th:text="#{available.yesLower}">есть</span></label></span>
+    </th:block>
+
+    <th:block th:if="${isItem and fields.contains('tags')}">
+      <label for="f-tags" th:text="#{field.tags}">Теги</label>
+      <input autocomplete="off" id="f-tags" type="text" name="tags" maxlength="500" th:placeholder="#{tags.placeholder}" th:value="${obj != null ? obj.tags() : ''}">
+    </th:block>
+
+    <th:block th:if="${isItem and fields.contains('notes')}">
+      <label class="at-field" for="f-notes" th:text="#{field.notes}">Заметки</label>
+      <textarea autocomplete="off" spellcheck="false" id="f-notes" name="notes" rows="3" maxlength="2000" th:text="${obj != null ? obj.notes() : ''}"></textarea>
     </th:block>
 
     <th:block th:if="${isItem}">
@@ -87,10 +107,10 @@
       <label th:text="#{field.image}">Картинка</label>
       <div>
         <th:block th:if="${imgUrl != null}">
-          <a th:href="${imgUrl}" target="_blank" th:title="#{js.openFull}"><img class="preview" th:src="${imgUrl}" alt=""></a>
+          <a th:href="${imgUrl}" target="_blank" th:title="#{js.openFull}"><img class="preview" th:src="${imgUrl + '/thumb'}" alt=""></a>
           <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
         </th:block>
-        <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
+        <input type="file" name="image" accept="image/png,image/jpeg,image/gif">
       </div>
     </th:block>
 

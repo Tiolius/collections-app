@@ -6,7 +6,7 @@
 <main>
   <div class="bar collhead" th:unless="${dups}">
     <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
-    <img class="thumb" th:if="${c.hasImage()}" th:src="@{/collections/{id}/image(id=${c.id()})}" alt="">
+    <img class="thumb" th:if="${c.hasImage()}" th:src="@{/img/{h}/thumb(h=${c.pic()})}" alt="">
     <div>
       <h2 th:text="${c.name()}"></h2>
       <div class="muted meta-line">
@@ -77,10 +77,47 @@
     </span>
   </div>
 
-  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '') + ':pic'}">
+  <!-- Массовые действия: галочки строк (name="ids", form="bulk-form"); панель видна, когда что-то выбрано -->
+  <form autocomplete="off" id="bulk-form" class="bulk" method="post" th:action="@{/collections/{id}/bulk(id=${c.id()})}" hidden
+        th:data-confirm="#{bulk.deleteConfirm}"
+        onsubmit="return this.elements.action.value !== 'delete' || appConfirm(event, this.dataset.confirm.replace('{0}', document.querySelectorAll('input[name=ids]:checked').length))">
+    <input type="hidden" name="view" th:value="${view}">
+    <span><span th:text="#{bulk.selected}">Выбрано:</span> <b id="bulk-count">0</b></span>
+    <select name="action" id="bulk-action" required>
+      <option value="" selected disabled th:text="#{bulk.choose}">— действие —</option>
+      <option value="available" th:if="${fields.contains('available')}" th:text="#{field.available}">Наличие</option>
+      <option value="status" th:if="${fields.contains('status')}" th:text="#{field.status}">Статус прохождения</option>
+      <option value="rating" th:if="${fields.contains('rating')}" th:text="#{field.rating}">Рейтинг</option>
+      <option value="move" th:unless="${moveTargets.isEmpty()}" th:text="#{bulk.move}">Перенести в коллекцию</option>
+      <option value="delete" th:text="#{js.delete}">Удалить</option>
+    </select>
+    <!-- значение для выбранного действия: видно и отправляется только одно -->
+    <select name="value" data-for="available" th:if="${fields.contains('available')}" hidden disabled>
+      <option value="1" th:text="#{available.yes}">Есть</option>
+      <option value="0" th:text="#{available.no}">Нет</option>
+    </select>
+    <select name="value" data-for="status" th:if="${fields.contains('status')}" hidden disabled>
+      <option value="">—</option>
+      <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+    </select>
+    <select name="value" data-for="rating" th:if="${fields.contains('rating')}" hidden disabled>
+      <option value="0" th:text="#{rating.none}">Без рейтинга</option>
+      <option th:each="n : ${#numbers.sequence(1, 10)}" th:value="${n}"
+              th:text="${'★ ' + (n / 2) + (n % 2 == 1 ? #messages.msg('js.decimal') + '5' : '')}"></option>
+    </select>
+    <select name="value" data-for="move" th:unless="${moveTargets.isEmpty()}" hidden disabled>
+      <option th:each="t : ${moveTargets}" th:value="${t.id()}" th:text="${t.name()}"></option>
+    </select>
+    <button class="btn" th:text="#{bulk.apply}">Применить</button>
+    <button type="button" class="btn gray" id="bulk-clear" th:text="#{bulk.clear}">Снять выделение</button>
+  </form>
+
+  <table class="items" th:attr="data-cols=${#strings.listJoin(cols.![key()], ',') + (showPrices ? ':prices' : '') + ':pic:sel'}">
     <thead><tr class="head">
+      <th class="sel"><input type="checkbox" id="sel-all" th:title="#{bulk.all}" th:aria-label="#{bulk.all}"></th>
       <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
-        <a class="sort" th:title="${col.key() == 'price' ? #messages.msg('coll.sortByPrice') : null}"
+        <span th:unless="${sortable.contains(col.key())}" th:text="${#messages.msg(col.label())}"></span>
+        <a class="sort" th:if="${sortable.contains(col.key())}" th:title="${col.key() == 'price' ? #messages.msg('coll.sortByPrice') : null}"
            th:href="|?sort=${col.key()}&dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'}&size=${size}${filterQs}${modeQs}|"
            th:text="${#messages.msg(col.label()) + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
         <span class="grip" th:title="#{coll.dragWidth}"></span>
@@ -89,6 +126,7 @@
       <th class="pic-col" th:title="#{field.image}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></th>
     </tr>
     <tr class="filters">
+      <th class="sel"></th>
       <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
         <!-- Набор с клавиатуры — применяется по Enter; вставка (Ctrl+V, меню, перетаскивание) — сразу -->
         <input th:if="${col.key() == 'name'}" type="search" name="f_name" form="filter-form" th:placeholder="#{coll.searchName}"
@@ -137,11 +175,14 @@
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
-               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-available="${it.available() ? '1' : '0'}" th:data-images="${it.imageCount()}" th:data-rating="${it.rating()}" th:data-oldgames="${it.oldGamesId()}">
+               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-available="${it.available() ? '1' : '0'}" th:data-images="${it.imageCount()}" th:data-pics="${it.pics()}" th:data-rating="${it.rating()}" th:data-oldgames="${it.oldGamesId()}"
+               th:data-purchased="${it.purchased()}" th:data-tags="${it.tags()}" th:data-edition="${it.edition()}" th:data-notes="${it.notes()}">
+      <td class="sel"><input type="checkbox" name="ids" form="bulk-form" th:value="${it.id()}" th:aria-label="${it.name()}"></td>
       <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
       <td class="c-platform" th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
       <td class="c-format" th:if="${fields.contains('format')}" th:text="${it.format()}"></td>
+      <td class="c-edition" th:if="${fields.contains('edition')}" th:text="${it.edition()}"></td>
       <td class="c-status" th:if="${fields.contains('status')}" th:text="${it.status()}"></td>
       <td class="rating c-rating" th:if="${fields.contains('rating')}"><span th:replace="~{base :: stars(${it.rating()})}"></span></td>
       <td class="num c-price" th:if="${fields.contains('price') and showPrices}"
@@ -152,14 +193,16 @@
           <span class="tiptext" th:text="${it.price() == null ? #messages.msg('price.none') : #messages.msg('price.tip', #numbers.formatInteger(it.price(), 1, 'WHITESPACE'))}"></span>
         </span>
       </td>
+      <td class="date c-purchased" th:if="${fields.contains('purchased')}" th:text="${it.purchasedText()}"></td>
       <td class="flag c-available" th:if="${fields.contains('available')}">
         <span th:if="${it.available()}" class="avail yes" th:title="#{available.yes}" th:aria-label="#{available.yes}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg></span>
         <span th:unless="${it.available()}" class="avail no" th:title="#{available.no}" th:aria-label="#{available.no}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></span>
       </td>
+      <td class="tags c-tags" th:if="${fields.contains('tags')}" th:title="${it.tags()}"><span class="tag" th:each="t : ${it.tagList()}" th:text="${t}"></span></td>
       <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" th:title="#{coll.imageCount(${it.imageCount()})}" th:aria-label="#{coll.imageCount(${it.imageCount()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg><span class="pic-n" th:text="${it.imageCount()}">1</span></span></td>
     </tr>
     </th:block>
-    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 1}" th:text="#{coll.nothingFoundHint}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
+    <tr th:if="${items.isEmpty()}"><td class="empty" th:colspan="${cols.size() + 2}" th:text="#{coll.nothingFoundHint}">Ничего не найдено. Измените или сбросьте фильтры.</td></tr>
     </tbody>
   </table>
   </th:block>
@@ -167,6 +210,34 @@
   <th:block th:replace="~{base :: itemDialog}"></th:block>
 </main>
 <script>
+  // Массовые действия: выбор строк (Shift — диапазон), «выбрать все на странице», панель и значение для действия
+  (function () {
+    var form = document.getElementById('bulk-form');
+    if (!form) return;
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('input[name=ids]')), all = document.getElementById('sel-all'), last = null;
+    function sync() {
+      var n = boxes.filter(function (b) { b.closest('tr').classList.toggle('picked', b.checked); return b.checked; }).length;
+      document.getElementById('bulk-count').textContent = n;
+      form.hidden = n === 0;
+      all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length;
+    }
+    boxes.forEach(function (b, i) {
+      b.addEventListener('click', function (e) {
+        if (e.shiftKey && last !== null) {
+          var from = Math.min(last, i), to = Math.max(last, i);
+          for (var k = from; k <= to; k++) boxes[k].checked = b.checked;
+        }
+        last = i; sync();
+      });
+    });
+    all.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = all.checked; }); sync(); });
+    document.getElementById('bulk-clear').addEventListener('click', function () { boxes.forEach(function (b) { b.checked = false; }); sync(); });
+    var action = document.getElementById('bulk-action');
+    action.addEventListener('change', function () {
+      form.querySelectorAll('select[data-for]').forEach(function (s) { var on = s.dataset.for === action.value; s.hidden = !on; s.disabled = !on; });
+    });
+    sync();
+  })();
   // Ширина столбцов: потянуть за правый край заголовка. Запоминается в браузере (localStorage).
   (function () {
     var table = document.querySelector('table.items');
