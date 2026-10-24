@@ -262,10 +262,12 @@
   table.items th, table.items td { padding: 3px 6px; text-align: left; }
   table.items th { position: relative; font-weight: bold; }
   table.items thead tr:first-child th { background: var(--blue); color: var(--on-blue); padding: 6px 16px 6px 6px; }
-  /* Названия столбцов: первый (название) — по левому краю, остальные — по центру (содержимое ячеек — как было) */
-  table.items thead tr:first-child th { text-align: center; padding-left: 16px; }  /* отступы поровну — текст ровно по центру */
-  table.items thead tr:first-child th.pic-col { padding-left: 2px; }
-  table.items thead tr:first-child th:first-child { text-align: left; padding-left: 6px; }
+  /* Названия столбцов (содержимое ячеек — как было): в таблицах настроек — по левому краю; в таблице объектов
+     (data-cols) «Название» — по левому краю, остальные — по центру */
+  table.items thead tr:first-child th { text-align: left; }
+  table.items[data-cols] thead tr:first-child th { text-align: center; padding-left: 16px; }  /* отступы поровну — текст ровно по центру */
+  table.items[data-cols] thead tr:first-child th.pic-col { padding-left: 2px; }
+  table.items[data-cols] thead tr:first-child th:first-child { text-align: left; padding-left: 6px; }
   table.items th a.sort { color: inherit; display: block; }
   table.items th a.sort:hover { text-decoration: underline; }
   /* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
