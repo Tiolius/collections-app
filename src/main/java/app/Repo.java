@@ -349,6 +349,19 @@ public class Repo {
             "available", "available", "rating", "rating");
 
     /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
+    /** Счётчики коллекции для главной: сколько объектов в наличии и общая стоимость (сумма цен). */
+    public record CollectionStats(int available, long price) {}
+
+    /** Счётчики всех коллекций пользователя (коллекции без объектов в карте нет). */
+    public Map<Long, CollectionStats> collectionStats(long uid) {
+        Map<Long, CollectionStats> res = new HashMap<>();
+        jdbc.query("SELECT i.collection_id, SUM(EXISTS (SELECT 1 FROM item_present a WHERE a.item_id = i.id)), "
+                + "COALESCE(SUM(i.price), 0) FROM items i JOIN collections c ON c.id = i.collection_id "
+                + "WHERE c.user_id = ? GROUP BY i.collection_id",
+                rs -> { res.put(rs.getLong(1), new CollectionStats(rs.getInt(2), rs.getLong(3))); }, uid);
+        return res;
+    }
+
     public long totalPrice(long collectionId) {
         return jdbc.queryForObject("SELECT COALESCE(SUM(price), 0) FROM items WHERE collection_id = ?", Long.class, collectionId);
     }
