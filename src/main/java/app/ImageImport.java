@@ -2,11 +2,8 @@ package app;
 
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -61,7 +58,6 @@ public class ImageImport {
     static final int THROTTLE_RETRIES = 5;
     /** Столько ошибок сети подряд — сервис недоступен, импорт останавливается. */
     static final int MAX_ERRORS_IN_ROW = 10;
-    static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
     /** Адреса сервисов (для проверки можно подменить на заглушку). Токен Discogs — у каждого пользователя свой (вкладка «Импорт»). */
     @Value("${steam.store-url:https://store.steampowered.com}")
@@ -78,8 +74,6 @@ public class ImageImport {
     private String gogCatalogUrl;
     @Value("${gog.api-url:https://api.gog.com}")
     private String gogApiUrl;
-    @Value("${app.version}")
-    private String appVersion;
 
     /** Состояние импорта пользователя (читается страницей через /import/status). */
     public static class Job {
@@ -131,8 +125,7 @@ public class ImageImport {
 
     private final Repo repo;
     private final ObjectMapper json = new ObjectMapper();
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
-            .followRedirects(HttpClient.Redirect.NORMAL).proxy(java.net.ProxySelector.getDefault()).build();
+    private final Http http;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "image-import");
         t.setDaemon(true);
@@ -142,8 +135,9 @@ public class ImageImport {
     /** Время последнего запроса к API каждого источника. */
     private final Map<String, Long> lastCall = new ConcurrentHashMap<>();
 
-    public ImageImport(Repo repo) {
+    public ImageImport(Repo repo, Http http) {
         this.repo = repo;
+        this.http = http;
     }
 
     /** Текущий или последний импорт пользователя (или null). */
@@ -679,10 +673,7 @@ public class ImageImport {
                 if (wait > 0) Thread.sleep(wait);
                 lastCall.put(job.source, System.currentTimeMillis());
             }
-            HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30))
-                    .header("User-Agent", "CollectionsApp/" + appVersion).GET();
-            if (token) req.header("Authorization", "Discogs token=" + job.discogsToken);
-            HttpResponse<String> r = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r = token ? http.text(url, "Authorization", "Discogs token=" + job.discogsToken) : http.text(url);
             int code = r.statusCode();
             if (code == 200) {
                 job.message = "";
@@ -711,10 +702,7 @@ public class ImageImport {
                 || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru") || host.endsWith(".gog-statics.com"));
         if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")
                 && !url.startsWith(gogCatalogUrl + "/")) return null;
-        HttpResponse<byte[]> r = http.send(HttpRequest.newBuilder(u).timeout(Duration.ofSeconds(30))
-                .header("User-Agent", "CollectionsApp/" + appVersion).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
-        byte[] b = r.body();
-        return r.statusCode() == 200 && b.length <= MAX_IMAGE_BYTES && Repo.imageType(b) != null ? b : null;
+        return http.image(url);
     }
 
     private static String enc(String s) {

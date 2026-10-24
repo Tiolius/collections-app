@@ -27,8 +27,7 @@ CREATE TABLE IF NOT EXISTS items (
 
 -- Картинки — файлы в DATA_DIR/images/ab/cd/<sha256>.<ext>, одинаковая картинка хранится один раз (ImageFiles).
 -- pictures — справочник файлов (size — для будущей статистики и ограничений); строка и файл удаляются,
--- когда на картинку не осталось ссылок. Прежние хранилища (item_images, item_more_images, collections.image/image_mime)
--- переносятся сюда при запуске и удаляются
+-- когда на картинку не осталось ссылок
 CREATE TABLE IF NOT EXISTS pictures (
     hash TEXT PRIMARY KEY, -- SHA-256 содержимого, 64 hex
     mime TEXT NOT NULL,

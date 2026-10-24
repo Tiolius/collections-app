@@ -140,8 +140,7 @@ public class WebController {
         if (!delete && token.isEmpty()) return "redirect:/import"; // пустое поле — токен не меняется
         // токен Discogs — латинские буквы и цифры; ограничение длины — с запасом
         if (!token.isEmpty() && !token.matches("[A-Za-z0-9]{10,200}"))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    I18n.t("import.token.bad"));
+            throw Fail.badRequest("import.token.bad");
         repo.setToken(uid, ImageImport.DISCOGS, token);
         return "redirect:/import?token=" + (token.isEmpty() ? "deleted" : "saved");
     }
@@ -157,17 +156,15 @@ public class WebController {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         // пока у коллекции удаляются картинки («Кэш»), импорт в неё не запускается
         if (cacheClear.active(collection))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
-                    I18n.t("import.cacheBusy"));
+            throw Fail.conflict("import.cacheBusy");
         if (!ImageImport.SOURCES.containsKey(source))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, I18n.t("import.badSource"));
+            throw Fail.badRequest("import.badSource");
         // Обложки Discogs — только с токеном; без него — только описания
         String discogsToken = repo.token(uid, ImageImport.DISCOGS);
         if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    I18n.t("import.nothing"));
+            throw Fail.badRequest("import.nothing");
         images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
                 discogsToken);
         return "redirect:/import";
@@ -203,8 +200,7 @@ public class WebController {
         ImageImport.Job j = images.job(uid);
         // пока идёт импорт в эту коллекцию, он сразу дописал бы картинки обратно
         if (j != null && j.active() && j.collectionId == collection)
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
-                    I18n.t("cache.importBusy"));
+            throw Fail.conflict("cache.importBusy");
         cacheClear.start(uid, c, repo.collectionImageCounts(uid).getOrDefault(collection, 0)); // уже идёт — не запускается
         return "redirect:/cache";
     }
@@ -383,8 +379,7 @@ public class WebController {
     private void requireAdmin(long uid) {
         Repo.User u = repo.user(uid);
         if (u == null || !u.isAdmin())
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.FORBIDDEN, I18n.t("user.adminOnly"));
+            throw Fail.forbidden("user.adminOnly");
     }
 
     @PostMapping("/logout")
@@ -485,6 +480,7 @@ public class WebController {
             for (Entry it : r.items())
                 fields.computeIfAbsent(it.collectionId(), cid -> repo.itemFields(uid, byId.get(cid).kind()));
             m.addAttribute("kindFields", fields);
+            m.addAttribute("itemJson", itemJson(r.items(), it -> fields.get(it.collectionId())));
         }
         return "search";
     }
@@ -656,6 +652,7 @@ public class WebController {
         m.addAttribute("moveTargets", repo.collections(uid).stream().filter(x -> x.id() != id).toList());
         List<Entry> pageItems = found.subList(fromIdx, Math.min(fromIdx + size, total));
         m.addAttribute("items", pageItems);
+        m.addAttribute("itemJson", itemJson(pageItems, it -> fields));
         // В режиме дублей при сортировке по названию — первая строка каждой группы (над ней линия)
         Set<Long> groupStarts = new java.util.HashSet<>();
         if (dups && sort.equals("name"))
@@ -711,20 +708,20 @@ public class WebController {
         String v = value == null ? "" : value.trim();
         Long target = null;
         if (action.equals("move")) {
-            if (!v.matches("\\d{1,18}")) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+            if (!v.matches("\\d{1,18}")) throw Fail.badRequest();
             target = repo.collection(uid, Long.parseLong(v)).id(); // чужая коллекция — 404
         } else if (!action.equals("delete") && !(Set.of("available", "status", "rating").contains(action) && fields.contains(action))) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+            throw Fail.badRequest();
         }
         List<Long> chosen = ids == null ? List.of() : ids;
         // сначала проверка всех (чужой или из другой коллекции — 404, ничего не меняется), потом изменения
         // (без общей транзакции: удаление сразу освобождает файлы картинок)
         for (long itemId : chosen)
             if (repo.item(uid, itemId).collectionId() != id)
-                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+                throw Fail.notFound();
         if (action.equals("status")) Repo.checkStatus(v); // неверный статус — 400 до изменений
         if (action.equals("rating") && !(v.matches("\\d{1,2}") && Integer.parseInt(v) <= 10))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+            throw Fail.badRequest();
         for (long itemId : chosen) {
             switch (action) {
                 case "available" -> repo.setAvailable(itemId, "1".equals(v));
@@ -778,14 +775,6 @@ public class WebController {
         return name.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.forLanguageTag("ru"));
     }
 
-    @GetMapping("/collections/{id}/image")
-    public ResponseEntity<byte[]> collectionImage(@SessionAttribute("uid") long uid, @PathVariable long id) {
-        Map<String, Object> row = repo.collectionImage(uid, id);
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
-                .body((byte[]) row.get("image"));
-    }
-
     @GetMapping("/collections/{id}/edit")
     public String editCollectionForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
         Entry c = repo.collection(uid, id);
@@ -824,25 +813,12 @@ public class WebController {
 
     @Transactional
     @PostMapping("/collections/{cid}/items/new")
-    public String createItem(@SessionAttribute("uid") long uid, @PathVariable long cid, @RequestParam String name,
-                             @RequestParam(required = false) String platform,
-                             @RequestParam(required = false) String format,
-                             @RequestParam(required = false) String status,
-                             @RequestParam(required = false) Integer price,
-                             @RequestParam(required = false) List<String> available,
-                             @RequestParam(required = false) Integer rating,
-                             @RequestParam(required = false) String oldgames,
-                             @RequestParam(required = false) String purchased,
-                             @RequestParam(required = false) String tags,
-                             @RequestParam(required = false) String edition,
-                             @RequestParam(required = false) String notes,
-                             @RequestParam Map<String, MultipartFile> files,
-                             @RequestParam(required = false) String description,
-                             @RequestParam(required = false) String view) {
+    public String createItem(@SessionAttribute("uid") long uid, @PathVariable long cid,
+                             @org.springframework.web.bind.annotation.ModelAttribute Repo.ItemForm form,
+                             @RequestParam Map<String, MultipartFile> files, @RequestParam(required = false) String view) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
-        repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), rating,
-                oldgames, new Repo.Details(purchased, tags, edition, notes), newImages(files), Set.of(), description);
+        repo.saveItem(uid, id, c.kind(), form, newImages(files), Set.of());
         return "redirect:" + collectionUrl(cid, view);
     }
 
@@ -858,27 +834,33 @@ public class WebController {
         return url + (url.contains("?") ? "&" : "?") + param;
     }
 
-    /**
-     * Данные объекта для окна объекта (поиск и открытие по адресу open=<id> — когда объекта нет в таблице на странице):
-     * те же ключи, что у data-атрибутов строки таблицы, и fields — поля типа его коллекции.
-     */
+    /** Данные объекта для окна объекта по адресу open=<id> (объекта может не быть в таблице на странице). */
     @GetMapping("/items/{id}/data")
     @org.springframework.web.bind.annotation.ResponseBody
     public Map<String, Object> itemData(@SessionAttribute("uid") long uid, @PathVariable long id) {
         Entry it = repo.item(uid, id);
+        return itemData(it, repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind()));
+    }
+
+    /**
+     * Данные объекта для окна объекта — единственное описание: и для строк таблицы коллекции и поиска (атрибут
+     * data-item, JSON), и для /items/{id}/data. fields — поля типа коллекции объекта (окно показывает только их).
+     * Новое поле объекта добавлять сюда и в окно (base :: itemDialog).
+     */
+    private static Map<String, Object> itemData(Entry it, Set<String> fields) {
         Map<String, Object> d = new java.util.HashMap<>();
-        d.put("id", String.valueOf(it.id()));
-        d.put("cid", String.valueOf(it.collectionId()));
-        d.put("fields", String.join(",", repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind())));
+        d.put("id", it.id());
+        d.put("cid", it.collectionId());
+        d.put("fields", String.join(",", fields));
         d.put("name", it.name());
         d.put("platform", it.platform());
         d.put("format", it.format());
         d.put("status", it.status());
-        d.put("price", it.price() == null ? null : String.valueOf(it.price()));
+        d.put("price", it.price());
         d.put("description", it.description());
         d.put("available", Boolean.TRUE.equals(it.available()) ? "1" : "0");
         d.put("pics", it.pics());
-        d.put("rating", it.rating() == null ? null : String.valueOf(it.rating()));
+        d.put("rating", it.rating());
         d.put("oldgames", it.oldGamesId());
         d.put("purchased", it.purchased());
         d.put("tags", it.tags());
@@ -887,29 +869,30 @@ public class WebController {
         return d;
     }
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    /** Данные объектов для атрибута data-item строк таблицы: id → JSON. fieldsOf — поля типа коллекции объекта. */
+    private static Map<Long, String> itemJson(List<Entry> items, java.util.function.Function<Entry, Set<String>> fieldsOf) {
+        Map<Long, String> res = new java.util.HashMap<>();
+        for (Entry it : items) {
+            try {
+                res.put(it.id(), JSON.writeValueAsString(itemData(it, fieldsOf.apply(it))));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return res;
+    }
+
     @PostMapping("/items/{id}/edit")
-    public String editItem(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String name,
-                           @RequestParam(required = false) String platform,
-                           @RequestParam(required = false) String format,
-                           @RequestParam(required = false) String status,
-                           @RequestParam(required = false) Integer price,
-                           @RequestParam(required = false) List<String> available,
-                           @RequestParam(required = false) Integer rating,
-                           @RequestParam(required = false) String oldgames,
-                           @RequestParam(required = false) String purchased,
-                           @RequestParam(required = false) String tags,
-                           @RequestParam(required = false) String edition,
-                           @RequestParam(required = false) String notes,
+    public String editItem(@SessionAttribute("uid") long uid, @PathVariable long id,
+                           @org.springframework.web.bind.annotation.ModelAttribute Repo.ItemForm form,
                            @RequestParam Map<String, MultipartFile> files,
-                           @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
-                           @RequestParam(required = false) String description,
-                           @RequestParam(required = false) String view,
-                           @RequestParam(required = false) String q) {
+                           @RequestParam(required = false) String view, @RequestParam(required = false) String q) {
         Entry it = repo.item(uid, id);
-        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
-                available(available), rating, oldgames, new Repo.Details(purchased, tags, edition, notes), newImages(files),
-                removed(remove, removeImage != null), description);
+        repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), form, newImages(files),
+                remove == null ? Set.of() : Set.copyOf(remove));
         return "redirect:" + backUrl(it.collectionId(), view, q);
     }
 
@@ -938,33 +921,14 @@ public class WebController {
         }
     }
 
-    /**
-     * Новые картинки из формы: «image_N» — на место N (окно объекта), «image» — на место первой (страница объекта).
-     */
+    /** Новые картинки из окна объекта: «image_N» — на место N. */
     private static Map<Integer, MultipartFile> newImages(Map<String, MultipartFile> files) {
         Map<Integer, MultipartFile> res = new java.util.HashMap<>();
-        MultipartFile first = files.get("image");
-        if (first != null && !first.isEmpty()) res.put(0, first);
         for (int pos = 0; pos < ImageFiles.MAX_IMAGES; pos++) {
             MultipartFile f = files.get("image_" + pos);
             if (f != null && !f.isEmpty()) res.put(pos, f);
         }
         return res;
-    }
-
-    /** Какие картинки удалить: номера из «remove» (окно объекта), «remove_image» — первую (страница объекта). */
-    private static Set<Integer> removed(List<Integer> remove, boolean removeFirst) {
-        Set<Integer> res = new java.util.HashSet<>(remove == null ? List.of() : remove);
-        if (removeFirst) res.add(0);
-        return res;
-    }
-
-    /**
-     * Галочка «Наличие»: в форме перед ней скрытое поле available=0, отмеченная галочка добавляет available=1.
-     * Нет ни одного значения — поля нет в форме, наличие не меняется.
-     */
-    private static Boolean available(List<String> values) {
-        return values == null ? null : values.contains("1");
     }
 
     /**
@@ -975,25 +939,14 @@ public class WebController {
     @GetMapping({"/img/{hash}", "/img/{hash}/thumb"})
     public ResponseEntity<byte[]> picture(@SessionAttribute("uid") long uid, @PathVariable String hash, HttpServletRequest req) {
         ImageFiles.Pic pic = hash.matches("[0-9a-f]{64}") ? repo.ownedPicture(uid, hash) : null;
-        if (pic == null) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        if (pic == null) throw Fail.notFound();
         ImageFiles.Thumb thumb = req.getRequestURI().endsWith("/thumb") ? repo.thumb(pic) : null;
         byte[] body = thumb != null ? thumb.bytes() : repo.pictureBytes(pic);
-        if (body == null) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        if (body == null) throw Fail.notFound();
         return ResponseEntity.ok()
                 .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePrivate().immutable())
                 .contentType(MediaType.parseMediaType(thumb != null ? thumb.mime() : pic.mime()))
                 .body(body);
-    }
-
-    /** Картинка объекта; без кеша в браузере, чтобы после замены сразу была видна новая. */
-    @GetMapping("/items/{id}/image")
-    public ResponseEntity<byte[]> itemImage(@SessionAttribute("uid") long uid, @PathVariable long id,
-                                            @RequestParam(defaultValue = "0") int n) {
-        Map<String, Object> row = repo.itemImage(uid, id, n);
-        return ResponseEntity.ok()
-                .cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
-                .contentType(MediaType.parseMediaType((String) row.get("image_mime")))
-                .body((byte[]) row.get("image"));
     }
 
     @PostMapping("/items/{id}/delete")

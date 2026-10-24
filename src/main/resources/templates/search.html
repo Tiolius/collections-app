@@ -37,7 +37,7 @@
       <table class="items found">
         <thead><tr><th class="title" th:text="#{field.name}">Название</th><th th:text="#{search.collection}">Коллекция</th>
           <th th:text="#{field.statusShort}">Статус</th><th th:text="#{field.available}">Наличие</th></tr></thead>
-        <tbody><tr th:each="it : ${found}" th:data-id="${it.id()}" th:with="col=${collectionsById.get(it.collectionId())}, f=${kindFields.get(it.collectionId())}">
+        <tbody><tr th:each="it : ${found}" th:data-id="${it.id()}" th:data-item="${itemJson.get(it.id())}" th:with="col=${collectionsById.get(it.collectionId())}, f=${kindFields.get(it.collectionId())}">
           <td class="title"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()})}" th:text="${it.name()}"></a>
             <span class="tag" th:each="t : ${it.tagList()}" th:text="${t}"></span></td>
           <td><a th:href="@{/collections/{id}(id=${col.id()})}" th:text="${col.name()}"></a></td>

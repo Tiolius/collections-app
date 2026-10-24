@@ -885,7 +885,7 @@
       f.style.setProperty('--rows', rows); // строк до «Описания» (оно растягивается до низа окна)
       f.classList.toggle('after-desc', on.indexOf('oldgames') >= 0);
     }
-    // Открыть окно: d — данные объекта (data-атрибуты строки или ответ /items/{id}/data); без d.id — новый объект в коллекции cid
+    // Открыть окно: d — данные объекта (data-item строки или ответ /items/{id}/data); без d.id — новый объект в коллекции cid
     function open(d, cid) {
       var isNew = !d.id;
       showFields(d.fields || dlg.dataset.fields);
@@ -894,7 +894,7 @@
       $('d-delete').hidden = isNew;
       if (!isNew) $('d-delete').formAction = '/items/' + d.id + '/delete';
       ['name', 'platform', 'format', 'status', 'price', 'description', 'purchased', 'tags', 'edition', 'notes'].forEach(function (f) {
-        if (form.elements[f]) form.elements[f].value = d[f] || '';
+        if (form.elements[f]) form.elements[f].value = d[f] == null ? '' : d[f];
       });
       // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
       var st = $('d-status');
@@ -915,12 +915,11 @@
     function openById(id) {
       fetch('/items/' + id + '/data').then(function (r) { if (r.ok) return r.json(); }).then(function (d) { if (d) open(d); });
     }
-    // Название объекта: в таблице коллекции данные — в data-атрибутах строки, в поиске — с сервера
+    // Название объекта (таблица коллекции, поиск): данные объекта — JSON в атрибуте data-item строки (WebController.itemData)
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
-        var row = a.closest('[data-id]');
-        if (row.dataset.name !== undefined) open(row.dataset); else openById(row.dataset.id);
+        open(JSON.parse(a.closest('[data-item]').dataset.item));
       });
     });
     // «Новый объект» — пустое окно

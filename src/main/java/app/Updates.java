@@ -1,8 +1,5 @@
 package app;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,8 +35,11 @@ public class Updates {
     @Value("${app.version}")
     private String current;
 
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NORMAL).proxy(java.net.ProxySelector.getDefault()).build();
+    private final Http http;
+
+    public Updates(Http http) {
+        this.http = http;
+    }
     private final ObjectMapper json = new ObjectMapper();
     private final AtomicBoolean checking = new AtomicBoolean();
     private volatile Release latest;
@@ -84,10 +84,7 @@ public class Updates {
 
     private void check() {
         try {
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(20))
-                    .header("Accept", "application/vnd.github+json")
-                    .header("User-Agent", "CollectionsApp/" + current).GET().build();
-            HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r = http.text(url, "Accept", "application/vnd.github+json");
             if (r.statusCode() != 200) throw new java.io.IOException("HTTP " + r.statusCode());
             JsonNode n = json.readTree(r.body());
             String tag = n.path("tag_name").asText("").replaceFirst("^[vV]", "");
