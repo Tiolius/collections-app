@@ -688,7 +688,7 @@
       <div id="d-image" class="dlg-image">
         <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
         <th:block th:each="n : ${#numbers.sequence(0, 4)}">
-          <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif" hidden>
           <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
         </th:block>
         <div class="viewer">

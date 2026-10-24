@@ -79,14 +79,14 @@ public class OldGames {
         String covers = get(site + "/game/covers/" + id + ".html");
         if (covers != null) {
             // у каждой обложки две ссылки: просмотр (…/covers/largecover/файл) и «Скачать» (…/covers/файл) — берём вторую
-            Matcher m = Pattern.compile("href=\"(/games/[^\"]+/covers/(?!largecover/)[^\"/]+\\.(?:jpe?g|png|gif|webp))\"",
+            Matcher m = Pattern.compile("href=\"(/games/[^\"]+/covers/(?!largecover/)[^\"/]+\\.(?:jpe?g|png|gif))\"",
                     Pattern.CASE_INSENSITIVE).matcher(covers);
             if (m.find()) urls.add(site + m.group(1)); // первая — лицевая сторона коробки
         }
         String shots = get(site + "/game/screenshots/" + id + ".html");
         if (shots != null) {
             Set<String> seen = new LinkedHashSet<>();
-            Matcher m = Pattern.compile("href=\"(/games/[^\"]+/screenshots/[^\"/]+\\.(?:jpe?g|png|gif|webp))\"",
+            Matcher m = Pattern.compile("href=\"(/games/[^\"]+/screenshots/[^\"/]+\\.(?:jpe?g|png|gif))\"",
                     Pattern.CASE_INSENSITIVE).matcher(shots);
             while (m.find()) seen.add(site + m.group(1));
             urls.addAll(seen);
@@ -162,6 +162,6 @@ public class OldGames {
         pause();
         HttpResponse<byte[]> r = http.send(request(url), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();
-        return r.statusCode() == 200 && b.length <= ImageImport.MAX_IMAGE_BYTES && Repo.imageType(b) != null ? b : null;
+        return r.statusCode() == 200 && b.length <= ImageImport.MAX_IMAGE_BYTES && Repo.acceptedType(b) != null ? b : null;
     }
 }

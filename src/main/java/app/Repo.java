@@ -683,7 +683,7 @@ public class Repo {
         return counts;
     }
 
-    /** Содержимое загруженной картинки; если это не PNG, JPEG, GIF или WebP — ошибка 400. */
+    /** Содержимое загруженной картинки; если это не PNG, JPEG или GIF — ошибка 400. */
     private static byte[] readImage(MultipartFile image) {
         byte[] bytes;
         try {
@@ -692,12 +692,24 @@ public class Repo {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("image.readError"));
         }
         // Тип определяется по содержимому файла, а не по тому, что прислал браузер
-        if (imageType(bytes) == null)
+        if (acceptedType(bytes) == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("image.badFormat"));
         return bytes;
     }
 
-    /** Тип картинки по первым байтам файла: PNG, JPEG, GIF, WebP; иначе null (в т.ч. SVG — в нём бывают скрипты). */
+    /**
+     * Тип новой картинки (загрузка, импорт, Old-Games.ru): PNG, JPEG или GIF, иначе null. WebP не принимается
+     * (по просьбе пользователя): Java не умеет его читать, и для него не сделать уменьшенную копию.
+     */
+    static String acceptedType(byte[] b) {
+        String t = imageType(b);
+        return "image/webp".equals(t) ? null : t;
+    }
+
+    /**
+     * Тип картинки по первым байтам файла: PNG, JPEG, GIF, WebP (только уже сохранённые раньше — их можно хранить
+     * и показывать); иначе null (в т.ч. SVG — в нём бывают скрипты).
+     */
     static String imageType(byte[] b) {
         if (starts(b, 0, 0x89, 'P', 'N', 'G')) return "image/png";
         if (starts(b, 0, 0xFF, 0xD8, 0xFF)) return "image/jpeg";

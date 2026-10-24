@@ -706,7 +706,7 @@ public class ImageImport {
         HttpResponse<byte[]> r = http.send(HttpRequest.newBuilder(u).timeout(Duration.ofSeconds(30))
                 .header("User-Agent", "CollectionsApp/" + appVersion).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();
-        return r.statusCode() == 200 && b.length <= MAX_IMAGE_BYTES && Repo.imageType(b) != null ? b : null;
+        return r.statusCode() == 200 && b.length <= MAX_IMAGE_BYTES && Repo.acceptedType(b) != null ? b : null;
     }
 
     private static String enc(String s) {
