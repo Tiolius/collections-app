@@ -391,7 +391,23 @@ public class WebController {
         int pages = Math.max(1, (total + COLLECTIONS_PER_PAGE - 1) / COLLECTIONS_PER_PAGE);
         page = Math.min(Math.max(page, 1), pages);
         int from = (page - 1) * COLLECTIONS_PER_PAGE;
-        m.addAttribute("collections", all.subList(from, Math.min(from + COLLECTIONS_PER_PAGE, total)));
+        List<Entry> shown = all.subList(from, Math.min(from + COLLECTIONS_PER_PAGE, total));
+        m.addAttribute("collections", shown);
+        // Счётчики под названием: всего, в наличии и стоимость — последние два, если у типа коллекции есть такие поля
+        Map<Long, Repo.CollectionStats> stats = repo.collectionStats(uid);
+        Map<Long, Set<String>> fields = new java.util.HashMap<>();
+        Map<Long, Integer> available = new java.util.HashMap<>();
+        Map<Long, String> prices = new java.util.HashMap<>();
+        for (Entry c : shown) {
+            Repo.CollectionStats s = stats.getOrDefault(c.id(), new Repo.CollectionStats(0, 0));
+            fields.put(c.id(), repo.itemFields(uid, c.kind()));
+            available.put(c.id(), s.available());
+            prices.put(c.id(), formatPrice(s.price()));
+        }
+        m.addAttribute("kindFields", fields);
+        m.addAttribute("availableCounts", available);
+        m.addAttribute("prices", prices);
+        m.addAttribute("showPrices", repo.showPrices(uid));
         m.addAttribute("page", page);
         m.addAttribute("pages", pages);
         m.addAttribute("pageLinks", pageLinks(page, pages));
@@ -520,8 +536,7 @@ public class WebController {
         m.addAttribute("groupStarts", groupStarts);
         // Общая стоимость — только если у типа коллекции есть поле «Цена»; формат «717 841» (по-английски «717,841»)
         if (fields.contains("price"))
-            m.addAttribute("totalPrice", String.format(org.springframework.context.i18n.LocaleContextHolder.getLocale(), "%,d",
-                    repo.totalPrice(id)).replace('\u00a0', ' ').replace('\u202f', ' '));
+            m.addAttribute("totalPrice", formatPrice(repo.totalPrice(id)));
         m.addAttribute("dups", dups);
         m.addAttribute("dupGroups", dupGroups);
         m.addAttribute("modeQs", modeQs);
@@ -546,6 +561,12 @@ public class WebController {
         // Запомнить вид для этого пользователя и коллекции (режим «Дубли» не запоминается)
         if (!dups) repo.setCollectionView(uid, id, view);
         return "collection";
+    }
+
+    /** Сумма в рублях с разделением разрядов по языку интерфейса: «717 841» (по-английски «717,841»). */
+    private static String formatPrice(long sum) {
+        return String.format(org.springframework.context.i18n.LocaleContextHolder.getLocale(), "%,d", sum)
+                .replace('\u00a0', ' ').replace('\u202f', ' ');
     }
 
     /** Номера страниц для навигации: первая, последняя и соседние с текущей; 0 — пропуск («…»). */
