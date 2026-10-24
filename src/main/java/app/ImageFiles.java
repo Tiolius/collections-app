@@ -43,7 +43,7 @@ public class ImageFiles implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(ImageFiles.class);
     private static final Map<String, String> EXT = Map.of(
-            "image/png", "png", "image/jpeg", "jpg", "image/gif", "gif", "image/webp", "webp");
+            "image/png", "png", "image/jpeg", "jpg", "image/gif", "gif");
 
     /** Сколько картинок может быть у объекта. */
     public static final int MAX_IMAGES = 5;
@@ -94,7 +94,7 @@ public class ImageFiles implements ApplicationRunner {
 
     /**
      * Уменьшенная копия картинки (не больше THUMB по большей стороне): из папки thumbs, а если её нет — создаётся.
-     * null — уменьшать нечего (картинка и так маленькая) или Java не умеет её читать (WebP) — тогда отдаётся сама картинка.
+     * null — уменьшать нечего (картинка и так маленькая) или ImageIO не смог её прочитать — тогда отдаётся сама картинка.
      * Копия с прозрачностью — PNG, без — JPEG.
      */
     public Thumb thumb(Pic pic) {
@@ -167,7 +167,7 @@ public class ImageFiles implements ApplicationRunner {
 
     /**
      * Заменяет все картинки объекта (до MAX_IMAGES, по порядку; пустой список — удаляет все).
-     * Не картинки (не PNG, JPEG, GIF, WebP) пропускаются.
+     * Не картинки (не PNG, JPEG, GIF) пропускаются.
      */
     public synchronized void setItem(long itemId, List<byte[]> images) {
         Set<String> old = new HashSet<>(hashes("SELECT hash FROM item_pictures WHERE item_id = ?", itemId));

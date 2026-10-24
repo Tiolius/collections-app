@@ -40,7 +40,7 @@ public class Backup {
 
     /** Имя базы в архиве и картинки: images/ab/cd/<sha256>.<ext> — другие пути в архиве не принимаются. */
     static final String DB_ENTRY = "app.db";
-    private static final Pattern IMAGE_ENTRY = Pattern.compile("images/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\\.(png|jpg|gif|webp)");
+    private static final Pattern IMAGE_ENTRY = Pattern.compile("images/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\\.(png|jpg|gif)");
 
     private final Path dataDir;
     private final JdbcTemplate jdbc;

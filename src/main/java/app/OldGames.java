@@ -162,6 +162,6 @@ public class OldGames {
         pause();
         HttpResponse<byte[]> r = http.send(request(url), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();
-        return r.statusCode() == 200 && b.length <= ImageImport.MAX_IMAGE_BYTES && Repo.acceptedType(b) != null ? b : null;
+        return r.statusCode() == 200 && b.length <= ImageImport.MAX_IMAGE_BYTES && Repo.imageType(b) != null ? b : null;
     }
 }

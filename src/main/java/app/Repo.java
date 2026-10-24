@@ -692,29 +692,19 @@ public class Repo {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("image.readError"));
         }
         // Тип определяется по содержимому файла, а не по тому, что прислал браузер
-        if (acceptedType(bytes) == null)
+        if (imageType(bytes) == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("image.badFormat"));
         return bytes;
     }
 
     /**
-     * Тип новой картинки (загрузка, импорт, Old-Games.ru): PNG, JPEG или GIF, иначе null. WebP не принимается
-     * (по просьбе пользователя): Java не умеет его читать, и для него не сделать уменьшенную копию.
-     */
-    static String acceptedType(byte[] b) {
-        String t = imageType(b);
-        return "image/webp".equals(t) ? null : t;
-    }
-
-    /**
-     * Тип картинки по первым байтам файла: PNG, JPEG, GIF, WebP (только уже сохранённые раньше — их можно хранить
-     * и показывать); иначе null (в т.ч. SVG — в нём бывают скрипты).
+     * Тип картинки по первым байтам файла: PNG, JPEG, GIF; иначе null (в т.ч. SVG — в нём бывают скрипты).
+     * WebP не принимается (по просьбе пользователя): Java не умеет его читать, и для него не сделать уменьшенную копию.
      */
     static String imageType(byte[] b) {
         if (starts(b, 0, 0x89, 'P', 'N', 'G')) return "image/png";
         if (starts(b, 0, 0xFF, 0xD8, 0xFF)) return "image/jpeg";
         if (starts(b, 0, 'G', 'I', 'F', '8')) return "image/gif";
-        if (starts(b, 0, 'R', 'I', 'F', 'F') && starts(b, 8, 'W', 'E', 'B', 'P')) return "image/webp";
         return null;
     }
 
