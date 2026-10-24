@@ -279,24 +279,32 @@ public class ImageImport {
         // Поиск Steam спотыкается о знаки («Batman: … - Game of the Year Edition», «F.E.A.R.»):
         // если по названию как есть совпадения нет — ещё раз по названию без знаков препинания
         String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
-        for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
-            Found f = findSteamTerm(job, term, key, false, wantImage, wantDescription);
-            if (f != null) return f;
-        }
+        // Русские названия Steam находит только в поиске с регионом Россия и русским языком
+        // («Бельтион: Свод Равновесия» = Beltion: Beyond Ritual): для названий на кириллице — ещё и так
+        List<String> regions = name.matches("(?s).*\\p{IsCyrillic}.*")
+                ? List.of(STEAM_SEARCH_EN, STEAM_SEARCH_RU) : List.of(STEAM_SEARCH_EN);
+        for (String region : regions)
+            for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
+                Found f = findSteamTerm(job, region, term, key, false, wantImage, wantDescription);
+                if (f != null) return f;
+            }
         // Последняя попытка — по части до двоеточия: консольные издания с подзаголовком продаются в Steam
         // как ПК-издания («Disgaea 2: Dark Hero Days» → «Disgaea 2 PC», «Disgaea 4: A Promise Revisited» →
         // «Disgaea 4 Complete+»). Засчитывается только результат с припиской издания или платформы:
         // иначе консольная «Fallout: Brotherhood of Steel» получила бы картинки первой Fallout
         int colon = name.indexOf(':');
         String prefix = colon > 0 ? name.substring(0, colon).trim() : "";
-        if (!norm(prefix).isEmpty()) return findSteamTerm(job, prefix, norm(prefix), true, wantImage, wantDescription);
+        if (!norm(prefix).isEmpty()) return findSteamTerm(job, STEAM_SEARCH_EN, prefix, norm(prefix), true, wantImage, wantDescription);
         return null;
     }
 
+    /** Регион и язык поиска Steam: США по-английски (основной) и Россия по-русски (русские названия). */
+    private static final String STEAM_SEARCH_EN = "cc=us&l=english", STEAM_SEARCH_RU = "cc=ru&l=russian";
+
     /** Поиск в Steam по term; editionOnly — засчитывать только издания key (с припиской издания или платформы). */
-    private Found findSteamTerm(Job job, String term, String key, boolean editionOnly, boolean wantImage,
+    private Found findSteamTerm(Job job, String region, String term, String key, boolean editionOnly, boolean wantImage,
                                 boolean wantDescription) throws Exception {
-        JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
+        JsonNode res = api(job, steamUrl + "/api/storesearch/?" + region + "&term=" + enc(term));
         if (res == null) return null;
         // Точное совпадение названия; если его нет — то же название без «The» в начале и приписки издания
         // (DX, Remastered, GOTY…): «Banner Saga 3» = «The Banner Saga 3»; старое издание после выхода нового
