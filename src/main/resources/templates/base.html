@@ -483,8 +483,12 @@
   dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
   dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
                           justify-content: center; align-items: start; gap: 8px; flex: 1 1 auto; min-width: 0; }
-  /* Страница объекта: тот же просмотрщик картинок, что и в окне, в строке «Картинки» формы (до 640px) */
-  .form .dlg-image { display: grid; grid-template-columns: minmax(0, 640px) auto; align-items: start; gap: 8px; }
+  /* Строка поля в окне объекта (подпись + поле — ячейки сетки формы); поля не своего типа скрыты */
+  .frow { display: contents; }
+  .frow[hidden] { display: none; }
+  /* Новый объект: «Удалить» скрыта, «Сохранить» остаётся справа */
+  .dlg-foot > .btn:not(.first) { margin-left: auto; }
+  #d-delete[hidden] { display: none; }
   .dlg-image img { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
@@ -766,7 +770,12 @@
 </script>
 <th:block th:fragment="itemDialog">
 <script th:replace="~{base :: imageViewerScript}"></script>
-  <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
+  <!-- Окно объекта — единственная форма объекта: изменение (из таблицы коллекции, поиска, по адресу open=<id>) и новый
+       объект. В разметке все поля; скрипт показывает поля типа коллекции объекта (data-fields у строки или у окна),
+       у скрытых полей — disabled, чтобы они не отправлялись (нет поля в форме — значение не меняется) -->
+  <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title"
+          th:data-fields="${fields == null ? '' : #strings.listJoin(fields, ',')}" th:data-cid="${c != null ? c.id() : ''}"
+          th:data-title-edit="#{item.edit}" th:data-title-new="#{item.new}">
     <div class="modal-head">
       <span id="item-dialog-title" th:text="#{item.edit}">Редактировать объект</span>
       <button type="button" class="icon" data-close th:title="#{js.close}" th:aria-label="#{js.close}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
@@ -778,58 +787,59 @@
            Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
       <div th:replace="~{base :: imageViewer}"></div>
     <!-- --rows — сколько строк до «Описания» (оно растягивается до низа окна); «Old-Games.ru» — строкой после него -->
-    <div class="form" th:classappend="${fields.contains('oldgames')} ? 'after-desc'"
-         th:style="${'--rows:' + (1 + fields.size() - (fields.contains('oldgames') ? 1 : 0))}">
+    <!-- --rows и класс after-desc ставит скрипт по полям объекта -->
+    <div class="form">
       <input type="hidden" name="view" th:value="${view}">
+      <input type="hidden" name="q" th:if="${q != null}" th:value="${q}">
       <label for="d-name" th:text="#{field.name} + ' *'">Название *</label>
       <input autocomplete="off" spellcheck="false" id="d-name" type="text" name="name" required>
-      <th:block th:if="${fields.contains('platform')}">
+      <div class="frow" data-field="platform">
         <label for="d-platform" th:text="#{field.platform}">Платформа</label>
         <input autocomplete="off" id="d-platform" type="text" name="platform">
-      </th:block>
-      <th:block th:if="${fields.contains('format')}">
+      </div>
+      <div class="frow" data-field="format">
         <label for="d-format" th:text="#{field.format}">Формат</label>
         <input autocomplete="off" id="d-format" type="text" name="format">
-      </th:block>
-      <th:block th:if="${fields.contains('edition')}">
+      </div>
+      <div class="frow" data-field="edition">
         <label for="d-edition" th:text="#{field.edition}">Регион / издание</label>
         <input autocomplete="off" id="d-edition" type="text" name="edition" maxlength="200">
-      </th:block>
-      <th:block th:if="${fields.contains('status')}">
+      </div>
+      <div class="frow" data-field="status">
         <label for="d-status" th:text="#{field.status}">Статус прохождения</label>
         <select id="d-status" name="status">
           <option value="">—</option>
           <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
         </select>
-      </th:block>
-      <th:block th:if="${fields.contains('rating')}">
+      </div>
+      <div class="frow" data-field="rating">
         <label th:text="#{field.rating}">Рейтинг</label>
         <span th:replace="~{base :: ratingInput('d-rating', null)}"></span>
-      </th:block>
-      <th:block th:if="${fields.contains('price')}">
+      </div>
+      <div class="frow" data-field="price">
         <label for="d-price" th:text="#{field.priceRub}">Цена (₽)</label>
         <input autocomplete="off" id="d-price" type="number" name="price" min="0" step="1">
-      </th:block>
-      <th:block th:if="${fields.contains('purchased')}">
+      </div>
+      <div class="frow" data-field="purchased">
         <label for="d-purchased" th:text="#{field.purchased}">Дата покупки</label>
         <input autocomplete="off" id="d-purchased" type="date" name="purchased">
-      </th:block>
-      <th:block th:if="${fields.contains('available')}">
+      </div>
+      <div class="frow" data-field="available">
         <label for="d-available" th:text="#{field.available}">Наличие</label>
         <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> <span th:text="#{available.yesLower}">есть</span></label></span>
-      </th:block>
-      <th:block th:if="${fields.contains('tags')}">
+      </div>
+      <div class="frow" data-field="tags">
         <label for="d-tags" th:text="#{field.tags}">Теги</label>
         <input autocomplete="off" id="d-tags" type="text" name="tags" maxlength="500" th:placeholder="#{tags.placeholder}">
-      </th:block>
-      <th:block th:if="${fields.contains('notes')}">
+      </div>
+      <div class="frow" data-field="notes">
         <label for="d-notes" th:text="#{field.notes}">Заметки</label>
         <textarea autocomplete="off" spellcheck="false" id="d-notes" name="notes" rows="2" maxlength="2000"></textarea>
-      </th:block>
+      </div>
       <label for="d-description" th:text="#{field.description}">Описание</label>
       <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
-      <th:block th:if="${fields.contains('oldgames')}">
+      <div class="frow" data-field="oldgames">
         <label for="d-oldgames" class="og-label" th:text="#{field.oldgames}">Old-games.ru ID</label>
         <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
         <div class="og-box">
@@ -840,7 +850,7 @@
           </div>
           <div class="og-status" id="d-og-status" hidden></div>
         </div>
-      </th:block>
+      </div>
     </div>
     </div>
     <!-- Нижняя панель окна: слева «Удалить объект» (отправляет форму на /items/{id}/delete, адрес — formaction,
@@ -858,48 +868,79 @@
   // Изменение объекта в модальном окне
   (function () {
     var dlg = document.getElementById('item-dialog');
-    if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — название откроет отдельную страницу
+    if (!dlg) return;
     var form = dlg.querySelector('form');
     function $(id) { return document.getElementById(id); }
     var iv = imageViewer(dlg);
+    // Поля типа коллекции объекта: остальные скрыты и отключены (не отправляются — на сервере не меняются)
+    function showFields(list) {
+      var on = (list || '').split(','), rows = 1;
+      dlg.querySelectorAll('.frow').forEach(function (r) {
+        var vis = on.indexOf(r.dataset.field) >= 0;
+        r.hidden = !vis;
+        r.querySelectorAll('input, select, textarea').forEach(function (el) { el.disabled = !vis; });
+        if (vis && r.dataset.field !== 'oldgames') rows++;
+      });
+      var f = dlg.querySelector('.form');
+      f.style.setProperty('--rows', rows); // строк до «Описания» (оно растягивается до низа окна)
+      f.classList.toggle('after-desc', on.indexOf('oldgames') >= 0);
+    }
+    // Открыть окно: d — данные объекта (data-атрибуты строки или ответ /items/{id}/data); без d.id — новый объект в коллекции cid
+    function open(d, cid) {
+      var isNew = !d.id;
+      showFields(d.fields || dlg.dataset.fields);
+      $('item-dialog-title').textContent = isNew ? dlg.dataset.titleNew : dlg.dataset.titleEdit;
+      form.action = isNew ? '/collections/' + cid + '/items/new' : '/items/' + d.id + '/edit';
+      $('d-delete').hidden = isNew;
+      if (!isNew) $('d-delete').formAction = '/items/' + d.id + '/delete';
+      ['name', 'platform', 'format', 'status', 'price', 'description', 'purchased', 'tags', 'edition', 'notes'].forEach(function (f) {
+        if (form.elements[f]) form.elements[f].value = d[f] || '';
+      });
+      // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
+      var st = $('d-status');
+      st.querySelectorAll('option.legacy').forEach(function (o) { o.remove(); });
+      var v = d.status || '';
+      if (!Array.prototype.some.call(st.options, function (o) { return o.value === v; })) {
+        var o = new Option(v, v); o.className = 'legacy'; st.add(o);
+      }
+      st.value = v;
+      setRating(dlg.querySelector('.rating-input'), +d.rating || 0);
+      $('d-available').checked = d.available === '1';
+      $('d-oldgames').value = d.oldgames || ''; $('d-og-status').hidden = true; ogSync();
+      // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены
+      iv.set(d.pics);
+      dlg.showModal();
+      form.elements.name.focus();
+    }
+    function openById(id) {
+      fetch('/items/' + id + '/data').then(function (r) { if (r.ok) return r.json(); }).then(function (d) { if (d) open(d); });
+    }
+    // Название объекта: в таблице коллекции данные — в data-атрибутах строки, в поиске — с сервера
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
-        var row = a.closest('tr');
-        form.action = '/items/' + row.dataset.id + '/edit';
-        document.getElementById('d-delete').formAction = '/items/' + row.dataset.id + '/delete';
-        ['name', 'platform', 'format', 'status', 'price', 'description', 'purchased', 'tags', 'edition', 'notes'].forEach(function (f) {
-          if (form.elements[f]) form.elements[f].value = row.dataset[f] || '';
-        });
-        // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
-        var st = document.getElementById('d-status');
-        if (st) {
-          st.querySelectorAll('option.legacy').forEach(function (o) { o.remove(); });
-          var v = row.dataset.status || '';
-          if (!Array.prototype.some.call(st.options, function (o) { return o.value === v; })) {
-            var o = new Option(v, v); o.className = 'legacy'; st.add(o);
-          }
-          st.value = v;
-        }
-        var rb = document.querySelector('#item-dialog .rating-input');
-        if (rb) setRating(rb, +row.dataset.rating || 0);
-        var avail = document.getElementById('d-available');
-        if (avail) avail.checked = row.dataset.available === '1';
-        if ($('d-oldgames')) { $('d-oldgames').value = row.dataset.oldgames || ''; $('d-og-status').hidden = true; ogSync(); }
-        itemId = row.dataset.id;
-        // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены
-        iv.set(row.dataset.pics);
-        dlg.showModal();
-        form.elements.name.focus();
+        var row = a.closest('[data-id]');
+        if (row.dataset.name !== undefined) open(row.dataset); else openById(row.dataset.id);
       });
     });
+    // «Новый объект» — пустое окно
+    document.querySelectorAll('a.new-item').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); open({}, dlg.dataset.cid); });
+    });
+    // Прежние адреса страницы объекта ведут сюда с параметром: open=<id> — открыть объект, new=1 — новый объект
+    var params = new URLSearchParams(location.search);
+    if (params.has('open') || params.has('new')) {
+      if (/^\d+$/.test(params.get('open') || '')) openById(params.get('open'));
+      else if (params.get('new') === '1' && dlg.dataset.cid) open({}, dlg.dataset.cid);
+      params.delete('open'); params.delete('new');
+      history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
+    }
     dlg.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // щелчок мимо окна
 
     // Old-Games.ru: «Загрузить» берёт описание и картинки со страницы игры (сервер, POST /items/{id}/oldgames) и
     // подставляет их в окно: описание — в поле, картинки — в поля image_N (как выбранные файлы), прежние картинки —
     // на удаление. На сервере всё меняется только при «Сохранить»
-    var itemId = null;
     // номер игры: введённое число или число из вставленного адреса страницы …/game/11.html
     function ogId(v) {
       v = v.trim();
@@ -915,14 +956,14 @@
       if (id) $('d-og-open').href = ogUrl(id);
     }
     function ogStatus(text, ok) { var s = $('d-og-status'); s.hidden = false; s.textContent = text; s.className = 'og-status ' + (ok ? 'ok' : 'error'); }
-    if ($('d-oldgames')) {
+    {
       $('d-oldgames').addEventListener('input', ogSync);
       $('d-og-load').addEventListener('click', function () {
         var btn = this, id = ogId($('d-oldgames').value);
         if (!id) { ogStatus(T.ogNeedId, false); return; }
         var url = ogUrl(id);
         btn.disabled = true; ogStatus(T.ogLoading, true);
-        fetch('/items/' + itemId + '/oldgames', { method: 'POST', body: new URLSearchParams({ url: url }) })
+        fetch('/oldgames', { method: 'POST', body: new URLSearchParams({ url: url }) })
           .then(function (r) { return r.json(); })
           .then(function (d) {
             if (d.error) { ogStatus(d.error, false); return; }

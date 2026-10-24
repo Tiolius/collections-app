@@ -531,7 +531,7 @@ public class WebController {
 
     @GetMapping("/collections/new")
     public String newCollectionForm(@SessionAttribute("uid") long uid, Model m) {
-        return form(uid, m, null, false, Set.of(), null, "coll.new", "/");
+        return form(uid, m, null, null, "coll.new", "/");
     }
 
     @Transactional
@@ -789,7 +789,7 @@ public class WebController {
     @GetMapping("/collections/{id}/edit")
     public String editCollectionForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m) {
         Entry c = repo.collection(uid, id);
-        return form(uid, m, c, false, Set.of(), c.pic() != null ? "/img/" + c.pic() : null,
+        return form(uid, m, c, c.pic() != null ? "/img/" + c.pic() : null,
                 "coll.editTitle", "/collections/" + id);
     }
 
@@ -812,10 +812,14 @@ public class WebController {
 
     // ---------- Объекты ----------
 
+    /**
+     * Страниц объекта нет — объект создаётся и меняется в окне объекта. Прежние адреса (закладки, открытие в новой
+     * вкладке) ведут в коллекцию с запомненным видом списка, окно открывает скрипт по параметру new=1 / open=<id>.
+     */
     @GetMapping("/collections/{cid}/items/new")
-    public String newItemForm(@SessionAttribute("uid") long uid, @PathVariable long cid, Model m) {
-        Set<String> fields = repo.itemFields(uid, repo.collection(uid, cid).kind());
-        return form(uid, m, null, true, fields, null, "item.new", "/collections/" + cid);
+    public String newItemForm(@SessionAttribute("uid") long uid, @PathVariable long cid) {
+        repo.collection(uid, cid); // чужая — 404
+        return "redirect:" + withParam(collectionUrl(cid, repo.collectionView(uid, cid)), "new=1");
     }
 
     @Transactional
@@ -833,23 +837,54 @@ public class WebController {
                              @RequestParam(required = false) String edition,
                              @RequestParam(required = false) String notes,
                              @RequestParam Map<String, MultipartFile> files,
-                             @RequestParam(required = false) String description) {
+                             @RequestParam(required = false) String description,
+                             @RequestParam(required = false) String view) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
         repo.saveItem(uid, id, c.kind(), name, platform, format, status, price, available(available), rating,
                 oldgames, new Repo.Details(purchased, tags, edition, notes), newImages(files), Set.of(), description);
-        return "redirect:/collections/" + cid;
+        return "redirect:" + collectionUrl(cid, view);
     }
 
     @GetMapping("/items/{id}/edit")
-    public String editItemForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m, @RequestParam(required = false) String view,
-                               @RequestParam(required = false) String q) {
+    public String editItemForm(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam(required = false) String view) {
         Entry it = repo.item(uid, id);
-        Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
-        m.addAttribute("view", view);
-        m.addAttribute("q", q);
-        return form(uid, m, it, true, fields, it.pic() != null ? "/img/" + it.pic() : null,
-                "item.edit", backUrl(it.collectionId(), view, q));
+        String v = isView(view) ? view : repo.collectionView(uid, it.collectionId());
+        return "redirect:" + withParam(collectionUrl(it.collectionId(), v), "open=" + id);
+    }
+
+    /** Добавляет параметр к адресу (с «?» или «&»). */
+    private static String withParam(String url, String param) {
+        return url + (url.contains("?") ? "&" : "?") + param;
+    }
+
+    /**
+     * Данные объекта для окна объекта (поиск и открытие по адресу open=<id> — когда объекта нет в таблице на странице):
+     * те же ключи, что у data-атрибутов строки таблицы, и fields — поля типа его коллекции.
+     */
+    @GetMapping("/items/{id}/data")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> itemData(@SessionAttribute("uid") long uid, @PathVariable long id) {
+        Entry it = repo.item(uid, id);
+        Map<String, Object> d = new java.util.HashMap<>();
+        d.put("id", String.valueOf(it.id()));
+        d.put("cid", String.valueOf(it.collectionId()));
+        d.put("fields", String.join(",", repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind())));
+        d.put("name", it.name());
+        d.put("platform", it.platform());
+        d.put("format", it.format());
+        d.put("status", it.status());
+        d.put("price", it.price() == null ? null : String.valueOf(it.price()));
+        d.put("description", it.description());
+        d.put("available", Boolean.TRUE.equals(it.available()) ? "1" : "0");
+        d.put("pics", it.pics());
+        d.put("rating", it.rating() == null ? null : String.valueOf(it.rating()));
+        d.put("oldgames", it.oldGamesId());
+        d.put("purchased", it.purchased());
+        d.put("tags", it.tags());
+        d.put("edition", it.edition());
+        d.put("notes", it.notes());
+        return d;
     }
 
     @PostMapping("/items/{id}/edit")
@@ -883,10 +918,9 @@ public class WebController {
      * окно подставляет описание и картинки в форму, сохраняются они кнопкой «Сохранить».
      * Ответ: {url, description, images: [{mime, data (base64)}]} или {error}.
      */
-    @PostMapping("/items/{id}/oldgames")
+    @PostMapping("/oldgames")
     @org.springframework.web.bind.annotation.ResponseBody
-    public Map<String, Object> loadOldGames(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam String url) {
-        repo.item(uid, id); // чужой объект — 404
+    public Map<String, Object> loadOldGames(@RequestParam String url) {
         try {
             OldGames.Result r = oldGames.load(url, ImageFiles.MAX_IMAGES);
             if (r == null) return Map.of("error", I18n.t("og.notFound"));
@@ -1030,10 +1064,9 @@ public class WebController {
 
     // ---------- вспомогательное ----------
 
-    private String form(long uid, Model m, Entry obj, boolean isItem, Set<String> fields, String imgUrl, String title, String back) {
+    /** Форма коллекции (новая или изменение); объекты меняются в окне объекта. */
+    private String form(long uid, Model m, Entry obj, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
-        m.addAttribute("isItem", isItem);
-        m.addAttribute("fields", fields);
         m.addAttribute("kinds", repo.kinds(uid).stream().map(Kind::name).toList());
         m.addAttribute("imgUrl", imgUrl);
         m.addAttribute("title", title);
