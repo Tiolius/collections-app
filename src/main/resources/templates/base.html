@@ -447,33 +447,33 @@
   dialog.modal .confirm-icon { color: var(--red); flex-shrink: 0; }
   dialog.modal .confirm-icon .mi { width: 28px; height: 28px; }
   dialog.modal.confirm .dlg-foot { justify-content: flex-end; gap: 8px; }
-  dialog.modal .pic { display: block; cursor: pointer; }
-  dialog.modal a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не сохранённый файл */
+  .pic { display: block; cursor: pointer; }
+  a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не сохранённый файл */
   /* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
-  dialog.modal .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  dialog.modal .img-tools label.icon { cursor: pointer; }
-  dialog.modal .img-tools .spacer { flex: none; height: 24px; }
-  dialog.modal .dlg-image > .viewer { grid-column: 1; grid-row: 1; position: relative; }
+  .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .img-tools label.icon { cursor: pointer; }
+  .img-tools .spacer { flex: none; height: 24px; }
+  .dlg-image > .viewer { grid-column: 1; grid-row: 1; position: relative; }
   /* Перелистывание картинок: полупрозрачные круглые кнопки у левого и правого края картинки (нажимается вся полоса края),
      счётчик внизу справа */
-  dialog.modal .viewer .nav { position: absolute; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center;
+  .viewer .nav { position: absolute; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center;
                               border: none; padding: 0; background: none; color: var(--on-overlay); cursor: pointer; }
-  dialog.modal .viewer .nav .mi { width: 44px; height: 44px; padding: 6px; border-radius: 50%; background: var(--overlay); }
-  dialog.modal .viewer .nav:hover .mi, dialog.modal .viewer .nav:focus-visible .mi { background: var(--overlay-hover); }
-  dialog.modal .viewer .nav.prev { left: 0; }
-  dialog.modal .viewer .nav.next { right: 0; }
-  dialog.modal .viewer .counter { position: absolute; right: 8px; bottom: 8px; padding: 1px 8px; background: var(--overlay-hover);
+  .viewer .nav .mi { width: 44px; height: 44px; padding: 6px; border-radius: 50%; background: var(--overlay); }
+  .viewer .nav:hover .mi, .viewer .nav:focus-visible .mi { background: var(--overlay-hover); }
+  .viewer .nav.prev { left: 0; }
+  .viewer .nav.next { right: 0; }
+  .viewer .counter { position: absolute; right: 8px; bottom: 8px; padding: 1px 8px; background: var(--overlay-hover);
                                   color: var(--on-overlay); pointer-events: none; }
-  dialog.modal .dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
-  dialog.modal .dlg-image [hidden] { display: none !important; }
+  .dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
+  .dlg-image [hidden] { display: none !important; }
   /* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
-  dialog.modal .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
                            width: 100%; aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
                            background: var(--panel); border: 2px dashed var(--border); }
-  dialog.modal .no-image .mi { width: 96px; height: 96px; opacity: .6; }
-  dialog.modal .no-image b { color: var(--text); }
-  dialog.modal .no-image:hover { border-color: var(--blue); color: var(--link); }
-  dialog.modal .no-image:hover .mi { opacity: 1; }
+  .no-image .mi { width: 96px; height: 96px; opacity: .6; }
+  .no-image b { color: var(--text); }
+  .no-image:hover { border-color: var(--blue); color: var(--link); }
+  .no-image:hover .mi { opacity: 1; }
   dialog.modal .dlg-body { display: flex; align-items: stretch; }
   dialog.modal .dlg-body > .form { flex: 1; }
   /* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
@@ -483,7 +483,9 @@
   dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
   dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
                           justify-content: center; align-items: start; gap: 8px; flex: 1 1 auto; min-width: 0; }
-  dialog.modal .dlg-image img { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto;
+  /* Страница объекта: тот же просмотрщик картинок, что и в окне, в строке «Картинки» формы (до 640px) */
+  .form .dlg-image { display: grid; grid-template-columns: minmax(0, 640px) auto; align-items: start; gap: 8px; }
+  .dlg-image img { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto;
                                 object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
   @media (max-width: 1100px) {
     dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
@@ -491,7 +493,7 @@
     dialog.modal.wide #d-description { height: auto; resize: vertical; }
     dialog.modal .dlg-image { order: 2; padding: 0 16px 16px 24px; grid-template-columns: minmax(0, 1fr) auto; }  /* сначала поля, под ними картинка */
     dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка под полями */
-    dialog.modal .dlg-image img, dialog.modal .no-image { width: 100%; }
+    dialog.modal .dlg-image img, .no-image { width: 100%; }
   }
   /* Экспорт: список коллекций с галочками в столбик */
   .export-list { display: grid; gap: 6px; max-height: 420px; overflow: auto; }
@@ -674,18 +676,8 @@
   });
 </script>
 
-<th:block th:fragment="itemDialog">
-  <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
-    <div class="modal-head">
-      <span id="item-dialog-title" th:text="#{item.edit}">Редактировать объект</span>
-      <button type="button" class="icon" data-close th:title="#{js.close}" th:aria-label="#{js.close}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
-    </div>
-    <form autocomplete="off" method="post" enctype="multipart/form-data">
-    <div class="dlg-body">
-      <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
-           Щелчок по сохранённой картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
-           Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
-      <div id="d-image" class="dlg-image">
+<th:block th:if="false">
+      <div id="d-image" class="dlg-image" th:fragment="imageViewer">
         <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
         <th:block th:each="n : ${#numbers.sequence(0, 4)}">
           <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif" hidden>
@@ -706,6 +698,85 @@
           <button type="button" class="icon red" id="d-remove" th:title="#{image.remove}" th:aria-label="#{image.remove}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M261-120q-24.75 0-42.37-17.63Q201-155.25 201-180v-570h-41v-60h188v-30h264v30h188v60h-41v570q0 24-18 42t-42 18H261Zm438-630H261v570h438v-570ZM367-266h60v-399h-60v399Zm166 0h60v-399h-60v399ZM261-750v570-570Z"/></svg></button>
         </div>
       </div>
+</th:block>
+<!-- Просмотрщик картинок объекта (окно и страница объекта): до 5 мест, у каждого поле файла image_N и отметка remove=N.
+     imageViewer(keyScope) — обработчики; set("хеш1,хеш2") — показать сохранённые картинки и пустое место для новой -->
+<script th:fragment="imageViewerScript">
+  function imageViewer(keyScope) {
+    // Картинки справа (до 5): у каждой — слот { saved: адрес сохранённой, chosen: выбранный файл, removed: удалить }.
+    // Последний слот пустой («Нет картинки») — чтобы добавить ещё одну, пока их меньше 5. Стрелки листают слоты.
+    // Корзина сразу показывает заглушку; на сервере картинки меняются только при сохранении (поля image_N и remove=N)
+    var v = { MAX: 5, slots: [], cur: 0 };
+    function $(id) { return document.getElementById(id); }
+    function srcOf(s) { return s.chosen || (s.saved && !s.removed ? s.saved : null); }
+    v.addEmptySlot = function () {
+      if (v.slots.length < v.MAX && srcOf(v.slots[v.slots.length - 1])) v.slots.push({});
+    };
+    v.render = function () {
+      var s = v.slots[v.cur], src = srcOf(s);
+      $('d-pic').hidden = !src;
+      $('d-noimg').hidden = !!src;
+      $('d-tools').hidden = !src;
+      if (src) document.querySelector('#d-pic img').src = src;
+      // щелчок открывает только сохранённую картинку; у выбранного, ещё не сохранённого файла — ничего
+      if (s.chosen) { $('d-pic').removeAttribute('href'); $('d-pic').removeAttribute('title'); }
+      else if (src) { $('d-pic').href = src; $('d-pic').title = T.openFull; }
+      ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + v.cur; });
+      $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
+      if (s.saved) $('d-open').href = s.saved;
+      var many = v.slots.length > 1, filled = v.slots.filter(srcOf).length;
+      $('d-prev').hidden = $('d-next').hidden = !many;
+      $('d-count').hidden = !many;
+      $('d-count').textContent = src ? (v.slots.slice(0, v.cur + 1).filter(srcOf).length + ' / ' + filled)
+          : s.removed ? T.willRemove : T.newImage;
+    };
+    function go(step) { v.cur = (v.cur + step + v.slots.length) % v.slots.length; v.render(); }
+    $('d-prev').addEventListener('click', function () { go(-1); });
+    $('d-next').addEventListener('click', function () { go(1); });
+    keyScope.addEventListener('keydown', function (e) { // стрелки клавиатуры — если курсор не в поле ввода
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || v.slots.length < 2) return;
+      if (e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { go(1); e.preventDefault(); }
+    });
+    $('d-remove').addEventListener('click', function () {
+      var s = v.slots[v.cur];
+      $('d-file-' + v.cur).value = ''; s.chosen = null;
+      if (s.saved) { s.removed = true; $('d-remove-' + v.cur).disabled = false; } // сохранённую — удалить при сохранении
+      v.render();
+    });
+    for (var i = 0; i < v.MAX; i++) (function (n) {
+      $('d-file-' + n).addEventListener('change', function () {
+        var s = v.slots[n];
+        s.chosen = this.files[0] ? URL.createObjectURL(this.files[0]) : null;
+        if (s.chosen) { s.removed = false; $('d-remove-' + n).disabled = true; } // новый файл заменит картинку
+        v.addEmptySlot();
+        v.render();
+      });
+    })(i);
+    v.set = function (pics) {
+      v.slots = (pics || '').split(',').filter(Boolean).map(function (h) { return { saved: '/img/' + h }; });
+      if (!v.slots.length) v.slots.push({});
+      v.addEmptySlot();
+      for (var j = 0; j < v.MAX; j++) { $('d-file-' + j).value = ''; $('d-remove-' + j).disabled = true; }
+      v.cur = 0;
+      v.render();
+    };
+    return v;
+  }
+</script>
+<th:block th:fragment="itemDialog">
+<script th:replace="~{base :: imageViewerScript}"></script>
+  <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title">
+    <div class="modal-head">
+      <span id="item-dialog-title" th:text="#{item.edit}">Редактировать объект</span>
+      <button type="button" class="icon" data-close th:title="#{js.close}" th:aria-label="#{js.close}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
+    </div>
+    <form autocomplete="off" method="post" enctype="multipart/form-data">
+    <div class="dlg-body">
+      <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
+           Щелчок по сохранённой картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
+           Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
+      <div th:replace="~{base :: imageViewer}"></div>
     <!-- --rows — сколько строк до «Описания» (оно растягивается до низа окна); «Old-Games.ru» — строкой после него -->
     <div class="form" th:classappend="${fields.contains('oldgames')} ? 'after-desc'"
          th:style="${'--rows:' + (1 + fields.size() - (fields.contains('oldgames') ? 1 : 0))}">
@@ -789,56 +860,8 @@
     var dlg = document.getElementById('item-dialog');
     if (!dlg || typeof dlg.showModal !== 'function') return; // нет <dialog> — название откроет отдельную страницу
     var form = dlg.querySelector('form');
-    // Картинки справа (до 5): у каждой — слот { saved: адрес сохранённой, chosen: выбранный файл, removed: удалить }.
-    // Последний слот пустой («Нет картинки») — чтобы добавить ещё одну, пока их меньше 5. Стрелки листают слоты.
-    // Корзина сразу показывает заглушку; на сервере картинки меняются только при сохранении (поля image_N и remove=N)
-    var MAX = 5, slots = [], cur = 0;
     function $(id) { return document.getElementById(id); }
-    function srcOf(s) { return s.chosen || (s.saved && !s.removed ? s.saved : null); }
-    function addEmptySlot() {
-      if (slots.length < MAX && srcOf(slots[slots.length - 1])) slots.push({});
-    }
-    function render() {
-      var s = slots[cur], src = srcOf(s);
-      $('d-pic').hidden = !src;
-      $('d-noimg').hidden = !!src;
-      $('d-tools').hidden = !src;
-      if (src) document.querySelector('#d-pic img').src = src;
-      // щелчок открывает только сохранённую картинку; у выбранного, ещё не сохранённого файла — ничего
-      if (s.chosen) { $('d-pic').removeAttribute('href'); $('d-pic').removeAttribute('title'); }
-      else if (src) { $('d-pic').href = src; $('d-pic').title = T.openFull; }
-      ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + cur; });
-      $('d-open').hidden = !!s.chosen || !s.saved || s.removed;
-      if (s.saved) $('d-open').href = s.saved;
-      var many = slots.length > 1, filled = slots.filter(srcOf).length;
-      $('d-prev').hidden = $('d-next').hidden = !many;
-      $('d-count').hidden = !many;
-      $('d-count').textContent = src ? (slots.slice(0, cur + 1).filter(srcOf).length + ' / ' + filled)
-          : s.removed ? T.willRemove : T.newImage;
-    }
-    function go(step) { cur = (cur + step + slots.length) % slots.length; render(); }
-    $('d-prev').addEventListener('click', function () { go(-1); });
-    $('d-next').addEventListener('click', function () { go(1); });
-    dlg.addEventListener('keydown', function (e) { // стрелки клавиатуры — если курсор не в поле ввода
-      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || slots.length < 2) return;
-      if (e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
-      if (e.key === 'ArrowRight') { go(1); e.preventDefault(); }
-    });
-    $('d-remove').addEventListener('click', function () {
-      var s = slots[cur];
-      $('d-file-' + cur).value = ''; s.chosen = null;
-      if (s.saved) { s.removed = true; $('d-remove-' + cur).disabled = false; } // сохранённую — удалить при сохранении
-      render();
-    });
-    for (var i = 0; i < MAX; i++) (function (n) {
-      $('d-file-' + n).addEventListener('change', function () {
-        var s = slots[n];
-        s.chosen = this.files[0] ? URL.createObjectURL(this.files[0]) : null;
-        if (s.chosen) { s.removed = false; $('d-remove-' + n).disabled = true; } // новый файл заменит картинку
-        addEmptySlot();
-        render();
-      });
-    })(i);
+    var iv = imageViewer(dlg);
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
@@ -865,12 +888,7 @@
         if ($('d-oldgames')) { $('d-oldgames').value = row.dataset.oldgames || ''; $('d-og-status').hidden = true; ogSync(); }
         itemId = row.dataset.id;
         // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены
-        slots = (row.dataset.pics || '').split(',').filter(Boolean).map(function (h) { return { saved: '/img/' + h }; });
-        if (!slots.length) slots.push({});
-        addEmptySlot();
-        for (var j = 0; j < MAX; j++) { $('d-file-' + j).value = ''; $('d-remove-' + j).disabled = true; }
-        cur = 0;
-        render();
+        iv.set(row.dataset.pics);
         dlg.showModal();
         form.elements.name.focus();
       });
@@ -912,9 +930,9 @@
             if (d.description) form.elements.description.value = d.description;
             if (d.images.length) {
               // прежние сохранённые картинки — на удаление, загруженные — на места 0…n-1
-              slots.forEach(function (s, k) { if (s.saved) $('d-remove-' + k).disabled = false; });
-              for (var j = 0; j < MAX; j++) $('d-file-' + j).value = '';
-              slots = d.images.map(function (im, k) {
+              iv.slots.forEach(function (s, k) { if (s.saved) $('d-remove-' + k).disabled = false; });
+              for (var j = 0; j < iv.MAX; j++) $('d-file-' + j).value = '';
+              iv.slots = d.images.map(function (im, k) {
                 var bin = atob(im.data), bytes = new Uint8Array(bin.length);
                 for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
                 var file = new File([bytes], 'old-games-' + (k + 1) + '.' + im.mime.split('/')[1], { type: im.mime });
@@ -922,7 +940,7 @@
                 $('d-remove-' + k).disabled = true; // новый файл на этом месте сам заменит прежнюю картинку
                 return { chosen: URL.createObjectURL(file) };
               });
-              addEmptySlot(); cur = 0; render();
+              iv.addEmptySlot(); iv.cur = 0; iv.render();
             }
             var n = d.images.length;
             ogStatus(T.ogLoaded + (n ? T.ogAnd.replace('{0}', n + ' ' + plural(n, T.ogImages)) : T.ogNoImages) + T.ogSave, true);

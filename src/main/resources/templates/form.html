@@ -105,15 +105,10 @@
       </div>
     </th:block>
 
+    <!-- Картинки объекта (до 5) — тот же просмотрщик, что и в окне объекта: листание, заменить, открыть, удалить -->
     <th:block th:if="${isItem}">
-      <label th:text="#{field.image}">Картинка</label>
-      <div>
-        <th:block th:if="${imgUrl != null}">
-          <a th:href="${imgUrl}" target="_blank" th:title="#{js.openFull}"><img class="preview" th:src="${imgUrl + '/thumb'}" alt=""></a>
-          <label class="radio"><input type="checkbox" name="remove_image" value="1"> <span th:text="#{image.removeLower}">удалить картинку</span></label>
-        </th:block>
-        <input type="file" name="image" accept="image/png,image/jpeg,image/gif">
-      </div>
+      <label class="og-label" th:text="#{field.images}">Картинки</label>
+      <div th:replace="~{base :: imageViewer}"></div>
     </th:block>
 
     <!-- Объект — как в окне объекта: слева «Удалить объект», справа «Сохранить» («Сохранить» первой в разметке —
@@ -126,6 +121,12 @@
     </div>
   </form>
   <script th:if="${isItem and fields.contains('rating')}" th:replace="~{base :: ratingScript}"></script>
+  <th:block th:if="${isItem}">
+    <script th:replace="~{base :: imageViewerScript}"></script>
+    <script th:inline="javascript">
+      imageViewer(document).set(/*[[${obj != null ? obj.pics() : null}]]*/ '');
+    </script>
+  </th:block>
 </main>
 </body>
 </html>
