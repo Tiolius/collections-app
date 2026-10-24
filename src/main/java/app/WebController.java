@@ -231,15 +231,15 @@ public class WebController {
         }
         List<Xlsx.Sheet> sheets = new ArrayList<>();
         for (Entry c : chosen) {
-            Set<String> fields = repo.itemFields(uid, c.kind());
+            // Описание и номер Old-Games.ru в Excel не выгружаются (по просьбе пользователя)
+            Set<String> fields = new java.util.LinkedHashSet<>(repo.itemFields(uid, c.kind()));
+            fields.remove("oldgames");
             List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
                 headers.add(I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
-                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : f.equals("oldgames") ? 16 : 22);
+                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") ? 12 : 22);
             }
-            headers.add(I18n.t("field.description"));
-            widths.add(80);
             List<List<Object>> rows = new ArrayList<>();
             for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
                 List<Object> row = new ArrayList<>();
@@ -252,10 +252,8 @@ public class WebController {
                         case "price" -> it.price();
                         case "available" -> I18n.t(it.available() ? "available.yes" : "available.no");
                         case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
-                        case "oldgames" -> it.oldGamesId(); // номер игры в каталоге Old-Games.ru
                         default -> null;
                     });
-                row.add(it.description());
                 rows.add(row);
             }
             sheets.add(new Xlsx.Sheet(c.name(), headers, rows, widths));
