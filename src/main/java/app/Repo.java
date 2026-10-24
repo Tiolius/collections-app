@@ -13,12 +13,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Вся работа с базой. table — "collections" или "items".
@@ -154,7 +152,7 @@ public class Repo {
 
     public Kind kind(long uid, long id) {
         List<Kind> list = withColors(jdbc.query(KIND_SELECT + " AND id = ?", KIND_MAPPER, uid, id));
-        if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (list.isEmpty()) throw Fail.notFound();
         return list.get(0);
     }
 
@@ -182,7 +180,7 @@ public class Repo {
         String n = name.trim();
         for (Kind k : kinds(uid))
             if (alphabetical().compare(k.name(), n) == 0 && (id == null || k.id() != id))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("kind.exists", k.name()));
+                throw Fail.badRequest("kind.exists", k.name());
         String f = FIELDS.keySet().stream().filter(key -> fields != null && fields.contains(key))
                 .collect(Collectors.joining(","));
         Map<String, String> sc = parseStatusColors(statuses, colors);
@@ -212,9 +210,9 @@ public class Repo {
             if (st.isEmpty()) continue;
             String color = colors != null && i < colors.size() ? colors.get(i) : null;
             if (color == null || !color.matches("#[0-9a-fA-F]{6}"))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("kind.badColor", st));
+                throw Fail.badRequest("kind.badColor", st);
             if (!seen.add(st.toLowerCase(Locale.ROOT)))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("kind.statusTwice", st));
+                throw Fail.badRequest("kind.statusTwice", st);
             res.put(st, color.toLowerCase(Locale.ROOT));
         }
         return res;
@@ -224,8 +222,7 @@ public class Repo {
     public void deleteKind(long uid, long id) {
         Kind k = kind(uid, id);
         if (k.used() > 0)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    I18n.t("kind.inUse", k.name(), k.used()));
+            throw Fail.badRequest("kind.inUse", k.name(), k.used());
         jdbc.update("DELETE FROM kinds WHERE id = ?", id);
     }
 
@@ -326,11 +323,11 @@ public class Repo {
     /** Создаёт пользователя с начальными типами коллекций. Возвращает id. */
     public long createUser(String name, String password, String role) {
         if (name == null || name.isBlank())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("user.nameRequired"));
+            throw Fail.badRequest("user.nameRequired");
         if (userByName(name) != null)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("user.exists", name.trim()));
+            throw Fail.badRequest("user.exists", name.trim());
         if (!ROLES.containsKey(role))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("user.badRole"));
+            throw Fail.badRequest("user.badRole");
         long uid = jdbc.queryForObject("INSERT INTO users (name, password_hash, role) VALUES (?, ?, ?) RETURNING id",
                 Long.class, name.trim(), Passwords.hash(password), role);
         DEFAULT_KINDS.forEach((k, f) -> jdbc.update("INSERT INTO kinds (user_id, name, fields) VALUES (?, ?, ?)", uid, I18n.t(k), f));
@@ -364,7 +361,6 @@ public class Repo {
             "name", "name", "platform", "platform", "format", "format", "status", "status", "price", "price",
             "available", "available", "rating", "rating", "purchased", "purchased", "edition", "edition");
 
-    /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
     /** Счётчики коллекции для главной: сколько объектов в наличии и общая стоимость (сумма цен). */
     public record CollectionStats(int available, long price) {}
 
@@ -378,6 +374,7 @@ public class Repo {
         return res;
     }
 
+    /** Общая стоимость коллекции — сумма цен объектов (объекты без цены не считаются). */
     public long totalPrice(long collectionId) {
         return jdbc.queryForObject("SELECT COALESCE(SUM(price), 0) FROM items WHERE collection_id = ?", Long.class, collectionId);
     }
@@ -555,7 +552,6 @@ public class Repo {
         return count.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(limit).toList();
     }
 
-    /** Значения столбца у объектов коллекции — для выпадающего списка фильтра (по алфавиту, без пустых). */
     /** Значения дополнительных полей для фильтров: регион / издание, теги, годы покупки (новые сверху). */
     public List<String> detailValues(long collectionId, String field) {
         String sql = "SELECT d.%s FROM item_details d JOIN items i ON i.id = d.item_id WHERE i.collection_id = ? AND d.%s IS NOT NULL";
@@ -574,6 +570,7 @@ public class Repo {
         };
     }
 
+    /** Значения столбца у объектов коллекции — для выпадающего списка фильтра (по алфавиту, без пустых). */
     public List<String> distinctValues(long collectionId, String column) {
         if (!SELECT_FILTERS.contains(column)) throw new IllegalArgumentException(column);
         return jdbc.queryForList("SELECT DISTINCT " + column + " FROM items WHERE collection_id = ? AND "
@@ -583,12 +580,6 @@ public class Repo {
     public Entry item(long uid, long id) {
         return one(jdbc.query("SELECT " + ITEM_COLS + " FROM items WHERE id = ? AND collection_id IN "
                 + "(SELECT id FROM collections WHERE user_id = ?)", mapper(true, false), id, uid));
-    }
-
-    /** Картинка коллекции: {image, image_mime} или 404. */
-    public Map<String, Object> collectionImage(long uid, long id) {
-        collection(uid, id); // чужая коллекция — 404
-        return picture(files.collection(id));
     }
 
     /**
@@ -614,19 +605,6 @@ public class Repo {
         return files.thumb(pic);
     }
 
-    /** Картинка объекта номер n (с нуля): {image, image_mime} или 404 (в т.ч. если объект чужой). */
-    public Map<String, Object> itemImage(long uid, long id, int n) {
-        item(uid, id); // чужой объект — 404
-        List<ImageFiles.Pic> pics = files.item(id);
-        return picture(n < 0 || n >= pics.size() ? null : pics.get(n));
-    }
-
-    private Map<String, Object> picture(ImageFiles.Pic pic) {
-        byte[] bytes = pic == null ? null : files.read(pic);
-        if (bytes == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        return Map.of("image", bytes, "image_mime", pic.mime());
-    }
-
     // ---------- изменение ----------
 
     public long createCollection(long uid) {
@@ -643,7 +621,7 @@ public class Repo {
         requireName(name);
         if (kind == null || jdbc.queryForObject("SELECT COUNT(*) FROM kinds WHERE user_id = ? AND name = ?",
                 Integer.class, uid, kind) == 0)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("coll.kindRequired"));
+            throw Fail.badRequest("coll.kindRequired");
         jdbc.update("UPDATE collections SET name = ?, kind = ? WHERE id = ?", name.trim(), kind, id);
 
         if (image != null && !image.isEmpty()) {
@@ -660,7 +638,7 @@ public class Repo {
     public void setItemDescription(long itemId, String text) {
         String t = text == null ? "" : text.replace("\r\n", "\n").trim();
         if (t.length() > MAX_DESCRIPTION)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.descriptionTooLong", MAX_DESCRIPTION));
+            throw Fail.badRequest("item.descriptionTooLong", MAX_DESCRIPTION);
         if (t.isEmpty()) jdbc.update("DELETE FROM item_descriptions WHERE item_id = ?", itemId);
         else jdbc.update("INSERT INTO item_descriptions (item_id, text) VALUES (?, ?) ON CONFLICT (item_id) "
                 + "DO UPDATE SET text = excluded.text", itemId, t);
@@ -689,11 +667,11 @@ public class Repo {
         try {
             bytes = image.getBytes();
         } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("image.readError"));
+            throw Fail.badRequest("image.readError");
         }
         // Тип определяется по содержимому файла, а не по тому, что прислал браузер
         if (imageType(bytes) == null)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("image.badFormat"));
+            throw Fail.badRequest("image.badFormat");
         return bytes;
     }
 
@@ -719,22 +697,23 @@ public class Repo {
      * Сохраняет объект: название и те поля, которые есть у типа коллекции (см. настройки типа).
      * Остальные поля не трогаем, чтобы данные не терялись при смене типа коллекции.
      */
-    public void saveItem(long uid, long id, String kind, String name, String platform, String format, String status,
-                         Integer price, Boolean available, Integer rating, String oldGames, Details details,
-                         Map<Integer, MultipartFile> newImages, Set<Integer> removed, String description) {
+    public void saveItem(long uid, long id, String kind, ItemForm form, Map<Integer, MultipartFile> newImages, Set<Integer> removed) {
+        String name = form.name(), status = form.status(), oldGames = form.oldgames();
+        Integer price = form.price(), rating = form.rating();
+        Boolean available = form.availableValue();
         requireName(name);
         if (price != null && price < 0)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.negativePrice"));
+            throw Fail.badRequest("item.negativePrice");
         Set<String> f = itemFields(uid, kind);
         jdbc.update("UPDATE items SET name = ? WHERE id = ?", name.trim(), id);
-        if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(platform), id);
-        if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(format), id);
+        if (f.contains("platform")) jdbc.update("UPDATE items SET platform = ? WHERE id = ?", trim(form.platform()), id);
+        if (f.contains("format")) jdbc.update("UPDATE items SET format = ? WHERE id = ?", trim(form.format()), id);
         if (f.contains("status")) {
             // только значения из списка; прежнее значение не из списка можно оставить как есть
             String st = trim(status);
             String old = jdbc.queryForObject("SELECT status FROM items WHERE id = ?", String.class, id);
             if (st != null && !st.isEmpty() && !STATUSES.contains(st) && !st.equals(old))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badStatus"));
+                throw Fail.badRequest("item.badStatus");
             jdbc.update("UPDATE items SET status = ? WHERE id = ?", st, id);
         }
         if (f.contains("price")) jdbc.update("UPDATE items SET price = ? WHERE id = ?", price, id);
@@ -746,22 +725,20 @@ public class Repo {
             else {
                 String url = OldGames.normalize(oldGames);
                 if (url == null)
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("og.needIdField"));
+                    throw Fail.badRequest("og.needIdField");
                 jdbc.update("INSERT INTO item_oldgames (item_id, url) VALUES (?, ?) "
                         + "ON CONFLICT (item_id) DO UPDATE SET url = excluded.url", id, url);
             }
         }
         if (f.contains("available") && available != null) setAvailable(id, available);
         // Дополнительные поля (item_details): null — поля нет в форме, не меняется; пусто — очистить
-        if (details != null) {
-            if (f.contains("purchased") && details.purchased() != null) setDetail(id, "purchased", purchaseDate(details.purchased()));
-            if (f.contains("tags") && details.tags() != null) setDetail(id, "tags", limit(normalizeTags(details.tags()), MAX_TAGS));
-            if (f.contains("edition") && details.edition() != null) setDetail(id, "edition", limit(trim(details.edition()), MAX_EDITION));
-            if (f.contains("notes") && details.notes() != null)
-                setDetail(id, "notes", limit(details.notes().replace("\r\n", "\n").trim(), MAX_NOTES));
-        }
+        if (f.contains("purchased") && form.purchased() != null) setDetail(id, "purchased", purchaseDate(form.purchased()));
+        if (f.contains("tags") && form.tags() != null) setDetail(id, "tags", limit(normalizeTags(form.tags()), MAX_TAGS));
+        if (f.contains("edition") && form.edition() != null) setDetail(id, "edition", limit(trim(form.edition()), MAX_EDITION));
+        if (f.contains("notes") && form.notes() != null)
+            setDetail(id, "notes", limit(form.notes().replace("\r\n", "\n").trim(), MAX_NOTES));
         // Описание и картинка есть у всех объектов, независимо от типа коллекции
-        if (description != null) setItemDescription(id, description);
+        if (form.description() != null) setItemDescription(id, form.description());
         // Картинки: новый файл на месте pos заменяет картинку (или добавляет), removed — удалить; без пропусков по порядку
         if (!newImages.isEmpty() || !removed.isEmpty()) {
             List<ImageFiles.Pic> pics = files.item(id);
@@ -783,7 +760,7 @@ public class Repo {
     /** Статус из списка или пусто (без пробелов по краям); иначе — 400. */
     public static String checkStatus(String status) {
         String st = trim(status);
-        if (!st.isEmpty() && !STATUSES.contains(st)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badStatus"));
+        if (!st.isEmpty() && !STATUSES.contains(st)) throw Fail.badRequest("item.badStatus");
         return st;
     }
 
@@ -792,8 +769,17 @@ public class Repo {
         jdbc.update("UPDATE items SET collection_id = ? WHERE id = ?", collectionId, itemId);
     }
 
-    /** Дополнительные поля объекта из формы (null — поля нет в форме). */
-    public record Details(String purchased, String tags, String edition, String notes) {}
+    /**
+     * Поля объекта из окна объекта (новый и изменение — одна форма). null — поля нет в форме: значение не меняется.
+     * available — значения галочки «Наличие»: перед ней скрытое 0, отмеченная галочка добавляет 1.
+     */
+    public record ItemForm(String name, String platform, String format, String status, Integer price,
+                           List<String> available, Integer rating, String oldgames, String purchased, String tags,
+                           String edition, String notes, String description) {
+        Boolean availableValue() {
+            return available == null ? null : available.contains("1");
+        }
+    }
 
     /** Наибольшая длина тегов (всех вместе), региона / издания и заметок. */
     public static final int MAX_TAGS = 500, MAX_EDITION = 200, MAX_NOTES = 2000;
@@ -806,7 +792,7 @@ public class Repo {
 
     /** Рейтинг объекта: 0 — убрать, 1…10 — половинки звезды. */
     public void setRating(long itemId, int rating) {
-        if (rating < 0 || rating > 10) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badRating"));
+        if (rating < 0 || rating > 10) throw Fail.badRequest("item.badRating");
         if (rating == 0) jdbc.update("DELETE FROM item_ratings WHERE item_id = ?", itemId);
         else jdbc.update("INSERT INTO item_ratings (item_id, rating) VALUES (?, ?) "
                 + "ON CONFLICT (item_id) DO UPDATE SET rating = excluded.rating", itemId, rating);
@@ -829,7 +815,7 @@ public class Repo {
         try {
             return java.time.LocalDate.parse(v).toString();
         } catch (java.time.format.DateTimeParseException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.badDate"));
+            throw Fail.badRequest("item.badDate");
         }
     }
 
@@ -849,7 +835,7 @@ public class Repo {
     }
 
     private static String limit(String s, int max) {
-        if (s.length() > max) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.tooLong", max));
+        if (s.length() > max) throw Fail.badRequest("item.tooLong", max);
         return s;
     }
 
@@ -865,7 +851,7 @@ public class Repo {
 
     private static void requireName(String name) {
         if (name == null || name.isBlank())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, I18n.t("item.nameRequired"));
+            throw Fail.badRequest("item.nameRequired");
     }
 
     private static String trim(String s) {
@@ -873,7 +859,7 @@ public class Repo {
     }
 
     private static Entry one(List<Entry> list) {
-        if (list.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (list.isEmpty()) throw Fail.notFound();
         return list.get(0);
     }
 }

@@ -2,11 +2,8 @@ package app;
 
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -61,7 +58,6 @@ public class ImageImport {
     static final int THROTTLE_RETRIES = 5;
     /** Столько ошибок сети подряд — сервис недоступен, импорт останавливается. */
     static final int MAX_ERRORS_IN_ROW = 10;
-    static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
     /** Адреса сервисов (для проверки можно подменить на заглушку). Токен Discogs — у каждого пользователя свой (вкладка «Импорт»). */
     @Value("${steam.store-url:https://store.steampowered.com}")
@@ -78,8 +74,6 @@ public class ImageImport {
     private String gogCatalogUrl;
     @Value("${gog.api-url:https://api.gog.com}")
     private String gogApiUrl;
-    @Value("${app.version}")
-    private String appVersion;
 
     /** Состояние импорта пользователя (читается страницей через /import/status). */
     public static class Job {
@@ -131,8 +125,7 @@ public class ImageImport {
 
     private final Repo repo;
     private final ObjectMapper json = new ObjectMapper();
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
-            .followRedirects(HttpClient.Redirect.NORMAL).proxy(java.net.ProxySelector.getDefault()).build();
+    private final Http http;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "image-import");
         t.setDaemon(true);
@@ -142,8 +135,9 @@ public class ImageImport {
     /** Время последнего запроса к API каждого источника. */
     private final Map<String, Long> lastCall = new ConcurrentHashMap<>();
 
-    public ImageImport(Repo repo) {
+    public ImageImport(Repo repo, Http http) {
         this.repo = repo;
+        this.http = http;
     }
 
     /** Текущий или последний импорт пользователя (или null). */
@@ -279,24 +273,32 @@ public class ImageImport {
         // Поиск Steam спотыкается о знаки («Batman: … - Game of the Year Edition», «F.E.A.R.»):
         // если по названию как есть совпадения нет — ещё раз по названию без знаков препинания
         String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
-        for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
-            Found f = findSteamTerm(job, term, key, false, wantImage, wantDescription);
-            if (f != null) return f;
-        }
+        // Русские названия Steam находит только в поиске с регионом Россия и русским языком
+        // («Бельтион: Свод Равновесия» = Beltion: Beyond Ritual): для названий на кириллице — ещё и так
+        List<String> regions = name.matches("(?s).*\\p{IsCyrillic}.*")
+                ? List.of(STEAM_SEARCH_EN, STEAM_SEARCH_RU) : List.of(STEAM_SEARCH_EN);
+        for (String region : regions)
+            for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
+                Found f = findSteamTerm(job, region, term, key, false, wantImage, wantDescription);
+                if (f != null) return f;
+            }
         // Последняя попытка — по части до двоеточия: консольные издания с подзаголовком продаются в Steam
         // как ПК-издания («Disgaea 2: Dark Hero Days» → «Disgaea 2 PC», «Disgaea 4: A Promise Revisited» →
         // «Disgaea 4 Complete+»). Засчитывается только результат с припиской издания или платформы:
         // иначе консольная «Fallout: Brotherhood of Steel» получила бы картинки первой Fallout
         int colon = name.indexOf(':');
         String prefix = colon > 0 ? name.substring(0, colon).trim() : "";
-        if (!norm(prefix).isEmpty()) return findSteamTerm(job, prefix, norm(prefix), true, wantImage, wantDescription);
+        if (!norm(prefix).isEmpty()) return findSteamTerm(job, STEAM_SEARCH_EN, prefix, norm(prefix), true, wantImage, wantDescription);
         return null;
     }
 
+    /** Регион и язык поиска Steam: США по-английски (основной) и Россия по-русски (русские названия). */
+    private static final String STEAM_SEARCH_EN = "cc=us&l=english", STEAM_SEARCH_RU = "cc=ru&l=russian";
+
     /** Поиск в Steam по term; editionOnly — засчитывать только издания key (с припиской издания или платформы). */
-    private Found findSteamTerm(Job job, String term, String key, boolean editionOnly, boolean wantImage,
+    private Found findSteamTerm(Job job, String region, String term, String key, boolean editionOnly, boolean wantImage,
                                 boolean wantDescription) throws Exception {
-        JsonNode res = api(job, steamUrl + "/api/storesearch/?cc=us&l=english&term=" + enc(term));
+        JsonNode res = api(job, steamUrl + "/api/storesearch/?" + region + "&term=" + enc(term));
         if (res == null) return null;
         // Точное совпадение названия; если его нет — то же название без «The» в начале и приписки издания
         // (DX, Remastered, GOTY…): «Banner Saga 3» = «The Banner Saga 3»; старое издание после выхода нового
@@ -671,10 +673,7 @@ public class ImageImport {
                 if (wait > 0) Thread.sleep(wait);
                 lastCall.put(job.source, System.currentTimeMillis());
             }
-            HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30))
-                    .header("User-Agent", "CollectionsApp/" + appVersion).GET();
-            if (token) req.header("Authorization", "Discogs token=" + job.discogsToken);
-            HttpResponse<String> r = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r = token ? http.text(url, "Authorization", "Discogs token=" + job.discogsToken) : http.text(url);
             int code = r.statusCode();
             if (code == 200) {
                 job.message = "";
@@ -703,10 +702,7 @@ public class ImageImport {
                 || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru") || host.endsWith(".gog-statics.com"));
         if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")
                 && !url.startsWith(gogCatalogUrl + "/")) return null;
-        HttpResponse<byte[]> r = http.send(HttpRequest.newBuilder(u).timeout(Duration.ofSeconds(30))
-                .header("User-Agent", "CollectionsApp/" + appVersion).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
-        byte[] b = r.body();
-        return r.statusCode() == 200 && b.length <= MAX_IMAGE_BYTES && Repo.imageType(b) != null ? b : null;
+        return http.image(url);
     }
 
     private static String enc(String s) {

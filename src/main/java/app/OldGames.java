@@ -1,10 +1,6 @@
 package app;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -40,11 +36,11 @@ public class OldGames {
     /** Пауза между запросами к сайту, мс (на одну игру — 3 страницы и до 5 картинок). */
     @Value("${oldgames.interval-ms:400}")
     private long intervalMs;
-    @Value("${app.version}")
-    private String appVersion;
+    private final Http http;
 
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
-            .followRedirects(HttpClient.Redirect.NORMAL).proxy(java.net.ProxySelector.getDefault()).build();
+    public OldGames(Http http) {
+        this.http = http;
+    }
     private long lastCall;
 
     /** Номер игры: введённый номер или номер из адреса страницы; null — ни то ни другое. */
@@ -142,15 +138,10 @@ public class OldGames {
         lastCall = System.currentTimeMillis();
     }
 
-    private HttpRequest request(String url) {
-        return HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30))
-                .header("User-Agent", "CollectionsApp/" + appVersion).GET().build();
-    }
-
     /** Страница сайта (UTF-8) или null, если её нет. */
     private String get(String url) throws Exception {
         pause();
-        HttpResponse<String> r = http.send(request(url), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> r = http.text(url);
         if (r.statusCode() == 404) return null;
         if (r.statusCode() != 200) throw new java.io.IOException("Old-Games.ru: " + r.statusCode());
         return r.body();
@@ -160,8 +151,6 @@ public class OldGames {
     private byte[] image(String url) throws Exception {
         if (!url.startsWith(site + "/games/")) return null;
         pause();
-        HttpResponse<byte[]> r = http.send(request(url), HttpResponse.BodyHandlers.ofByteArray());
-        byte[] b = r.body();
-        return r.statusCode() == 200 && b.length <= ImageImport.MAX_IMAGE_BYTES && Repo.imageType(b) != null ? b : null;
+        return http.image(url);
     }
 }

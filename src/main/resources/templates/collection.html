@@ -21,7 +21,7 @@
     </div>
     <!-- Действия с коллекцией — всегда одной строкой (на телефоне переносятся целиком под название) -->
     <div class="coll-actions">
-      <a class="icon big add" th:title="#{item.new}" th:aria-label="#{item.new}" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
+      <a class="icon big add new-item" th:title="#{item.new}" th:aria-label="#{item.new}" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
       <a class="icon big" th:title="#{dups.title}" th:aria-label="#{dups.title}" th:href="@{/collections/{id}(id=${c.id()},dups=1)}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
       <a class="icon big" th:title="#{coll.edit}" th:aria-label="#{coll.edit}" th:href="@{/collections/{id}/edit(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-180h44l472-471-44-44-472 471v44Zm-60 60v-128l575-574q8-8 19-12.5t23-4.5q11 0 22 4.5t20 12.5l44 44q9 9 13 20t4 22q0 11-4.5 22.5T823-694L248-120H120Zm659-617-41-41 41 41Zm-105 64-22-22 44 44-22-22Z"/></svg></a>
       <form autocomplete="off" class="inline" method="post" th:action="@{/collections/{id}/delete(id=${c.id()})}"
@@ -174,11 +174,9 @@
     <tr th:fragment="itemRow" th:class="${grp}"
                th:with="bg=${fields.contains('status') ? statusColors.get(#strings.toLowerCase(#strings.trim(it.status()))) : null}"
                th:style="${bg != null ? '--row-bg:' + bg : null}"
-               th:data-id="${it.id()}" th:data-name="${it.name()}" th:data-platform="${it.platform()}"
-               th:data-format="${it.format()}" th:data-status="${it.status()}" th:data-price="${it.price()}" th:data-description="${it.description()}" th:data-available="${it.available() ? '1' : '0'}" th:data-images="${it.imageCount()}" th:data-pics="${it.pics()}" th:data-rating="${it.rating()}" th:data-oldgames="${it.oldGamesId()}"
-               th:data-purchased="${it.purchased()}" th:data-tags="${it.tags()}" th:data-edition="${it.edition()}" th:data-notes="${it.notes()}">
+               th:data-id="${it.id()}" th:data-item="${itemJson.get(it.id())}">
       <td class="sel"><input type="checkbox" name="ids" form="bulk-form" th:value="${it.id()}" th:aria-label="${it.name()}"></td>
-      <!-- Щелчок по названию открывает окно объекта (без <dialog> — страницу изменения) -->
+      <!-- Щелчок по названию открывает окно объекта (адрес ссылки — для открытия в новой вкладке) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
       <td class="c-platform" th:if="${fields.contains('platform')}" th:text="${it.platform()}"></td>
       <td class="c-format" th:if="${fields.contains('format')}" th:text="${it.format()}"></td>

@@ -16,7 +16,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
@@ -35,8 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * - pictures (hash, mime, size) — справочник файлов; item_pictures (item_id, pos) и collection_pictures (collection_id) —
  *   ссылки на него. Файл и строка pictures удаляются, когда на хеш не осталось ссылок (release).
  * Изменения идут под одной блокировкой: файл, на который только что сослались, не удалится параллельной очисткой.
- * При запуске: картинки из прежних хранилищ (в базе, по папкам пользователь/коллекция, в общей папке) один раз
- * переносятся сюда, затем лишние файлы удаляются.
+ * При запуске лишние файлы (без строки pictures) и строки pictures без ссылок удаляются.
  */
 @Component
 public class ImageFiles implements ApplicationRunner {
@@ -70,13 +68,6 @@ public class ImageFiles implements ApplicationRunner {
     public List<Pic> item(long itemId) {
         return jdbc.query("SELECT p.hash, p.mime FROM item_pictures ip JOIN pictures p ON p.hash = ip.hash "
                 + "WHERE ip.item_id = ? ORDER BY ip.pos", (rs, n) -> new Pic(rs.getString(1), rs.getString(2)), itemId);
-    }
-
-    /** Картинка коллекции или null. */
-    public Pic collection(long collectionId) {
-        List<Pic> p = jdbc.query("SELECT p.hash, p.mime FROM collection_pictures cp JOIN pictures p ON p.hash = cp.hash "
-                + "WHERE cp.collection_id = ?", (rs, n) -> new Pic(rs.getString(1), rs.getString(2)), collectionId);
-        return p.isEmpty() ? null : p.get(0);
     }
 
     /** Папка картинок (DATA_DIR/images). */
@@ -318,8 +309,7 @@ public class ImageFiles implements ApplicationRunner {
 
     @Override
     public synchronized void run(ApplicationArguments args) {
-        migrate();
-        // строки pictures без ссылок и файлы без строки pictures (и оставшиеся от прежних хранилищ, и .tmp) — удаляются
+        // строки pictures без ссылок и файлы без строки pictures (и недописанные .tmp) — удаляются
         release(jdbc.queryForList("SELECT hash FROM pictures WHERE hash NOT IN (SELECT hash FROM item_pictures) "
                 + "AND hash NOT IN (SELECT hash FROM collection_pictures)", String.class));
         Set<Path> keep = new HashSet<>();
@@ -367,95 +357,5 @@ public class ImageFiles implements ApplicationRunner {
         } catch (IOException e) {
             log.warn("Не удалось очистить папку уменьшенных копий: {}", e.toString());
         }
-    }
-
-    /**
-     * Перенос из прежних хранилищ (один раз): таблицы item_images / item_more_images и столбцы collections.image,
-     * collections.image_mime. Картинка берётся из базы (старые версии) или из файла — по папкам «пользователь/коллекция»
-     * или в общей папке images. Всё в одной транзакции: при ошибке чтения ничего не меняется и запуск прерывается,
-     * чтобы прежние картинки не потерялись; отсутствующий файл пропускается (картинки и так не было).
-     */
-    private void migrate() {
-        boolean items = tableExists("item_images"), more = tableExists("item_more_images");
-        boolean colls = columnExists("collections", "image_mime");
-        if (!items && !more && !colls) return;
-        int[] moved = {0, 0};
-        tx.executeWithoutResult(s -> {
-            if (items || more) {
-                // item_id → (pos → тип); первая картинка — в item_images (pos 0), следующие — в item_more_images (pos 1..4)
-                Map<Long, Map<Integer, String>> all = new TreeMap<>();
-                if (items) jdbc.query("SELECT item_id, image_mime FROM item_images",
-                        rs -> { all.computeIfAbsent(rs.getLong(1), k -> new TreeMap<>()).put(0, rs.getString(2)); });
-                if (more) jdbc.query("SELECT item_id, pos, image_mime FROM item_more_images",
-                        rs -> { all.computeIfAbsent(rs.getLong(1), k -> new TreeMap<>()).put(rs.getInt(2), rs.getString(3)); });
-                for (Map.Entry<Long, Map<Integer, String>> e : all.entrySet()) {
-                    long id = e.getKey();
-                    List<Long> owner = jdbc.query("SELECT c.user_id, c.id FROM items i JOIN collections c ON c.id = i.collection_id "
-                            + "WHERE i.id = ?", (rs, n) -> List.of(rs.getLong(1), rs.getLong(2)), id).stream().findFirst().orElse(null);
-                    if (owner == null) continue;
-                    List<String> hs = new ArrayList<>();
-                    for (Map.Entry<Integer, String> p : e.getValue().entrySet()) {
-                        int pos = p.getKey();
-                        byte[] b = pos == 0 && items ? blob("SELECT image FROM item_images WHERE item_id = ?", id) : null;
-                        String base = pos == 0 ? String.valueOf(id) : id + "-" + (pos + 1);
-                        if (b == null) b = oldFile(p.getValue(), owner, base, base);
-                        String h = b == null ? null : store(b);
-                        if (h != null && hs.size() < MAX_IMAGES) hs.add(h);
-                    }
-                    jdbc.update("DELETE FROM item_pictures WHERE item_id = ?", id);
-                    for (int pos = 0; pos < hs.size(); pos++)
-                        jdbc.update("INSERT INTO item_pictures (item_id, pos, hash) VALUES (?, ?, ?)", id, pos, hs.get(pos));
-                    moved[0] += hs.size();
-                }
-                jdbc.execute("DROP TABLE IF EXISTS item_more_images");
-                jdbc.execute("DROP TABLE IF EXISTS item_images");
-            }
-            if (colls) {
-                boolean blobs = columnExists("collections", "image");
-                List<Object[]> rows = jdbc.query("SELECT id, user_id, image_mime FROM collections WHERE image_mime IS NOT NULL",
-                        (rs, n) -> new Object[] {rs.getLong(1), rs.getLong(2), rs.getString(3)});
-                for (Object[] r : rows) {
-                    long id = (Long) r[0];
-                    byte[] b = blobs ? blob("SELECT image FROM collections WHERE id = ?", id) : null;
-                    if (b == null) b = oldFile((String) r[2], List.of((Long) r[1], id), "collection", "collection-" + id);
-                    String h = b == null ? null : store(b);
-                    if (h == null) continue;
-                    jdbc.update("INSERT OR REPLACE INTO collection_pictures (collection_id, hash) VALUES (?, ?)", id, h);
-                    moved[1]++;
-                }
-                if (blobs) jdbc.execute("ALTER TABLE collections DROP COLUMN image");
-                jdbc.execute("ALTER TABLE collections DROP COLUMN image_mime");
-            }
-        });
-        log.info("Картинки перенесены в хранилище по содержимому: объектов {}, коллекций {}", moved[0], moved[1]);
-        jdbc.execute("VACUUM"); // вернуть место, которое занимали прежние таблицы и картинки в файле базы
-    }
-
-    /** Непустой BLOB или null. */
-    private byte[] blob(String sql, long id) {
-        List<byte[]> b = jdbc.query(sql, (rs, n) -> rs.getBytes(1), id);
-        return b.isEmpty() || b.get(0) == null || b.get(0).length == 0 ? null : b.get(0);
-    }
-
-    /** Файл прежнего хранилища: images/<пользователь>/<коллекция>/<base>.ext, иначе images/<flat>.ext; null — нет файла. */
-    private byte[] oldFile(String mime, List<Long> owner, String base, String flat) {
-        String ext = "." + EXT.getOrDefault(mime, "bin");
-        Path nested = dir.resolve(String.valueOf(owner.get(0))).resolve(String.valueOf(owner.get(1))).resolve(base + ext);
-        for (Path f : List.of(nested, dir.resolve(flat + ext))) {
-            try {
-                if (Files.isRegularFile(f)) return Files.readAllBytes(f);
-            } catch (IOException e) {
-                throw new UncheckedIOException("Не удалось прочитать картинку " + f, e);
-            }
-        }
-        return null;
-    }
-
-    private boolean tableExists(String name) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", Integer.class, name) > 0;
-    }
-
-    private boolean columnExists(String table, String column) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?", Integer.class, table, column) > 0;
     }
 }
