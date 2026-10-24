@@ -763,6 +763,12 @@ public class WebController {
         return "/collections/" + cid + (isView(view) ? "?" + view : "");
     }
 
+    /** Куда вернуться со страницы объекта: в поиск (q — запрос, если объект открыт из поиска) или в коллекцию. */
+    private static String backUrl(long cid, String view, String q) {
+        return q != null ? "/search?q=" + java.net.URLEncoder.encode(q, java.nio.charset.StandardCharsets.UTF_8)
+                : collectionUrl(cid, view);
+    }
+
     private static boolean isView(String view) {
         return view != null && !view.isEmpty() && view.matches("[A-Za-z0-9=&%+._*-]*");
     }
@@ -836,12 +842,14 @@ public class WebController {
     }
 
     @GetMapping("/items/{id}/edit")
-    public String editItemForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m, @RequestParam(required = false) String view) {
+    public String editItemForm(@SessionAttribute("uid") long uid, @PathVariable long id, Model m, @RequestParam(required = false) String view,
+                               @RequestParam(required = false) String q) {
         Entry it = repo.item(uid, id);
         Set<String> fields = repo.itemFields(uid, repo.collection(uid, it.collectionId()).kind());
         m.addAttribute("view", view);
+        m.addAttribute("q", q);
         return form(uid, m, it, true, fields, it.pic() != null ? "/img/" + it.pic() : null,
-                "item.edit", collectionUrl(it.collectionId(), view));
+                "item.edit", backUrl(it.collectionId(), view, q));
     }
 
     @PostMapping("/items/{id}/edit")
@@ -861,12 +869,13 @@ public class WebController {
                            @RequestParam(name = "remove_image", required = false) String removeImage,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
                            @RequestParam(required = false) String description,
-                           @RequestParam(required = false) String view) {
+                           @RequestParam(required = false) String view,
+                           @RequestParam(required = false) String q) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), name, platform, format, status, price,
                 available(available), rating, oldgames, new Repo.Details(purchased, tags, edition, notes), newImages(files),
                 removed(remove, removeImage != null), description);
-        return "redirect:" + collectionUrl(it.collectionId(), view);
+        return "redirect:" + backUrl(it.collectionId(), view, q);
     }
 
     /**
@@ -954,10 +963,11 @@ public class WebController {
     }
 
     @PostMapping("/items/{id}/delete")
-    public String deleteItem(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam(required = false) String view) {
+    public String deleteItem(@SessionAttribute("uid") long uid, @PathVariable long id, @RequestParam(required = false) String view,
+                             @RequestParam(required = false) String q) {
         Entry it = repo.item(uid, id);
         repo.delete("items", id);
-        return "redirect:" + collectionUrl(it.collectionId(), view);
+        return "redirect:" + backUrl(it.collectionId(), view, q);
     }
 
     // ---------- Настройки: типы коллекций ----------

@@ -38,7 +38,7 @@
         <thead><tr><th class="title" th:text="#{field.name}">Название</th><th th:text="#{search.collection}">Коллекция</th>
           <th th:text="#{field.statusShort}">Статус</th><th th:text="#{field.available}">Наличие</th></tr></thead>
         <tbody><tr th:each="it : ${found}" th:with="col=${collectionsById.get(it.collectionId())}, f=${kindFields.get(it.collectionId())}">
-          <td class="title"><a th:href="@{/items/{id}/edit(id=${it.id()})}" th:text="${it.name()}"></a>
+          <td class="title"><a th:href="@{/items/{id}/edit(id=${it.id()},q=${q})}" th:text="${it.name()}"></a>
             <span class="tag" th:each="t : ${it.tagList()}" th:text="${t}"></span></td>
           <td><a th:href="@{/collections/{id}(id=${col.id()})}" th:text="${col.name()}"></a></td>
           <td th:text="${f.contains('status') ? it.status() : ''}"></td>
