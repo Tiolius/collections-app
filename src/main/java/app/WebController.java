@@ -151,7 +151,7 @@ public class WebController {
                               @RequestParam(defaultValue = "false") boolean onlyMissing,
                               @RequestParam(defaultValue = "false") boolean loadImages,
                               @RequestParam(defaultValue = "false") boolean loadDescriptions,
-                              @RequestParam(defaultValue = "screenshot") String steamImage,
+                              @RequestParam(defaultValue = "screenshot") String firstImage,
                               @RequestParam(defaultValue = "5") int imageCount) {
         Entry c = repo.collection(uid, collection); // чужая коллекция — 404
         // пока у коллекции удаляются картинки («Кэш»), импорт в неё не запускается
@@ -165,7 +165,7 @@ public class WebController {
         boolean descriptions = loadDescriptions;
         if (!loadImages && !descriptions)
             throw Fail.badRequest("import.nothing");
-        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(steamImage), imageCount,
+        images.start(uid, c, onlyMissing, source, loadImages, descriptions, "screenshot".equals(firstImage), imageCount,
                 discogsToken);
         return "redirect:/import";
     }

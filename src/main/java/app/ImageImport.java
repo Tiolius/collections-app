@@ -8,9 +8,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,26 +22,36 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Импорт картинок и описаний объектов («Настройки» → «Импорт») из Steam (игры) или Discogs (музыка).
- * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg),
- * описание — краткое описание игры (по-русски, если есть).
+ * Импорт картинок и описаний объектов («Настройки» → «Импорт») из сервисов игр, музыки и книг.
+ * Steam: объект сопоставляется с игрой по названию, картинки — скриншоты галереи игры (нет скриншотов — шапка
+ * страницы игры, header.jpg), описание — краткое описание игры (по-русски, если есть).
  * Discogs: картинка — обложка, описание — поле Notes альбома (главной версии, иначе её основного издания).
  * FantLab (книги): название объекта — «Автор - Название» или просто «Название»; картинка — обложка, описание — аннотация.
  * Discogs: название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы, картинка — обложка.
+ * Nintendo eShop (европейский каталог) и база игр LaunchBox (консоли Sony, Nintendo и другие): игра с тем же
+ * названием на той же платформе (поле «Платформа» объекта, если указано), картинки — обложка коробки и скриншоты.
  * Импорт идёт в фоне, по одному на всё приложение (лимиты сервисов — на адрес, а не на пользователя):
  * запросы к API не чаще заданного интервала, при отказе сервиса (429/403/5xx) — пауза и повтор.
  */
 @Component
 public class ImageImport {
 
-    public static final String STEAM = "steam", GOG = "gog", DISCOGS = "discogs", FANTLAB = "fantlab";
+    public static final String STEAM = "steam", GOG = "gog", DISCOGS = "discogs", FANTLAB = "fantlab",
+            NINTENDO = "nintendo", LAUNCHBOX = "launchbox";
     /** Источники: ключ → название для страницы. */
     public static final Map<String, String> SOURCES = new LinkedHashMap<>();
     static {
         SOURCES.put(STEAM, "Steam");
         SOURCES.put(GOG, "GOG");
+        SOURCES.put(NINTENDO, "Nintendo eShop");
+        SOURCES.put(LAUNCHBOX, "LaunchBox");
         SOURCES.put(DISCOGS, "Discogs");
         SOURCES.put(FANTLAB, "FantLab");
+    }
+
+    /** Источники с обложками коробок: у них есть выбор первой картинки — скриншот или обложка (Steam — только скриншоты). */
+    static boolean coverSource(String source) {
+        return source.equals(GOG) || source.equals(NINTENDO) || source.equals(LAUNCHBOX);
     }
 
     /** Паузы между запросами к API, мс: Steam — около 200 за 5 минут, Discogs — до 60 в минуту с токеном. */
@@ -52,6 +65,11 @@ public class ImageImport {
     /** FantLab просит не чаще раза в 1,2 с (Crawl-delay в robots.txt). */
     @Value("${fantlab.api-interval-ms:1200}")
     private long fantlabIntervalMs;
+    /** Nintendo и LaunchBox ограничений не публикуют; раз в секунду — чтобы не нагружать. */
+    @Value("${nintendo.api-interval-ms:1000}")
+    private long nintendoIntervalMs;
+    @Value("${launchbox.api-interval-ms:1000}")
+    private long launchboxIntervalMs;
     /** Пауза, если сервис ограничил запросы, мс, и сколько раз подряд её делать. */
     @Value("${import.throttle-pause-ms:60000}")
     private long throttlePauseMs;
@@ -74,6 +92,14 @@ public class ImageImport {
     private String gogCatalogUrl;
     @Value("${gog.api-url:https://api.gog.com}")
     private String gogApiUrl;
+    /** Nintendo (без ключа): поиск европейского каталога и сайт (страницы игр со скриншотами). */
+    @Value("${nintendo.search-url:https://searching.nintendo-europe.com}")
+    private String nintendoSearchUrl;
+    @Value("${nintendo.site-url:https://www.nintendo.com}")
+    private String nintendoSite;
+    /** База игр LaunchBox (без ключа): поиск и страницы игр. */
+    @Value("${launchbox.site-url:https://gamesdb.launchbox-app.com}")
+    private String launchboxSite;
 
     /** Состояние импорта пользователя (читается страницей через /import/status). */
     public static class Job {
@@ -81,7 +107,7 @@ public class ImageImport {
         public final String collectionName;
         public final String source;
         public final boolean images, descriptions;
-        /** Steam: картинка — первый скриншот из галереи игры (1920×1080), а не шапка. */
+        /** GOG, Nintendo eShop, LaunchBox: первая картинка — скриншот, а не обложка коробки. */
         public final boolean screenshot;
         /** Сколько картинок загружать на объект (1…ImageFiles.MAX_IMAGES), если у источника они есть. */
         public final int maxImages;
@@ -165,7 +191,7 @@ public class ImageImport {
         // Без токена обложек у Discogs нет — только описания
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
         Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
-                screenshot && (source.equals(STEAM) || source.equals(GOG)), maxImages, discogsToken);
+                screenshot && coverSource(source), maxImages, discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -203,6 +229,8 @@ public class ImageImport {
                         case DISCOGS -> findDiscogs(job, item.name(), img, descr);
                         case FANTLAB -> findFantlab(job, item.name(), img, descr);
                         case GOG -> findGog(job, item.name(), img, descr);
+                        case NINTENDO -> findNintendo(job, item.name(), item.platform(), img, descr);
+                        case LAUNCHBOX -> findLaunchbox(job, item.name(), item.platform(), img, descr);
                         default -> findSteam(job, item.name(), img, descr);
                     };
                     if (f == null) {
@@ -314,25 +342,20 @@ public class ImageImport {
         for (JsonNode it : found == null ? List.<JsonNode>of() : List.of(found)) {
             long appId = it.path("id").asLong();
             String tiny = it.path("tiny_image").asText("");
-            // скриншоты нужны, если картинка — скриншот или картинок больше одной
-            boolean wantShots = wantImage && (job.screenshot || job.maxImages > 1);
             JsonNode details = null;
             String description = null;
             // описание и скриншоты — в одной карточке игры, один запрос
-            if (wantDescription || wantShots) details = appDetails(job, appId, wantShots);
+            if (wantDescription || wantImage) details = appDetails(job, appId, wantImage);
             if (wantDescription) description = cleanDescription(details.path("short_description").asText(""));
             List<byte[]> imgs = List.of();
             if (wantImage) {
+                // скриншоты галереи в полном размере; если их нет — шапка страницы игры
                 List<String> shots = new java.util.ArrayList<>();
-                if (wantShots) for (JsonNode sh : details.path("screenshots")) shots.add(sh.path("path_full").asText(""));
-                // скриншоты галереи в полном размере; режим «шапка» — сначала шапка, за ней скриншоты
-                imgs = job.screenshot ? downloadAll(shots, job.maxImages) : List.of();
+                for (JsonNode sh : details.path("screenshots")) shots.add(sh.path("path_full").asText(""));
+                imgs = downloadAll(shots, job.maxImages);
                 if (imgs.isEmpty()) {
                     byte[] header = steamHeader(job, appId, tiny, details);
-                    List<byte[]> all = new java.util.ArrayList<>();
-                    if (header != null) all.add(header);
-                    if (!job.screenshot) all.addAll(downloadAll(shots, job.maxImages - all.size()));
-                    imgs = all;
+                    if (header != null) imgs = List.of(header);
                 }
             }
             return new Found(imgs, description);
@@ -386,11 +409,24 @@ public class ImageImport {
 
     /** Описание из Steam: без HTML-тегов и сущностей, не длиннее допустимого; пустое — null. */
     static String cleanDescription(String html) {
-        String t = html.replaceAll("(?i)<br\\s*/?>", "\n").replaceAll("<[^>]+>", "")
-                .replace("&quot;", "\"").replace("&#39;", "'").replace("&apos;", "'").replace("&nbsp;", " ")
-                .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").trim();
+        String t = htmlText(html.replaceAll("(?i)<br\\s*/?>", "\n")).trim();
         if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
         return t.isEmpty() ? null : t;
+    }
+
+    /** Текст из HTML: без тегов, сущности (&amp;quot; &amp;#39; &amp;#x27; …) — знаками. */
+    static String htmlText(String html) {
+        String t = html.replaceAll("<[^>]+>", "")
+                .replace("&quot;", "\"").replace("&apos;", "'").replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">");
+        Matcher m = Pattern.compile("&#(x[0-9a-fA-F]{1,6}|\\d{1,7});").matcher(t);
+        StringBuilder b = new StringBuilder();
+        while (m.find()) {
+            String n = m.group(1);
+            int cp = n.startsWith("x") ? Integer.parseInt(n.substring(1), 16) : Integer.parseInt(n);
+            m.appendReplacement(b, Matcher.quoteReplacement(Character.isValidCodePoint(cp) ? Character.toString(cp) : ""));
+        }
+        m.appendTail(b);
+        return b.toString().replace("&amp;", "&");
     }
 
     // ---------- GOG ----------
@@ -448,17 +484,278 @@ public class ImageImport {
         if (wantImage) {
             List<String> shots = new java.util.ArrayList<>();
             for (JsonNode sh : p.path("screenshots")) shots.add(sh.asText("").replace("_{formatter}", ""));
-            String cover = p.path("coverVertical").asText("");
-            List<String> urls = new java.util.ArrayList<>();
-            if (job.screenshot && !shots.isEmpty()) {
-                urls.addAll(shots);
-            } else {
-                if (!cover.isEmpty()) urls.add(cover);
-                if (!job.screenshot) urls.addAll(shots);
-            }
-            imgs = downloadAll(urls, job.maxImages);
+            imgs = downloadAll(coverAndShots(job, p.path("coverVertical").asText(""), shots), job.maxImages);
         }
         return new Found(imgs, description);
+    }
+
+    /**
+     * Порядок картинок игры: режим «скриншот» — скриншоты (если их нет — обложка),
+     * иначе — обложка, за ней скриншоты.
+     */
+    private static List<String> coverAndShots(Job job, String cover, List<String> shots) {
+        List<String> urls = new java.util.ArrayList<>();
+        if (job.screenshot && !shots.isEmpty()) {
+            urls.addAll(shots);
+        } else {
+            if (cover != null && !cover.isEmpty()) urls.add(cover);
+            if (!job.screenshot) urls.addAll(shots);
+        }
+        return urls;
+    }
+
+    // ---------- Nintendo eShop ----------
+
+    /**
+     * Игра из европейского каталога Nintendo (Switch, Wii U, 3DS и переиздания старых игр): то же название
+     * и та же платформа (если у объекта она указана и известна); null — не найдена. Русского каталога нет —
+     * ищется по-английски. Картинки — обложка коробки (packshot) и скриншоты со страницы игры,
+     * описание — краткое описание из каталога.
+     */
+    private Found findNintendo(Job job, String name, String platform, boolean wantImage, boolean wantDescription) throws Exception {
+        String key = norm(name);
+        if (key.isEmpty()) return null;
+        // без знаков препинания: двоеточие и т. п. — часть языка запросов поиска
+        String plain = name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
+        JsonNode res = api(job, nintendoSearchUrl + "/en/select?fq=type:GAME&rows=30&wt=json&q=" + enc(plain));
+        if (res == null) return null;
+        Set<String> wanted = platformCodes(platform);
+        JsonNode exact = null, loose = null;
+        for (JsonNode d : res.path("response").path("docs")) {
+            List<String> systems = new java.util.ArrayList<>();
+            for (JsonNode s : d.path("system_names_txt")) systems.add(s.asText(""));
+            if (!samePlatform(wanted, systems)) continue;
+            String n = norm(d.path("title").asText(""));
+            if (exact == null && key.equals(n)) exact = d;
+            if (loose == null && looseKey(key).equals(looseKey(n))) loose = d;
+        }
+        JsonNode d = exact != null ? exact : loose;
+        if (d == null) return null;
+        List<byte[]> imgs = List.of();
+        if (wantImage) {
+            String cover = d.path("image_url").asText("");
+            if (cover.isEmpty()) cover = d.path("image_url_sq_s").asText("");
+            // страница игры (со скриншотами) — только если скриншоты нужны
+            List<String> shots = job.screenshot || job.maxImages > 1 ? nintendoShots(job, d.path("url").asText("")) : List.of();
+            imgs = downloadAll(coverAndShots(job, cover, shots), job.maxImages);
+        }
+        String descr = null;
+        if (wantDescription) {
+            descr = cleanDescription(d.path("product_catalog_description_s").asText(""));
+            if (descr == null) descr = cleanDescription(d.path("excerpt").asText(""));
+        }
+        return new Found(imgs, descr);
+    }
+
+    /** Скриншот на странице игры Nintendo (полный размер и уменьшенная копия «_TM_Standard»). */
+    private static final Pattern NINTENDO_SHOT = Pattern.compile(
+            "(?:https://www\\.nintendo\\.com)?(/eu/media/images/06_screenshots/[^\"'\\s<>]+?\\.(?:jpe?g|png|gif|bmp))");
+
+    /**
+     * Адреса скриншотов со страницы игры (path — адрес страницы из каталога, от корня сайта) по порядку.
+     * У старых игр полные скриншоты — в BMP (такие не принимаются), вместо них — копия «_TM_Standard» в PNG/JPEG.
+     */
+    private List<String> nintendoShots(Job job, String path) throws Exception {
+        if (!path.startsWith("/")) return List.of();
+        String html = page(job, nintendoSite + path);
+        if (html == null) return List.of();
+        Set<String> all = new java.util.LinkedHashSet<>();
+        Matcher m = NINTENDO_SHOT.matcher(html);
+        while (m.find()) all.add(m.group(1));
+        List<String> res = new java.util.ArrayList<>();
+        for (String p : all) {
+            if (p.contains("_TM_")) continue;
+            String shot = p;
+            if (p.toLowerCase(Locale.ROOT).endsWith(".bmp")) {
+                String small = p.substring(0, p.lastIndexOf('.')) + "_TM_Standard.";
+                shot = all.stream().filter(s -> s.startsWith(small) && !s.toLowerCase(Locale.ROOT).endsWith(".bmp")).findFirst().orElse(null);
+            }
+            if (shot != null) res.add(nintendoSite + shot);
+        }
+        // по номеру в имени файла (…_01.jpg, …_02_enGB.png): на некоторых страницах они идут в обратном порядке
+        res.sort(java.util.Comparator.comparingInt(ImageImport::shotNumber));
+        return res;
+    }
+
+    /** Номер скриншота Nintendo из имени файла («NSwitch_Hades_03_enGB.png» → 3); нет номера — в конец. */
+    static int shotNumber(String url) {
+        Matcher m = Pattern.compile("_(\\d{1,3})(?:_[A-Za-z]{2,5})?(?:_TM_Standard)?\\.\\w+$").matcher(url);
+        return m.find() ? Integer.parseInt(m.group(1)) : Integer.MAX_VALUE;
+    }
+
+    // ---------- LaunchBox ----------
+
+    /** Игра в результатах поиска LaunchBox: адрес страницы, номер, название, платформа. */
+    private static final Pattern LAUNCHBOX_CARD = Pattern.compile(
+            "href=\"(/games/details/(\\d+)-[^\"]*)\">.*?<h3[^>]*>(.*?)</h3>\\s*<p[^>]*>(.*?)</p>", Pattern.DOTALL);
+    /** Картинка на странице игры: адрес и подпись «Игра - Тип (Регион) - ШxВ». */
+    private static final Pattern LAUNCHBOX_IMAGE = Pattern.compile(
+            "<img src=\"(https://images\\.launchbox-app\\.com/+[^\"]+)\"[^>]*alt=\"([^\"]*)\"");
+    /** Регионы обложек по предпочтению: сначала европейские (как у дисков в России), японские — в последнюю очередь. */
+    private static final List<String> REGIONS = List.of("Russia", "Europe", "United Kingdom", "World", "North America", "United States");
+
+    /**
+     * Игра из базы LaunchBox (консоли всех поколений: PlayStation, Nintendo, Sega…): то же название и та же
+     * платформа (если у объекта она указана и известна); null — не найдена. Из одинаковых по названию —
+     * самая ранняя запись базы (обычно исходная игра, а не порт или сборка). Сайт разбирается как страницы:
+     * поиск (/games/results/…) и страница игры — описание (Overview) и картинки с подписями типа.
+     */
+    private Found findLaunchbox(Job job, String name, String platform, boolean wantImage, boolean wantDescription) throws Exception {
+        String key = norm(name);
+        if (key.isEmpty()) return null;
+        // Сайт перенаправляет поиск на адрес в нижнем регистре (для кириллицы — по кругу): сразу так
+        String term = enc(name.toLowerCase(Locale.ROOT)).replace("+", "%20");
+        String html = page(job, launchboxSite + "/games/results/" + term + "?searchText=" + term);
+        if (html == null) return null;
+        Set<String> wanted = platformCodes(platform);
+        String exact = null, loose = null;
+        long exactId = Long.MAX_VALUE, looseId = Long.MAX_VALUE;
+        Matcher m = LAUNCHBOX_CARD.matcher(html);
+        while (m.find()) {
+            if (!samePlatform(wanted, List.of(htmlText(m.group(4))))) continue;
+            long id = Long.parseLong(m.group(2));
+            String n = norm(htmlText(m.group(3)));
+            if (key.equals(n)) {
+                if (id < exactId) { exactId = id; exact = m.group(1); }
+            } else if (looseKey(key).equals(looseKey(n)) && id < looseId) {
+                looseId = id;
+                loose = m.group(1);
+            }
+        }
+        String path = exact != null ? exact : loose;
+        if (path == null) return null;
+        String game = page(job, launchboxSite + path);
+        if (game == null) return null;
+        List<byte[]> imgs = wantImage ? downloadAll(launchboxImages(job, game), job.maxImages) : List.of();
+        return new Found(imgs, wantDescription ? launchboxOverview(game) : null);
+    }
+
+    /** Описание игры LaunchBox — абзацы раздела Overview; пустое — null. */
+    static String launchboxOverview(String html) {
+        int start = html.indexOf("id=\"overview\"");
+        if (start < 0) return null;
+        int end = html.indexOf("<dl", start);
+        String section = html.substring(start, end > start ? end : Math.min(html.length(), start + 20000));
+        StringBuilder b = new StringBuilder();
+        // <p> и <p …>, но не <path> (значок кнопки Edit рядом с заголовком)
+        Matcher m = Pattern.compile("<p(?:\\s[^>]*)?>(.*?)</p>", Pattern.DOTALL).matcher(section);
+        while (m.find()) {
+            String p = htmlText(m.group(1).replaceAll("(?i)<br\\s*/?>", "\n")).trim();
+            if (!p.isEmpty()) b.append(b.length() > 0 ? "\n\n" : "").append(p);
+        }
+        String t = b.toString();
+        if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * Картинки игры LaunchBox по порядку: лицевая сторона коробки (одна — лучший регион; нет — восстановленная)
+     * и скриншоты (сначала игровые, крупные первыми, затем титульный экран) — в порядке, заданном режимом.
+     */
+    private static List<String> launchboxImages(Job job, String html) {
+        String cover = null, rebuilt = null;
+        int coverRank = Integer.MAX_VALUE, rebuiltRank = Integer.MAX_VALUE;
+        List<String[]> gameplay = new java.util.ArrayList<>(); // [адрес, площадь]
+        List<String> titles = new java.util.ArrayList<>();
+        Matcher m = LAUNCHBOX_IMAGE.matcher(html);
+        while (m.find()) {
+            String url = m.group(1).replaceFirst("launchbox-app\\.com/+", "launchbox-app.com/");
+            String alt = htmlText(m.group(2));
+            int rank = regionRank(alt);
+            if (alt.contains(" - Box - Front (") && !alt.contains("Fanart - Box - Front (")) {
+                if (rank < coverRank) { coverRank = rank; cover = url; }
+            } else if (alt.contains(" - Box - Front - Reconstructed (")) {
+                if (rank < rebuiltRank) { rebuiltRank = rank; rebuilt = url; }
+            } else if (alt.contains(" - Screenshot - Gameplay (")) {
+                gameplay.add(new String[] {url, String.valueOf(area(alt))});
+            } else if (alt.contains(" - Screenshot - Game Title (")) {
+                titles.add(url);
+            }
+        }
+        gameplay.sort(java.util.Comparator.comparingLong((String[] g) -> Long.parseLong(g[1])).reversed());
+        List<String> shots = new java.util.ArrayList<>();
+        for (String[] g : gameplay) shots.add(g[0]);
+        shots.addAll(titles);
+        return coverAndShots(job, cover != null ? cover : rebuilt, shots);
+    }
+
+    /** Место региона подписи («… (Europe) - 1621x1394») среди предпочтительных; прочие — после них, Япония — последней. */
+    private static int regionRank(String alt) {
+        Matcher m = Pattern.compile("\\(([^()]*)\\) - \\d+x\\d+$").matcher(alt);
+        String region = m.find() ? m.group(1) : "";
+        int i = REGIONS.indexOf(region);
+        return i >= 0 ? i : region.equals("Japan") ? 100 : 50;
+    }
+
+    /** Площадь картинки по подписи «… - 1024x714»; нет размера — 0. */
+    private static long area(String alt) {
+        Matcher m = Pattern.compile("(\\d+)x(\\d+)$").matcher(alt);
+        return m.find() ? Long.parseLong(m.group(1)) * Long.parseLong(m.group(2)) : 0;
+    }
+
+    // ---------- платформы ----------
+
+    /** Названия платформ (после norm) → код: так «PS2», «PlayStation 2» и «Sony Playstation 2» — одна платформа. */
+    private static final Map<String, String> PLATFORMS = new java.util.HashMap<>();
+    static {
+        platform("ps1", "playstation", "playstation 1", "ps1", "psx", "ps one", "psone", "ps");
+        platform("ps2", "playstation 2", "ps2");
+        platform("ps3", "playstation 3", "ps3");
+        platform("ps4", "playstation 4", "ps4");
+        platform("ps5", "playstation 5", "ps5");
+        platform("psp", "psp", "playstation portable");
+        platform("vita", "playstation vita", "ps vita", "psvita", "psv", "vita");
+        platform("nes", "nes", "nintendo entertainment system", "famicom", "dendy", "денди");
+        platform("snes", "snes", "super nes", "super nintendo", "super nintendo entertainment system", "super famicom");
+        platform("n64", "n64", "nintendo 64");
+        platform("gc", "gamecube", "game cube", "gc", "ngc");
+        platform("wii", "wii");
+        platform("wiiu", "wii u", "wiiu");
+        platform("switch", "switch", "ns");
+        platform("switch2", "switch 2");
+        platform("gb", "game boy", "gameboy", "gb");
+        platform("gbc", "game boy color", "gameboy color", "gbc");
+        platform("gba", "game boy advance", "gameboy advance", "gba");
+        platform("ds", "ds", "nds");
+        platform("3ds", "3ds", "n3ds", "new 3ds", "new nintendo 3ds");
+        platform("pc", "pc", "windows", "ms dos", "dos");
+        platform("xbox", "xbox");
+        platform("x360", "xbox 360", "x360");
+        platform("xone", "xbox one");
+        platform("xsx", "xbox series x s", "xbox series x", "xbox series s");
+        platform("md", "genesis", "mega drive", "megadrive", "md");
+        platform("saturn", "saturn");
+        platform("dc", "dreamcast");
+    }
+
+    private static void platform(String code, String... names) {
+        for (String n : names) PLATFORMS.put(norm(n), code);
+    }
+
+    /** Код платформы по названию; без известной приписки производителя («Sony», «Nintendo»…) тоже. null — неизвестная. */
+    static String platformCode(String name) {
+        String n = norm(name);
+        String code = PLATFORMS.get(n);
+        return code != null ? code : PLATFORMS.get(n.replaceFirst("^(sony|nintendo|microsoft|sega) ", ""));
+    }
+
+    /** Известные платформы из поля «Платформа» (можно несколько через «,», «/», «;», «+»: «PS4 / PS5»). */
+    static Set<String> platformCodes(String field) {
+        Set<String> res = new java.util.HashSet<>();
+        if (field != null)
+            for (String p : field.split("[,/;+|]")) {
+                String code = platformCode(p);
+                if (code != null) res.add(code);
+            }
+        return res;
+    }
+
+    /** Подходит ли запись источника (её платформы) объекту: у объекта нет известной платформы — подходит любая. */
+    static boolean samePlatform(Set<String> wanted, List<String> sourcePlatforms) {
+        if (wanted.isEmpty()) return true;
+        for (String p : sourcePlatforms)
+            if (wanted.contains(platformCode(p))) return true;
+        return false;
     }
 
     // ---------- Discogs ----------
@@ -660,13 +957,25 @@ public class ImageImport {
 
     // ---------- общее ----------
 
-    /** Запрос к API с паузой между запросами; при ограничении (429/403/5xx) — пауза и повтор. null — 404. */
+    /** Запрос к API (ответ — JSON) с паузой между запросами; при ограничении (429/403/5xx) — пауза и повтор. null — 404. */
     private JsonNode api(Job job, String url) throws Exception {
+        String body = page(job, url);
+        return body == null ? null : json.readTree(body);
+    }
+
+    /** Страница или ответ сервиса текстом — с теми же паузами и повторами, что у api(); null — 404. */
+    private String page(Job job, String url) throws Exception {
         boolean discogs = job.source.equals(DISCOGS);
         // Discogs без токена — 25 запросов в минуту
         boolean token = discogs && !job.discogsToken.isEmpty();
-        long interval = discogs ? (token ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500))
-                : job.source.equals(FANTLAB) ? fantlabIntervalMs : job.source.equals(GOG) ? gogIntervalMs : steamIntervalMs;
+        long interval = switch (job.source) {
+            case DISCOGS -> token ? discogsIntervalMs : Math.max(discogsIntervalMs, 2500);
+            case FANTLAB -> fantlabIntervalMs;
+            case GOG -> gogIntervalMs;
+            case NINTENDO -> nintendoIntervalMs;
+            case LAUNCHBOX -> launchboxIntervalMs;
+            default -> steamIntervalMs;
+        };
         for (int attempt = 0; ; attempt++) {
             synchronized (lastCall) {
                 long wait = lastCall.getOrDefault(job.source, 0L) + interval - System.currentTimeMillis();
@@ -677,7 +986,7 @@ public class ImageImport {
             int code = r.statusCode();
             if (code == 200) {
                 job.message = "";
-                return json.readTree(r.body());
+                return r.body();
             }
             if (code == 404) return null;
             if (discogs && code == 401)
@@ -694,14 +1003,16 @@ public class ImageImport {
 
     /** Картинка по адресу сервиса или null (нет такой, не картинка или слишком большая). */
     private byte[] download(String url) throws Exception {
-        // Только адреса картинок Steam, GOG, Discogs и FantLab (и заглушек, если адреса сервисов подменены)
+        // Только адреса картинок источников импорта (и заглушек, если адреса сервисов подменены)
         URI u = URI.create(url);
         String host = u.getHost() == null ? "" : u.getHost();
         boolean known = "https".equals(u.getScheme()) && (host.endsWith(".steamstatic.com")
                 || host.endsWith(".steampowered.com") || host.endsWith(".discogs.com")
-                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru") || host.endsWith(".gog-statics.com"));
+                || host.equals("fantlab.ru") || host.endsWith(".fantlab.ru") || host.endsWith(".gog-statics.com")
+                || host.equals("www.nintendo.com") || host.equals("images.launchbox-app.com"));
         if (!known && !url.startsWith(steamUrl + "/") && !url.startsWith(discogsUrl + "/") && !url.startsWith(fantlabSite + "/")
-                && !url.startsWith(gogCatalogUrl + "/")) return null;
+                && !url.startsWith(gogCatalogUrl + "/") && !url.startsWith(nintendoSite + "/") && !url.startsWith(launchboxSite + "/"))
+            return null;
         return http.image(url);
     }
 
