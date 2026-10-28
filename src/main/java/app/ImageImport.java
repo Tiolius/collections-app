@@ -22,9 +22,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Импорт картинок и описаний объектов («Настройки» → «Импорт») из Steam (игры) или Discogs (музыка).
- * Steam: объект сопоставляется с игрой по названию, картинка — шапка страницы игры (header.jpg),
- * описание — краткое описание игры (по-русски, если есть).
+ * Импорт картинок и описаний объектов («Настройки» → «Импорт») из сервисов игр, музыки и книг.
+ * Steam: объект сопоставляется с игрой по названию, картинки — скриншоты галереи игры (нет скриншотов — шапка
+ * страницы игры, header.jpg), описание — краткое описание игры (по-русски, если есть).
  * Discogs: картинка — обложка, описание — поле Notes альбома (главной версии, иначе её основного издания).
  * FantLab (книги): название объекта — «Автор - Название» или просто «Название»; картинка — обложка, описание — аннотация.
  * Discogs: название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы, картинка — обложка.
@@ -49,9 +49,9 @@ public class ImageImport {
         SOURCES.put(FANTLAB, "FantLab");
     }
 
-    /** Источники игр: у них есть выбор «скриншот / обложка» первой картинкой. */
-    static boolean gameSource(String source) {
-        return source.equals(STEAM) || source.equals(GOG) || source.equals(NINTENDO) || source.equals(LAUNCHBOX);
+    /** Источники с обложками коробок: у них есть выбор первой картинки — скриншот или обложка (Steam — только скриншоты). */
+    static boolean coverSource(String source) {
+        return source.equals(GOG) || source.equals(NINTENDO) || source.equals(LAUNCHBOX);
     }
 
     /** Паузы между запросами к API, мс: Steam — около 200 за 5 минут, Discogs — до 60 в минуту с токеном. */
@@ -107,7 +107,7 @@ public class ImageImport {
         public final String collectionName;
         public final String source;
         public final boolean images, descriptions;
-        /** Игры: первая картинка — скриншот, а не шапка или обложка. */
+        /** GOG, Nintendo eShop, LaunchBox: первая картинка — скриншот, а не обложка коробки. */
         public final boolean screenshot;
         /** Сколько картинок загружать на объект (1…ImageFiles.MAX_IMAGES), если у источника они есть. */
         public final int maxImages;
@@ -191,7 +191,7 @@ public class ImageImport {
         // Без токена обложек у Discogs нет — только описания
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
         Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
-                screenshot && gameSource(source), maxImages, discogsToken);
+                screenshot && coverSource(source), maxImages, discogsToken);
         List<Entry> items = repo.items(collection.id(), "name", false, Map.of()).stream()
                 .filter(e -> needImage(job, e, onlyMissing) || needDescription(job, e, onlyMissing)).toList();
         job.total = items.size();
@@ -342,25 +342,20 @@ public class ImageImport {
         for (JsonNode it : found == null ? List.<JsonNode>of() : List.of(found)) {
             long appId = it.path("id").asLong();
             String tiny = it.path("tiny_image").asText("");
-            // скриншоты нужны, если картинка — скриншот или картинок больше одной
-            boolean wantShots = wantImage && (job.screenshot || job.maxImages > 1);
             JsonNode details = null;
             String description = null;
             // описание и скриншоты — в одной карточке игры, один запрос
-            if (wantDescription || wantShots) details = appDetails(job, appId, wantShots);
+            if (wantDescription || wantImage) details = appDetails(job, appId, wantImage);
             if (wantDescription) description = cleanDescription(details.path("short_description").asText(""));
             List<byte[]> imgs = List.of();
             if (wantImage) {
+                // скриншоты галереи в полном размере; если их нет — шапка страницы игры
                 List<String> shots = new java.util.ArrayList<>();
-                if (wantShots) for (JsonNode sh : details.path("screenshots")) shots.add(sh.path("path_full").asText(""));
-                // скриншоты галереи в полном размере; режим «шапка» — сначала шапка, за ней скриншоты
-                imgs = job.screenshot ? downloadAll(shots, job.maxImages) : List.of();
+                for (JsonNode sh : details.path("screenshots")) shots.add(sh.path("path_full").asText(""));
+                imgs = downloadAll(shots, job.maxImages);
                 if (imgs.isEmpty()) {
                     byte[] header = steamHeader(job, appId, tiny, details);
-                    List<byte[]> all = new java.util.ArrayList<>();
-                    if (header != null) all.add(header);
-                    if (!job.screenshot) all.addAll(downloadAll(shots, job.maxImages - all.size()));
-                    imgs = all;
+                    if (header != null) imgs = List.of(header);
                 }
             }
             return new Found(imgs, description);

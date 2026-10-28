@@ -78,9 +78,9 @@
 
     <label th:text="#{import.first}">Первая картинка</label>
     <div>
-      <!-- для игр (Steam, GOG, Nintendo eShop, LaunchBox): с чего начинать картинки объекта -->
-      <label class="radio"><input type="radio" name="steamImage" value="screenshot" checked> <span th:text="#{import.screenshot}">скриншот</span></label>
-      <label class="radio"><input type="radio" name="steamImage" value="header"> <span th:text="#{import.header}">шапка страницы игры (Steam) / обложка коробки (остальные)</span></label>
+      <!-- для игр с обложками коробок (GOG, Nintendo eShop, LaunchBox): с чего начинать картинки объекта; Steam — только скриншоты -->
+      <label class="radio"><input type="radio" name="firstImage" value="screenshot" checked> <span th:text="#{import.screenshot}">скриншот</span></label>
+      <label class="radio"><input type="radio" name="firstImage" value="cover"> <span th:text="#{import.cover}">обложка коробки</span></label>
     </div>
 
     <span></span>
@@ -123,13 +123,13 @@
     document.getElementById('f-source').addEventListener('change', sync);
     sync();
   })();
-  // Выбор «скриншот / шапка (обложка)» — только для игр и когда загружаются картинки
+  // Выбор «скриншот / обложка коробки» — только для источников с обложками и когда загружаются картинки
   (function () {
     var img = document.getElementById('f-images');
     if (!img) return;
     function sync() {
-      var src = document.getElementById('f-source').value, steam = ['steam', 'gog', 'nintendo', 'launchbox'].indexOf(src) >= 0;
-      document.querySelectorAll('input[name=steamImage]').forEach(function (r) { r.disabled = !steam || !img.checked || img.disabled; });
+      var src = document.getElementById('f-source').value, covers = ['gog', 'nintendo', 'launchbox'].indexOf(src) >= 0;
+      document.querySelectorAll('input[name=firstImage]').forEach(function (r) { r.disabled = !covers || !img.checked || img.disabled; });
       document.getElementById('f-count').disabled = !img.checked || img.disabled;
     }
     document.getElementById('f-source').addEventListener('change', sync);
