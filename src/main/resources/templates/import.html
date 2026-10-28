@@ -60,7 +60,6 @@
         <option value="discogs" th:text="|Discogs (#{import.music})|" th:selected="${job != null and job.source == 'discogs'}">Discogs (музыка)</option>
         <option value="fantlab" th:text="|FantLab (#{import.books})|" th:selected="${job != null and job.source == 'fantlab'}">FantLab (книги)</option>
       </select>
-      <div class="muted" id="f-notoken" th:unless="${discogsReady}" th:text="#{import.noToken}"></div>
     </div>
 
     <label th:text="#{import.load}">Загружать</label>
@@ -107,6 +106,7 @@
     <div>
       <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
              th:placeholder="${discogsReady ? #messages.msg('import.token.savedHint', discogsTokenEnd) : #messages.msg('import.token.none')}">
+      <div class="muted" th:unless="${discogsReady}" th:text="#{import.noToken}"></div>
     </div>
     <div class="full split">  <!-- «Сохранить» слева, «Удалить токен» — у правого края формы -->
       <button class="btn" th:text="#{btn.save}">Сохранить</button>
@@ -115,15 +115,11 @@
   </form>
 
 <script>
-  // Discogs без токена отдаёт только описания: галочка «картинки» для него неактивна, под списком — подсказка про токен
+  // Discogs без токена отдаёт только описания: галочка «картинки» для него неактивна
   (function () {
     var img = document.getElementById('f-images');
     if (!img || img.dataset.discogsReady === 'true') return;
-    function sync() {
-      var discogs = document.getElementById('f-source').value === 'discogs';
-      img.disabled = discogs;
-      document.getElementById('f-notoken').hidden = !discogs;
-    }
+    function sync() { img.disabled = document.getElementById('f-source').value === 'discogs'; }
     document.getElementById('f-source').addEventListener('change', sync);
     sync();
   })();
