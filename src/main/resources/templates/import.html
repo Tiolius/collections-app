@@ -123,14 +123,23 @@
     document.getElementById('f-source').addEventListener('change', sync);
     sync();
   })();
-  // Выбор «скриншот / обложка коробки» — только для источников с обложками и когда загружаются картинки
+  // Первая картинка «скриншот / обложка коробки» — для игр и когда загружаются картинки. У источника без обложек
+  // (Steam) «обложка» недоступна и сама выбирается «скриншот»; у музыки и книг (Discogs, FantLab) выбор неактивен
   (function () {
     var img = document.getElementById('f-images');
     if (!img) return;
+    var shot = document.querySelector('input[name=firstImage][value=screenshot]'),
+        cover = document.querySelector('input[name=firstImage][value=cover]'),
+        wantCover = cover.checked; // выбор пользователя: возвращается, когда снова выбран источник с обложками
+    [shot, cover].forEach(function (r) { r.addEventListener('change', function () { wantCover = cover.checked; }); });
     function sync() {
-      var src = document.getElementById('f-source').value, covers = ['gog', 'nintendo', 'launchbox'].indexOf(src) >= 0;
-      document.querySelectorAll('input[name=firstImage]').forEach(function (r) { r.disabled = !covers || !img.checked || img.disabled; });
-      document.getElementById('f-count').disabled = !img.checked || img.disabled;
+      var src = document.getElementById('f-source').value, off = !img.checked || img.disabled,
+          covers = ['gog', 'nintendo', 'launchbox'].indexOf(src) >= 0, game = covers || src === 'steam';
+      cover.checked = covers && wantCover;
+      shot.checked = !cover.checked;
+      shot.disabled = !game || off;
+      cover.disabled = !covers || off;
+      document.getElementById('f-count').disabled = off;
     }
     document.getElementById('f-source').addEventListener('change', sync);
     img.addEventListener('change', sync);
