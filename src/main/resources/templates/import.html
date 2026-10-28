@@ -5,7 +5,7 @@
 <header th:replace="~{base :: header}"></header>
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
-  <h3 class="section" th:text="#{import.title}">Картинки и описания объектов из Steam, GOG, Discogs или FantLab</h3>
+  <h3 class="section" th:text="#{import.title}">Картинки и описания объектов из Steam, GOG, Nintendo eShop, LaunchBox, Discogs или FantLab</h3>
   <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
   <div class="import-box" id="import-job" th:if="${job != null and job.active()}">
     <div><b th:text="${job.collectionName}"></b> (<span th:text="${job.sourceName()}"></span>) — <span id="ij-state" th:text="#{${job.state == 'queued' ? 'js.importQueued' : 'js.importRunning'}}"></span></div>
@@ -42,6 +42,8 @@
         <span class="tiptext">
           <span><b>Steam</b> — <th:block th:text="#{import.help.steam}"></th:block></span>
           <span><b>GOG</b> — <th:block th:text="#{import.help.gog}"></th:block></span>
+          <span><b>Nintendo eShop</b> — <th:block th:text="#{import.help.nintendo}"></th:block></span>
+          <span><b>LaunchBox</b> — <th:block th:text="#{import.help.launchbox}"></th:block></span>
           <span><b>Discogs</b> — <th:block th:text="#{import.help.discogs}"></th:block></span>
           <span><b>FantLab</b> — <th:block th:text="#{import.help.fantlab}"></th:block></span>
           <span th:text="#{import.help.speed}"></span>
@@ -52,6 +54,8 @@
     <div>
       <label class="radio"><input type="radio" name="source" value="steam" checked> Steam (<th:block th:text="#{import.games}"></th:block>)</label>
       <label class="radio"><input type="radio" name="source" value="gog"> GOG (<th:block th:text="#{import.games}"></th:block>)</label>
+      <label class="radio"><input type="radio" name="source" value="nintendo"> Nintendo eShop (<th:block th:text="#{import.games}"></th:block>)</label>
+      <label class="radio"><input type="radio" name="source" value="launchbox"> LaunchBox (<th:block th:text="#{import.consoleGames}"></th:block>)</label>
       <label class="radio"><input type="radio" name="source" value="discogs"> Discogs (<th:block th:text="#{import.music}"></th:block>)</label>
       <label class="radio"><input type="radio" name="source" value="fantlab"> FantLab (<th:block th:text="#{import.books}"></th:block>)</label>
       <div class="muted" th:unless="${discogsReady}" th:text="#{import.noToken}"></div>
@@ -73,9 +77,9 @@
 
     <label th:text="#{import.first}">Первая картинка</label>
     <div>
-      <!-- для игр (Steam, GOG): с чего начинать картинки объекта -->
+      <!-- для игр (Steam, GOG, Nintendo eShop, LaunchBox): с чего начинать картинки объекта -->
       <label class="radio"><input type="radio" name="steamImage" value="screenshot" checked> <span th:text="#{import.screenshot}">скриншот</span></label>
-      <label class="radio"><input type="radio" name="steamImage" value="header"> <span th:text="#{import.header}">шапка страницы игры (Steam) / обложка коробки (GOG)</span></label>
+      <label class="radio"><input type="radio" name="steamImage" value="header"> <span th:text="#{import.header}">шапка страницы игры (Steam) / обложка коробки (остальные)</span></label>
     </div>
 
     <span></span>
@@ -117,12 +121,12 @@
     document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
     sync();
   })();
-  // Выбор «скриншот / шапка (обложка)» — только для игр (Steam, GOG) и когда загружаются картинки
+  // Выбор «скриншот / шапка (обложка)» — только для игр и когда загружаются картинки
   (function () {
     var img = document.getElementById('f-images');
     if (!img) return;
     function sync() {
-      var src = document.querySelector('input[name=source]:checked').value, steam = src === 'steam' || src === 'gog';
+      var src = document.querySelector('input[name=source]:checked').value, steam = ['steam', 'gog', 'nintendo', 'launchbox'].indexOf(src) >= 0;
       document.querySelectorAll('input[name=steamImage]').forEach(function (r) { r.disabled = !steam || !img.checked || img.disabled; });
       document.getElementById('f-count').disabled = !img.checked || img.disabled;
     }
