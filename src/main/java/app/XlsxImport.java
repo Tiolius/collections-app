@@ -1,0 +1,243 @@
+package app;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Загрузка коллекций из файла Excel («Настройки» → «Импорт» → «Загрузка из Excel»): каждый лист — новая коллекция
+ * с названием листа. Столбцы узнаются по заголовкам — тем же, что пишет выгрузка в Excel (по-русски или по-английски),
+ * обязателен «Название»; прочие столбцы и поля, которых нет у типа коллекции, пропускаются. Непонятные значения
+ * (статус не из списка, рейтинг вне 0,5…5, дата не дата) не загружаются, объект — загружается.
+ * Всё в одной транзакции: при ошибке не создаётся ничего.
+ */
+@Component
+public class XlsxImport {
+
+    /** Итог: сколько создано коллекций и объектов, первая коллекция (для ссылки), пропущенные столбцы (заголовки). */
+    public record Result(int collections, int items, long firstCollection, List<String> skipped) {}
+
+    /** Столбец «Описание» — не поле типа: описание есть у всех объектов. */
+    static final String NAME = "name", DESCRIPTION = "description";
+
+    private final Repo repo;
+    private final TransactionTemplate tx;
+
+    public XlsxImport(Repo repo, TransactionTemplate tx) {
+        this.repo = repo;
+        this.tx = tx;
+    }
+
+    /**
+     * Загружает листы файла как новые коллекции пользователя. kind — тип для всех коллекций; пусто — для каждого листа
+     * подбирается тип, у которого больше всего полей из столбцов листа (при равенстве — с меньшим числом лишних полей).
+     */
+    public Result load(long uid, InputStream in, String kind) throws IOException {
+        List<Xlsx.Sheet> sheets;
+        try {
+            sheets = Xlsx.read(in);
+        } catch (Xlsx.BadFile e) {
+            throw Fail.badRequest("excel.bad");
+        }
+        List<Kind> kinds = repo.kinds(uid);
+        String chosen = kind == null ? "" : kind.trim();
+        if (!chosen.isEmpty() && kinds.stream().noneMatch(k -> k.name().equals(chosen)))
+            throw Fail.badRequest("coll.kindRequired");
+        if (kinds.isEmpty()) throw Fail.badRequest("coll.kindRequired");
+        Map<String, String> labels = labels();
+        // листы со столбцом «Название» и хотя бы одной строкой под заголовком
+        List<Object[]> todo = new ArrayList<>(); // [лист, номер строки заголовков, столбцы: номер → поле]
+        for (Xlsx.Sheet sh : sheets) {
+            List<List<Object>> rows = sh.rows();
+            for (int r = 0; r < rows.size() && r < 20; r++) {
+                Map<Integer, String> cols = columns(rows.get(r), labels);
+                if (cols.containsValue(NAME)) {
+                    if (r + 1 < rows.size()) todo.add(new Object[] {sh, r, cols});
+                    break;
+                }
+            }
+        }
+        if (todo.isEmpty()) throw Fail.badRequest("excel.noName");
+        return tx.execute(status -> {
+            int collections = 0, items = 0;
+            long first = 0;
+            Set<String> skipped = new LinkedHashSet<>();
+            for (Object[] t : todo) {
+                Xlsx.Sheet sh = (Xlsx.Sheet) t[0];
+                int headerRow = (Integer) t[1];
+                @SuppressWarnings("unchecked")
+                Map<Integer, String> cols = (Map<Integer, String>) t[2];
+                String k = chosen.isEmpty() ? bestKind(kinds, cols.values()) : chosen;
+                Set<String> fields = kinds.stream().filter(x -> x.name().equals(k)).findFirst().orElseThrow().fields();
+                List<Object> header = sh.rows().get(headerRow);
+                for (int c = 0; c < header.size(); c++) {
+                    String h = text(header.get(c));
+                    if (h == null) continue;
+                    String f = cols.get(c);
+                    if (f == null || !(f.equals(NAME) || f.equals(DESCRIPTION) || fields.contains(f))) skipped.add(h);
+                }
+                long cid = repo.createCollection(uid);
+                String name = sh.name().isBlank() ? "Excel" : sh.name().trim();
+                repo.saveCollection(uid, cid, name, k, null, false);
+                if (first == 0) first = cid;
+                collections++;
+                for (List<Object> row : sh.rows().subList(headerRow + 1, sh.rows().size())) {
+                    Repo.ItemForm form = form(row, cols);
+                    if (form == null) continue;
+                    repo.saveItem(uid, repo.createItem(cid), k, form, Map.of(), Set.of());
+                    items++;
+                }
+            }
+            return new Result(collections, items, first, List.copyOf(skipped));
+        });
+    }
+
+    /** Заголовки столбцов (без регистра и лишних пробелов) → поле: подписи полей на обоих языках и ключи полей. */
+    private static Map<String, String> labels() {
+        Map<String, String> res = new HashMap<>();
+        for (Locale loc : List.of(I18n.RU, Locale.ENGLISH)) {
+            res.put(key(I18n.t(loc, "field.name")), NAME);
+            res.put(key(I18n.t(loc, "field.description")), DESCRIPTION);
+            res.put(key(I18n.t(loc, "field.priceRub")), "price");
+            res.put(key(I18n.t(loc, "field.statusShort")), "status");
+            Repo.FIELDS.forEach((f, label) -> res.put(key(I18n.t(loc, label)), f));
+        }
+        Repo.FIELDS.keySet().forEach(f -> res.put(f, f));
+        res.put(NAME, NAME);
+        res.put(DESCRIPTION, DESCRIPTION);
+        return res;
+    }
+
+    private static String key(String header) {
+        return header.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
+
+    /** Столбцы строки заголовков: номер → поле (повтор заголовка — берётся первый столбец). */
+    private static Map<Integer, String> columns(List<Object> header, Map<String, String> labels) {
+        Map<Integer, String> res = new LinkedHashMap<>();
+        for (int c = 0; c < header.size(); c++) {
+            String h = text(header.get(c));
+            String f = h == null ? null : labels.get(key(h));
+            if (f != null && !res.containsValue(f)) res.put(c, f);
+        }
+        return res;
+    }
+
+    /** Тип, у которого больше всего полей из столбцов; при равенстве — меньше лишних полей; затем — по алфавиту. */
+    static String bestKind(List<Kind> kinds, java.util.Collection<String> columns) {
+        Kind best = null;
+        int bestHit = -1, bestExtra = Integer.MAX_VALUE;
+        for (Kind k : kinds) {
+            int hit = 0;
+            for (String f : k.fields()) if (columns.contains(f)) hit++;
+            int extra = k.fields().size() - hit;
+            if (hit > bestHit || (hit == bestHit && extra < bestExtra)) {
+                best = k;
+                bestHit = hit;
+                bestExtra = extra;
+            }
+        }
+        return best.name();
+    }
+
+    /** Поля объекта из строки; без названия — null (строка пропускается). Нет столбца — null: поле не заполняется. */
+    private static Repo.ItemForm form(List<Object> row, Map<Integer, String> cols) {
+        Map<String, Object> v = new HashMap<>();
+        cols.forEach((c, f) -> v.put(f, c < row.size() ? row.get(c) : null));
+        String name = text(v.get(NAME));
+        if (name == null) return null;
+        List<String> available = cols.containsValue("available") ? available(v.get("available")) : null;
+        return new Repo.ItemForm(name, text(v.get("platform")), text(v.get("format")), status(v.get("status")),
+                price(v.get("price")), available, rating(v.get("rating")), oldGames(v.get("oldgames")),
+                cols.containsValue("purchased") ? date(v.get("purchased")) : null,
+                cut(text(v.get("tags")), Repo.MAX_TAGS), cut(text(v.get("edition")), Repo.MAX_EDITION),
+                cut(text(v.get("notes")), Repo.MAX_NOTES), cut(text(v.get(DESCRIPTION)), Repo.MAX_DESCRIPTION));
+    }
+
+    /** Текст ячейки без пробелов по краям; число — без «.0» (12 → «12»); пусто — null. */
+    static String text(Object v) {
+        if (v == null) return null;
+        String s = v instanceof Double d ? BigDecimal.valueOf(d).stripTrailingZeros().toPlainString() : v.toString();
+        s = s.replace("\r\n", "\n").trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static String cut(String s, int max) {
+        return s == null || s.length() <= max ? s : s.substring(0, max).trim();
+    }
+
+    /** Статус из списка приложения (без учёта регистра); другое — не загружается. */
+    static String status(Object v) {
+        String s = text(v);
+        if (s == null) return null;
+        return Repo.STATUSES.stream().filter(st -> st.equalsIgnoreCase(s)).findFirst().orElse(null);
+    }
+
+    /** Рейтинг в звёздах (0,5…5, как в выгрузке) → 1…10 половинок; другое — не загружается. */
+    static Integer rating(Object v) {
+        Double d = number(v);
+        if (d == null) return null;
+        long r = Math.round(d * 2);
+        return r >= 1 && r <= 10 ? (int) r : null;
+    }
+
+    /** Цена — целое число рублей, не меньше 0 («1 500 ₽» тоже); другое — не загружается. */
+    static Integer price(Object v) {
+        Double d = v instanceof String s ? number(s.replaceAll("[\\s\\u00a0₽]|руб\\.?", "")) : number(v);
+        return d == null || d < 0 || d > Integer.MAX_VALUE ? null : (int) Math.round(d);
+    }
+
+    private static Double number(Object v) {
+        if (v instanceof Double d) return d;
+        String s = text(v);
+        if (s == null) return null;
+        try {
+            return Double.parseDouble(s.replace(',', '.'));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Наличие: «Есть», «Yes», «да», «1», «+» — есть; остальное и пусто — нет (как в окне объекта: «0», «1»). */
+    static List<String> available(Object v) {
+        String s = text(v);
+        boolean yes = s != null && List.of("есть", "yes", "да", "true", "1", "+", "✓", "✔").contains(s.toLowerCase(Locale.ROOT));
+        return yes ? List.of("0", "1") : List.of("0");
+    }
+
+    /** Дата покупки: ГГГГ-ММ-ДД, ДД.ММ.ГГГГ или дата Excel (число дней); пусто или не дата — пусто. */
+    static String date(Object v) {
+        if (v instanceof Double d) {
+            // даты Excel — дни от 30.12.1899
+            return d >= 1 && d < 2958466 ? LocalDate.of(1899, 12, 30).plusDays(d.longValue()).toString() : "";
+        }
+        String s = text(v);
+        if (s == null) return "";
+        for (DateTimeFormatter f : List.of(DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("d.M.uuuu")))
+            try {
+                return LocalDate.parse(s.length() > 10 && f == DateTimeFormatter.ISO_LOCAL_DATE ? s.substring(0, 10) : s, f).toString();
+            } catch (java.time.format.DateTimeParseException e) {
+                // следующий формат
+            }
+        return "";
+    }
+
+    /** Номер или адрес игры Old-Games.ru; другое — не загружается. */
+    static String oldGames(Object v) {
+        String s = text(v);
+        return s != null && OldGames.normalize(s) != null ? s : null;
+    }
+}
