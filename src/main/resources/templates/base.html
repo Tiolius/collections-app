@@ -13,7 +13,8 @@
     ratingOf: [[#{js.ratingOf}]], ratingNone: [[#{js.ratingNone}]], decimal: [[#{js.decimal}]],
     ogNeedId: [[#{js.ogNeedId}]], ogLoading: [[#{js.ogLoading}]], ogLoaded: [[#{js.ogLoaded}]], ogAnd: [[#{js.ogAnd}]],
     ogNoImages: [[#{js.ogNoImages}]], ogImages: [[#{js.ogImages}]], ogSave: [[#{js.ogSave}]], ogFailed: [[#{js.ogFailed}]],
-    importQueued: [[#{js.importQueued}]], importRunning: [[#{js.importRunning}]]
+    importQueued: [[#{js.importQueued}]], importRunning: [[#{js.importRunning}]],
+    chooseFile: [[#{js.chooseFile}]], noFile: [[#{js.noFile}]]
   };
   // Слово для числа: forms — «картинка|картинки|картинок» (русский) или «image|images» (английский)
   function plural(n, forms) {
@@ -83,6 +84,24 @@
     dlg.querySelector('.dlg-foot [data-cancel]').focus();
     return false;
   }
+  /*
+   * Выбор файла с текстами приложения: подписи стандартного поля («Choose File», «No file chosen») браузер пишет
+   * на своём языке, а не на языке интерфейса. Поле остаётся в форме (обязательность проверяет браузер), но скрыто;
+   * вместо него — кнопка «Выбрать файл» и имя выбранного файла. Поля с hidden (картинки в окне объекта) не трогаются.
+   */
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('input[type=file]:not([hidden])').forEach(function (input) {
+      var box = document.createElement('span'), btn = document.createElement('button'), name = document.createElement('span');
+      box.className = 'file-pick';
+      btn.type = 'button'; btn.className = 'btn light'; btn.textContent = T.chooseFile;
+      name.className = 'muted'; name.textContent = T.noFile;
+      input.parentNode.insertBefore(box, input);
+      box.append(input, btn, name);
+      input.tabIndex = -1; // с клавиатуры — на кнопку
+      btn.addEventListener('click', function () { input.click(); });
+      input.addEventListener('change', function () { name.textContent = input.files.length ? input.files[0].name : T.noFile; });
+    });
+  });
 </script>
 <style>
   /* ===== Оформление в «каталожном» стиле: Tahoma, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
@@ -208,6 +227,10 @@
   .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
   .bar .spacer { flex: 1; }
   .muted { color: var(--muted); }
+  /* выбор файла (скрипт в head): стандартное поле скрыто, но остаётся в форме — подсказка «выберите файл» встаёт у кнопки */
+  .file-pick { position: relative; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; }
+  .file-pick input[type=file] { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; }
+  .file-pick .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .type { color: var(--orange); }
   .name { font-weight: bold; }
   .empty { color: var(--muted); }

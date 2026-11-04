@@ -1,18 +1,30 @@
 package app;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
+
 /**
- * Запись простого файла Excel (.xlsx) без библиотек: .xlsx — это ZIP с несколькими XML-файлами.
- * Каждый лист — заголовок (жирный, закреплён) и строки; ячейки — текст или число, null — пустая.
+ * Простой файл Excel (.xlsx) без библиотек: .xlsx — это ZIP с несколькими XML-файлами.
+ * Запись: каждый лист — заголовок (жирный, закреплён) и строки; ячейки — текст или число, null — пустая.
+ * Чтение: листы по порядку, ячейки — текст (String), число (Double) или null; формулы — их сохранённым значением.
  */
 public final class Xlsx {
 
@@ -147,5 +159,189 @@ public final class Xlsx {
         zip.putNextEntry(new ZipEntry(name));
         zip.write(content.getBytes(StandardCharsets.UTF_8));
         zip.closeEntry();
+    }
+
+    // ---------- чтение ----------
+
+    /** Наибольший размер одного файла внутри .xlsx после распаковки (защита от «ZIP-бомбы»). */
+    static final int MAX_PART_BYTES = 64 * 1024 * 1024;
+    /** Наибольшее число строк на листе и столбцов в строке. */
+    static final int MAX_ROWS = 100_000, MAX_COLS = 200;
+
+    /** Файл не похож на .xlsx или повреждён. */
+    public static class BadFile extends IOException {
+        BadFile(String message) {
+            super(message);
+        }
+    }
+
+    /** Листы файла по порядку: название и все строки (первая — как есть, заголовки выбирает вызывающий код). */
+    public static List<Sheet> read(InputStream in) throws IOException {
+        Map<String, byte[]> parts = new HashMap<>();
+        try (ZipInputStream zip = new ZipInputStream(in, StandardCharsets.UTF_8)) {
+            for (ZipEntry e; (e = zip.getNextEntry()) != null; ) {
+                String n = e.getName();
+                // нужны только книга, связи, общие строки и листы
+                if (!n.equals("xl/workbook.xml") && !n.equals("xl/_rels/workbook.xml.rels") && !n.equals("xl/sharedStrings.xml")
+                        && !n.startsWith("xl/worksheets/")) continue;
+                parts.put(n, readPart(zip));
+            }
+        } catch (java.util.zip.ZipException e) {
+            throw new BadFile("not a zip");
+        }
+        if (!parts.containsKey("xl/workbook.xml")) throw new BadFile("no workbook");
+        try {
+            List<String> shared = sharedStrings(parts.get("xl/sharedStrings.xml"));
+            Map<String, String> targets = relationships(parts.get("xl/_rels/workbook.xml.rels"));
+            List<Sheet> res = new ArrayList<>();
+            XMLStreamReader x = xml(parts.get("xl/workbook.xml"));
+            while (x.hasNext())
+                if (x.next() == XMLStreamReader.START_ELEMENT && x.getLocalName().equals("sheet")) {
+                    String name = x.getAttributeValue(null, "name");
+                    String rid = null;
+                    for (int a = 0; a < x.getAttributeCount(); a++)
+                        if (x.getAttributeLocalName(a).equals("id")) rid = x.getAttributeValue(a);
+                    String target = rid == null ? null : targets.get(rid);
+                    if (target == null) continue;
+                    // путь листа — от папки xl/ или от корня архива («/xl/worksheets/sheet1.xml»)
+                    String path = target.startsWith("/") ? target.substring(1) : "xl/" + target;
+                    byte[] sheet = parts.get(path);
+                    if (sheet != null) res.add(new Sheet(name == null ? "" : name, List.of(), rows(sheet, shared), List.of()));
+                }
+            return res;
+        } catch (XMLStreamException | RuntimeException e) {
+            throw new BadFile("bad xml");
+        }
+    }
+
+    private static byte[] readPart(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[65536];
+        for (int n; (n = in.read(buf)) > 0; ) {
+            out.write(buf, 0, n);
+            if (out.size() > MAX_PART_BYTES) throw new BadFile("too large");
+        }
+        return out.toByteArray();
+    }
+
+    /** Разбор XML без DTD и внешних сущностей (файл присылает пользователь). */
+    private static XMLStreamReader xml(byte[] data) throws XMLStreamException {
+        XMLInputFactory f = XMLInputFactory.newFactory();
+        f.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+        f.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+        return f.createXMLStreamReader(new ByteArrayInputStream(data));
+    }
+
+    /** Связи книги: Id → путь листа. */
+    private static Map<String, String> relationships(byte[] data) throws XMLStreamException {
+        Map<String, String> res = new HashMap<>();
+        if (data == null) return res;
+        XMLStreamReader x = xml(data);
+        while (x.hasNext())
+            if (x.next() == XMLStreamReader.START_ELEMENT && x.getLocalName().equals("Relationship"))
+                res.put(x.getAttributeValue(null, "Id"), x.getAttributeValue(null, "Target"));
+        return res;
+    }
+
+    /** Общие строки книги по номеру: текст всех <t> строки, кроме фонетических подсказок (<rPh>). */
+    private static List<String> sharedStrings(byte[] data) throws XMLStreamException {
+        List<String> res = new ArrayList<>();
+        if (data == null) return res;
+        XMLStreamReader x = xml(data);
+        StringBuilder b = null;
+        int phonetic = 0;
+        while (x.hasNext()) {
+            int ev = x.next();
+            if (ev == XMLStreamReader.START_ELEMENT) {
+                switch (x.getLocalName()) {
+                    case "si" -> b = new StringBuilder();
+                    case "rPh" -> phonetic++;
+                    case "t" -> { if (b != null && phonetic == 0) b.append(x.getElementText()); }
+                    default -> { }
+                }
+            } else if (ev == XMLStreamReader.END_ELEMENT) {
+                if (x.getLocalName().equals("rPh")) phonetic--;
+                else if (x.getLocalName().equals("si") && b != null) res.add(b.toString());
+            }
+        }
+        return res;
+    }
+
+    /** Строки листа: ячейки по номеру столбца (из адреса «B7»), пропуски — null; пустые строки в конце не входят. */
+    private static List<List<Object>> rows(byte[] data, List<String> shared) throws XMLStreamException {
+        List<List<Object>> res = new ArrayList<>();
+        XMLStreamReader x = xml(data);
+        List<Object> row = null;
+        String type = null, ref = null, value = null;
+        StringBuilder inline = null;
+        int next = 0; // столбец следующей ячейки без адреса
+        while (x.hasNext()) {
+            int ev = x.next();
+            if (ev == XMLStreamReader.START_ELEMENT) {
+                switch (x.getLocalName()) {
+                    case "row" -> {
+                        String r = x.getAttributeValue(null, "r");
+                        int n = r == null ? res.size() + 1 : Integer.parseInt(r);
+                        if (n > MAX_ROWS) return res;
+                        while (res.size() < n - 1) res.add(new ArrayList<>()); // пропущенные пустые строки
+                        row = new ArrayList<>();
+                        next = 0;
+                    }
+                    case "c" -> {
+                        type = x.getAttributeValue(null, "t");
+                        ref = x.getAttributeValue(null, "r");
+                        value = null;
+                        inline = null;
+                    }
+                    case "v" -> value = x.getElementText();
+                    case "is" -> inline = new StringBuilder();
+                    case "t" -> { if (inline != null) inline.append(x.getElementText()); }
+                    default -> { }
+                }
+            } else if (ev == XMLStreamReader.END_ELEMENT) {
+                switch (x.getLocalName()) {
+                    case "c" -> {
+                        int col = ref == null ? next : column(ref);
+                        next = col + 1;
+                        if (row != null && col < MAX_COLS) {
+                            while (row.size() <= col) row.add(null);
+                            row.set(col, cellValue(type, value, inline, shared));
+                        }
+                    }
+                    case "row" -> {
+                        if (row != null) res.add(row);
+                        row = null;
+                    }
+                    default -> { }
+                }
+            }
+        }
+        while (!res.isEmpty() && res.get(res.size() - 1).stream().allMatch(v -> v == null)) res.remove(res.size() - 1);
+        return res;
+    }
+
+    /** Номер столбца по адресу ячейки: «A1» → 0, «AB12» → 27. */
+    static int column(String ref) {
+        int n = 0;
+        for (int i = 0; i < ref.length() && Character.isLetter(ref.charAt(i)); i++)
+            n = n * 26 + (Character.toUpperCase(ref.charAt(i)) - 'A' + 1);
+        return n - 1;
+    }
+
+    /** Значение ячейки: общая строка (s), строка в ячейке (inlineStr, str), логическое (b — «1»/«0»), число; ошибка — null. */
+    private static Object cellValue(String type, String value, StringBuilder inline, List<String> shared) {
+        if ("inlineStr".equals(type)) return inline == null ? null : inline.toString();
+        if (value == null) return null;
+        if ("s".equals(type)) {
+            int i = Integer.parseInt(value.trim());
+            return i >= 0 && i < shared.size() ? shared.get(i) : null;
+        }
+        if ("str".equals(type) || "b".equals(type)) return value;
+        if ("e".equals(type)) return null;
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            return value;
+        }
     }
 }

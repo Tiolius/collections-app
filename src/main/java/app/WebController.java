@@ -31,9 +31,11 @@ public class WebController {
     private final OldGames oldGames;
     private final Backup backup;
     private final Updates updates;
+    private final XlsxImport xlsxImport;
 
     public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames,
-                         Backup backup, Updates updates) {
+                         Backup backup, Updates updates, XlsxImport xlsxImport) {
+        this.xlsxImport = xlsxImport;
         this.backup = backup;
         this.updates = updates;
         this.repo = repo;
@@ -129,7 +131,25 @@ public class WebController {
         m.addAttribute("discogsReady", token != null);
         // сам токен на страницу не выводится — только последние 4 символа
         m.addAttribute("discogsTokenEnd", token == null ? null : token.substring(Math.max(0, token.length() - 4)));
+        m.addAttribute("kinds", repo.kinds(uid));
         return "import";
+    }
+
+    /** Загрузка коллекций из Excel: каждый лист — новая коллекция; итог или ошибка — на странице «Импорт», в блоке загрузки. */
+    @PostMapping("/import/excel")
+    public String importExcel(@SessionAttribute("uid") long uid, @RequestParam(required = false) MultipartFile file,
+                              @RequestParam(defaultValue = "") String kind,
+                              org.springframework.web.servlet.mvc.support.RedirectAttributes ra) throws java.io.IOException {
+        if (file == null || file.isEmpty()) {
+            ra.addFlashAttribute("excelError", I18n.t("excel.noFile"));
+            return "redirect:/import#excel";
+        }
+        try (java.io.InputStream in = file.getInputStream()) {
+            ra.addFlashAttribute("excelResult", xlsxImport.load(uid, in, kind));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            ra.addFlashAttribute("excelError", e.getReason());
+        }
+        return "redirect:/import#excel";
     }
 
     /** Личный токен Discogs пользователя: сохранить или удалить (кнопка «Удалить токен»). */
