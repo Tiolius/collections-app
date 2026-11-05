@@ -92,7 +92,7 @@
   <!-- Загрузка из Excel: каждый лист файла — новая коллекция (XlsxImport); итог — после перехода обратно сюда -->
   <h3 class="section" id="excel" th:text="#{excel.title}">Загрузка из Excel</h3>
   <p class="ok" th:if="${excelResult != null}">
-    <span th:text="#{excel.done(${excelResult.collections()}, ${excelResult.items()})}">Создано коллекций: 1, объектов: 10.</span>
+    <span th:text="#{excel.done(${excelResult.created()}, ${excelResult.updated()}, ${excelResult.added()}, ${excelResult.changed()})}">Создано коллекций: 1, дополнено: 0. Объектов добавлено: 10, обновлено: 0.</span>
     <a th:if="${excelResult.collections() == 1}" th:href="@{/collections/{id}(id=${excelResult.firstCollection()})}" th:text="#{excel.open}">Открыть коллекцию</a>
     <span th:unless="${excelResult.skipped().isEmpty()}" th:text="#{excel.skipped(${#strings.listJoin(excelResult.skipped(), ', ')})}"></span>
   </p>

@@ -18,8 +18,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Загрузка коллекций из файла Excel («Настройки» → «Импорт» → «Загрузка из Excel»): каждый лист — новая коллекция
- * с названием листа. Столбцы узнаются по заголовкам — тем же, что пишет выгрузка в Excel (по-русски или по-английски),
+ * Загрузка коллекций из файла Excel («Настройки» → «Импорт» → «Загрузка из Excel»): каждый лист — коллекция с названием
+ * листа. Если коллекция с таким названием уже есть (без учёта регистра), данные пишутся в неё: объекты с тем же названием
+ * обновляются (только заполненными ячейками), остальные добавляются; тип у неё не меняется. Столбцы узнаются по заголовкам — тем же, что пишет выгрузка в Excel (по-русски или по-английски),
  * обязателен «Название»; прочие столбцы и поля, которых нет у типа коллекции, пропускаются. Непонятные значения
  * (статус не из списка, рейтинг вне 0,5…5, дата не дата) не загружаются, объект — загружается.
  * Всё в одной транзакции: при ошибке не создаётся ничего.
@@ -27,8 +28,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 public class XlsxImport {
 
-    /** Итог: сколько создано коллекций и объектов, первая коллекция (для ссылки), пропущенные столбцы (заголовки). */
-    public record Result(int collections, int items, long firstCollection, List<String> skipped) {}
+    /**
+     * Итог: сколько коллекций создано и дополнено, объектов добавлено и обновлено, первая коллекция (для ссылки),
+     * пропущенные столбцы (заголовки).
+     */
+    public record Result(int created, int updated, int added, int changed, long firstCollection, List<String> skipped) {
+        public int collections() {
+            return created + updated;
+        }
+    }
 
     /** Столбец «Описание» — не поле типа: описание есть у всех объектов. */
     static final String NAME = "name", DESCRIPTION = "description";
@@ -72,7 +80,7 @@ public class XlsxImport {
         }
         if (todo.isEmpty()) throw Fail.badRequest("excel.noName");
         return tx.execute(status -> {
-            int collections = 0, items = 0;
+            int created = 0, updated = 0, added = 0, changed = 0;
             long first = 0;
             Set<String> skipped = new LinkedHashSet<>();
             for (Object[] t : todo) {
@@ -80,7 +88,11 @@ public class XlsxImport {
                 int headerRow = (Integer) t[1];
                 @SuppressWarnings("unchecked")
                 Map<Integer, String> cols = (Map<Integer, String>) t[2];
-                String k = chosen.isEmpty() ? bestKind(kinds, cols.values()) : chosen;
+                String name = sh.name().isBlank() ? "Excel" : sh.name().trim();
+                // своя коллекция с тем же названием — данные в неё, с её типом
+                Entry existing = repo.collections(uid).stream().filter(c -> same(c.name(), name)).findFirst().orElse(null);
+                String k = existing != null && kinds.stream().anyMatch(x -> x.name().equals(existing.kind())) ? existing.kind()
+                        : chosen.isEmpty() ? bestKind(kinds, cols.values()) : chosen;
                 Set<String> fields = kinds.stream().filter(x -> x.name().equals(k)).findFirst().orElseThrow().fields();
                 List<Object> header = sh.rows().get(headerRow);
                 for (int c = 0; c < header.size(); c++) {
@@ -89,20 +101,58 @@ public class XlsxImport {
                     String f = cols.get(c);
                     if (f == null || !(f.equals(NAME) || f.equals(DESCRIPTION) || fields.contains(f))) skipped.add(h);
                 }
-                long cid = repo.createCollection(uid);
-                String name = sh.name().isBlank() ? "Excel" : sh.name().trim();
-                repo.saveCollection(uid, cid, name, k, null, false);
+                long cid;
+                if (existing != null) {
+                    cid = existing.id();
+                    updated++;
+                } else {
+                    cid = repo.createCollection(uid);
+                    repo.saveCollection(uid, cid, name, k, null, false);
+                    created++;
+                }
                 if (first == 0) first = cid;
-                collections++;
+                // объекты коллекции по названию; несколько с одним названием — по порядку: n-я строка файла
+                // с этим названием обновляет n-й объект (повторная загрузка того же файла не создаёт дублей)
+                Map<String, java.util.ArrayDeque<Entry>> byName = new HashMap<>();
+                if (existing != null)
+                    for (Entry it : repo.items(cid, "name", false, Map.of()))
+                        byName.computeIfAbsent(nameKey(it.name()), x -> new java.util.ArrayDeque<>()).add(it);
                 for (List<Object> row : sh.rows().subList(headerRow + 1, sh.rows().size())) {
                     Repo.ItemForm form = form(row, cols);
                     if (form == null) continue;
-                    repo.saveItem(uid, repo.createItem(cid), k, form, Map.of(), Set.of());
-                    items++;
+                    java.util.ArrayDeque<Entry> same = byName.get(nameKey(form.name()));
+                    Entry old = same == null ? null : same.poll();
+                    if (old != null) {
+                        repo.saveItem(uid, old.id(), k, keepOld(form, old), Map.of(), Set.of());
+                        changed++;
+                    } else {
+                        repo.saveItem(uid, repo.createItem(cid), k, form, Map.of(), Set.of());
+                        added++;
+                    }
                 }
             }
-            return new Result(collections, items, first, List.copyOf(skipped));
+            return new Result(created, updated, added, changed, first, List.copyOf(skipped));
         });
+    }
+
+    /** Одно и то же название коллекции или объекта: без пробелов по краям и без учёта регистра. */
+    static boolean same(String a, String b) {
+        return nameKey(a).equals(nameKey(b));
+    }
+
+    private static String nameKey(String s) {
+        return s == null ? "" : s.trim().replaceAll("\\s+", " ").toLowerCase(I18n.RU);
+    }
+
+    /**
+     * Форма для обновления объекта: пустые и неверные ячейки не меняют значение. Платформу, формат, статус и цену
+     * saveItem пишет всегда (пустое — очищает), поэтому для них берутся прежние значения; название — прежнее.
+     */
+    private static Repo.ItemForm keepOld(Repo.ItemForm f, Entry old) {
+        return new Repo.ItemForm(old.name(), f.platform() != null ? f.platform() : old.platform(),
+                f.format() != null ? f.format() : old.format(), f.status() != null ? f.status() : old.status(),
+                f.price() != null ? f.price() : old.price(), f.available(), f.rating(), f.oldgames(), f.purchased(),
+                f.tags(), f.edition(), f.notes(), f.description());
     }
 
     /** Заголовки столбцов (без регистра и лишних пробелов) → поле: подписи полей на обоих языках и ключи полей. */
@@ -159,10 +209,10 @@ public class XlsxImport {
         cols.forEach((c, f) -> v.put(f, c < row.size() ? row.get(c) : null));
         String name = text(v.get(NAME));
         if (name == null) return null;
-        List<String> available = cols.containsValue("available") ? available(v.get("available")) : null;
+        List<String> available = available(v.get("available"));
         return new Repo.ItemForm(name, text(v.get("platform")), text(v.get("format")), status(v.get("status")),
                 price(v.get("price")), available, rating(v.get("rating")), oldGames(v.get("oldgames")),
-                cols.containsValue("purchased") ? date(v.get("purchased")) : null,
+                date(v.get("purchased")),
                 cut(text(v.get("tags")), Repo.MAX_TAGS), cut(text(v.get("edition")), Repo.MAX_EDITION),
                 cut(text(v.get("notes")), Repo.MAX_NOTES), cut(text(v.get(DESCRIPTION)), Repo.MAX_DESCRIPTION));
     }
@@ -211,28 +261,29 @@ public class XlsxImport {
         }
     }
 
-    /** Наличие: «Есть», «Yes», «да», «1», «+» — есть; остальное и пусто — нет (как в окне объекта: «0», «1»). */
+    /** Наличие: «Есть», «Yes», «да», «1», «+» — есть; другое — нет (как в окне объекта: «0», «1»); пусто — null (не менять). */
     static List<String> available(Object v) {
         String s = text(v);
+        if (s == null) return null;
         boolean yes = s != null && List.of("есть", "yes", "да", "true", "1", "+", "✓", "✔").contains(s.toLowerCase(Locale.ROOT));
         return yes ? List.of("0", "1") : List.of("0");
     }
 
-    /** Дата покупки: ГГГГ-ММ-ДД, ДД.ММ.ГГГГ или дата Excel (число дней); пусто или не дата — пусто. */
+    /** Дата покупки: ГГГГ-ММ-ДД, ДД.ММ.ГГГГ или дата Excel (число дней); пусто или не дата — null (не менять). */
     static String date(Object v) {
         if (v instanceof Double d) {
             // даты Excel — дни от 30.12.1899
-            return d >= 1 && d < 2958466 ? LocalDate.of(1899, 12, 30).plusDays(d.longValue()).toString() : "";
+            return d >= 1 && d < 2958466 ? LocalDate.of(1899, 12, 30).plusDays(d.longValue()).toString() : null;
         }
         String s = text(v);
-        if (s == null) return "";
+        if (s == null) return null;
         for (DateTimeFormatter f : List.of(DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("d.M.uuuu")))
             try {
                 return LocalDate.parse(s.length() > 10 && f == DateTimeFormatter.ISO_LOCAL_DATE ? s.substring(0, 10) : s, f).toString();
             } catch (java.time.format.DateTimeParseException e) {
                 // следующий формат
             }
-        return "";
+        return null;
     }
 
     /** Номер или адрес игры Old-Games.ru; другое — не загружается. */
