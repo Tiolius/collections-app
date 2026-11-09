@@ -21,7 +21,7 @@
       </label>
     </div>
 
-    <label class="top" th:text="#{kinds.rowColor}">Цвет строки по статусу</label>
+    <label class="top"><span th:text="#{kinds.rowColor}">Цвет строки по статусу</span> <span th:replace="~{base :: info(#{kinds.colorHint})}"></span></label>
     <div>
       <table class="status-colors">
         <tr><th th:text="#{field.statusShort}">Статус</th><th th:text="#{kinds.color}">Цвет</th></tr>
@@ -42,7 +42,6 @@
           <td><input type="color" name="stc" value="#fefcbf"></td>
         </tr>
       </table>
-      <div class="muted hint" th:text="#{kinds.colorHint}"></div>
     </div>
 
     <p class="full muted" style="margin:0" th:if="${kind != null and kind.used() > 0}"

@@ -26,11 +26,8 @@
               th:selected="${newUserRole != null ? r.key == newUserRole : r.key == 'user'}"></option>
     </select>
 
-    <label class="at-field" for="f-upw" th:text="#{user.password}">Пароль</label>
-    <div>
-      <input id="f-upw" type="password" name="password" autocomplete="new-password">
-      <div th:replace="~{base :: passwordHint}"></div>
-    </div>
+    <label for="f-upw"><span th:text="#{user.password}">Пароль</span> <span th:replace="~{base :: info(#{password.hint})}"></span></label>
+    <input id="f-upw" type="password" name="password" autocomplete="new-password">
 
     <label for="f-upw2" th:text="#{user.password2}">Повторите пароль</label>
     <input id="f-upw2" type="password" name="password2" autocomplete="new-password">

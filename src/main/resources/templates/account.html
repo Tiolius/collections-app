@@ -11,11 +11,8 @@
     <label for="f-cur" th:text="#{account.current}">Текущий пароль</label>
     <input id="f-cur" type="password" name="current" autocomplete="new-password">
 
-    <label class="at-field" for="f-new" th:text="#{account.new}">Новый пароль</label>
-    <div>
-      <input id="f-new" type="password" name="password" autocomplete="new-password">
-      <div th:replace="~{base :: passwordHint}"></div>
-    </div>
+    <label for="f-new"><span th:text="#{account.new}">Новый пароль</span> <span th:replace="~{base :: info(#{password.hint})}"></span></label>
+    <input id="f-new" type="password" name="password" autocomplete="new-password">
 
     <label for="f-new2" th:text="#{account.new2}">Повторите новый пароль</label>
     <input id="f-new2" type="password" name="password2" autocomplete="new-password">

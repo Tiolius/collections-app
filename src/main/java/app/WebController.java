@@ -114,6 +114,10 @@ public class WebController {
     public String display(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("showPrices", repo.showPrices(uid));
         m.addAttribute("pageSizes", repo.pageSizes(uid));
+        m.addAttribute("minCollections", Repo.PageSizes.MIN_COLLECTIONS);
+        m.addAttribute("maxCollections", Repo.PageSizes.MAX_COLLECTIONS);
+        m.addAttribute("minItems", Repo.PageSizes.MIN_ITEMS);
+        m.addAttribute("maxItems", Repo.PageSizes.MAX_ITEMS);
         return "display";
     }
 
