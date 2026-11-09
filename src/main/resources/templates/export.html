@@ -6,12 +6,11 @@
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('export')}"></th:block>
   <h3 class="section" th:text="#{export.title}">Выгрузка коллекций в Excel</h3>
-  <p class="muted" th:text="#{export.text}"></p>
   <p class="error" th:if="${error != null}" th:text="${error}"></p>
   <p class="empty" th:if="${collections.isEmpty()}" th:text="#{collections.none}">Коллекций пока нет.</p>
 
   <form autocomplete="off" class="form" method="post" action="/export" th:unless="${collections.isEmpty()}">
-    <label class="at-field" th:text="#{export.collections}">Коллекции</label>
+    <label class="at-field"><span th:text="#{export.collections}">Коллекции</span> <span th:replace="~{base :: info(#{export.text})}"></span></label>
     <div class="export-list">
       <label class="radio all"><input type="checkbox" id="export-all"> <b th:text="#{nav.allCollections}">Все коллекции</b></label>
       <label class="radio" th:each="c : ${collections}">

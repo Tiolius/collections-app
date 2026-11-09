@@ -13,11 +13,8 @@
     <label for="f-name" th:text="#{user.name}">Имя пользователя</label>
     <input id="f-name" type="text" name="name" required autofocus autocomplete="off" autocapitalize="off" spellcheck="false" th:value="${name}">
 
-    <label for="f-pw" th:classappend="${setup} ? 'at-field'" th:text="#{user.password}">Пароль</label>
-    <div>
-      <input id="f-pw" type="password" name="password" autocomplete="new-password">
-      <th:block th:if="${setup}"><div th:replace="~{base :: passwordHint}"></div></th:block>
-    </div>
+    <label for="f-pw"><span th:text="#{user.password}">Пароль</span><th:block th:if="${setup}"> <span th:replace="~{base :: info(#{password.hint})}"></span></th:block></label>
+    <input id="f-pw" type="password" name="password" autocomplete="new-password">
 
     <th:block th:if="${setup}">
       <label for="f-pw2" th:text="#{user.password2}">Повторите пароль</label>

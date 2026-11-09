@@ -280,7 +280,6 @@
   .pages a:hover { background: var(--hover); text-decoration: none; }
   .pages b { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
   .pages .muted { padding: 0 4px; }
-  .pager select { height: 24px; }
 
   /* Таблицы: синяя шапка, строки через одну серые */
   table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper); }
@@ -388,11 +387,17 @@
   .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
   :root[data-theme="dark"] .tip .tiptext { border: 1px solid var(--input-border); }  /* тёмная подсказка отделена рамкой */
   .tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
-  /* Справка: большая подсказка под иконкой, с переносами, абзацами */
-  .tip.help { display: inline-flex; vertical-align: middle; margin-left: 4px; color: var(--icon); cursor: help; }
-  .tip.help .tiptext { top: calc(100% + 6px); left: 0; right: auto; transform: none; width: min(560px, calc(100vw - 48px));
-                       white-space: normal; line-height: 1.5; padding: 8px 12px; text-align: left; }
-  .tip.help:hover .tiptext, .tip.help:focus .tiptext { display: flex; flex-direction: column; gap: 6px; }
+  /* Справка: значок «i» у подписи поля и компактная подсказка под ним (с переносами, абзацами — <span>);
+     сдвиг влево и наверх, чтобы не выходила за границы блока и экрана, — скрипт placeTip в base :: head */
+  .tip.help { display: inline-flex; vertical-align: middle; margin-left: 4px; color: var(--icon); cursor: help; width: 18px; height: 18px; }
+  .tip.help > svg.mi { width: 16px; height: 16px; }
+  .tip.help:hover, .tip.help:focus { color: var(--link); background: none; }
+  .tip.help .tiptext { top: calc(100% + 4px); left: 0; right: auto; transform: none; width: max-content; max-width: 340px;
+                       white-space: normal; line-height: 1.4; padding: 6px 10px; text-align: left; }
+  .tip.help .tiptext.above { top: auto; bottom: calc(100% + 4px); }
+  .tip.help:hover .tiptext, .tip.help:focus .tiptext { display: flex; flex-direction: column; gap: 4px; }
+  /* Описание под полем — для длинных пояснений, которым тесно в подсказке «i» (источники и Excel на «Импорте»); абзацы — <span> */
+  .form .note { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-width: 640px; line-height: 1.4; }
   .icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
   .icon.small .mi { width: 16px; height: 16px; }
   .icon.small:hover { background: none; }
@@ -403,6 +408,7 @@
   .form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;
           display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
   .form > label { font-weight: bold; color: var(--label); }
+  .form > label.at-field { align-self: start; padding-top: 6px; }  /* подпись у верхнего края высокого поля (список) */
   /* короткая подпись: колонка по её ширине; отступ подпись → поле равен отступу поле → кнопка (.inline) */
   .form.compact { --gap: 75px; grid-template-columns: auto 1fr; column-gap: var(--gap); }
   .form.compact .inline { column-gap: var(--gap); }
@@ -418,6 +424,7 @@
   input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
   .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
   .form select.narrow { width: auto; }
+  .form input.narrow { width: 120px; }
   .form input[name=name] { max-width: none; }
   /* Описание объекта — многострочное поле во всю ширину колонки полей */
   textarea { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); line-height: 1.4; }
@@ -425,13 +432,11 @@
   .form textarea { width: 100%; resize: vertical; }
   .form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; color: var(--text); }
   .form > label.top { align-self: start; padding-top: 24px; }
-  .form > label.at-field { align-self: start; padding-top: 6px; }  /* поле с подсказкой под ним */
   table.status-colors { border-collapse: collapse; }
   table.status-colors th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
   table.status-colors td { padding: 0 8px 6px 0; }
   table.status-colors input[type=text] { width: 260px; }
   .form input[type=color] { width: 44px; height: 26px; padding: 2px; border: 1px solid var(--input-border); background: var(--paper); cursor: pointer; }
-  .hint { margin-top: 2px; max-width: 560px; }
   /* Модальное окно (изменение объекта): синяя полоса заголовка, внутри — обычная форма */
   dialog.modal { padding: 0; border: 1px solid var(--border); background: var(--form-bg); color: var(--text);
                  width: 640px; max-width: calc(100vw - 32px); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
@@ -557,10 +562,6 @@
     main { padding: 12px; border: none; }
     header .logo { padding-left: 12px; border-left: none; }  /* на телефоне у страницы нет боковых линий */
     header .right { border-right: none; }
-    /* справка — во всю ширину формы, сразу под иконкой */
-    .form > label:has(.tip.help) { position: relative; }
-    .tip.help { position: static; }
-    .tip.help .tiptext { left: 0; right: 0; top: calc(100% + 4px); width: auto; }
     .form, .form.compact { grid-template-columns: 1fr; }
     .list { grid-template-columns: 1fr; }
     header .user span, header a.settings span, header a.update span { display: none; }
@@ -582,6 +583,37 @@
     .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
   }
 </style>
+<script>
+  // Подсказка справки (.tip.help) не выходит за границы блока (форма, окно, main) и экрана:
+  // ширина — не больше блока, сдвиг влево, если не помещается справа; наверх, если не помещается снизу
+  (function () {
+    function placeTip(tip) {
+      var t = tip.querySelector('.tiptext');
+      if (!t) return;
+      t.classList.remove('above');
+      t.style.left = ''; t.style.maxWidth = ''; t.style.maxHeight = ''; t.style.overflowY = '';
+      var box = (tip.closest('.form, .import-box, dialog, main') || document.body).getBoundingClientRect();
+      var left = Math.max(box.left, 0) + 8, right = Math.min(box.right, innerWidth) - 8;
+      t.style.maxWidth = Math.min(340, right - left) + 'px';
+      var r = t.getBoundingClientRect(), dx = 0;
+      if (r.right > right) dx = right - r.right;
+      if (r.left + dx < left) dx = left - r.left;
+      t.style.left = dx + 'px';
+      if (r.bottom <= innerHeight - 8) return;
+      var icon = tip.getBoundingClientRect(), below = innerHeight - 8 - r.top, above = icon.top - 12;
+      if (above > below) t.classList.add('above');
+      // Не помещается ни снизу, ни сверху — высота по свободному месту, текст прокручивается
+      var room = Math.max(above, below);
+      if (r.height > room) { t.style.maxHeight = room + 'px'; t.style.overflowY = 'auto'; }
+    }
+    function on(e) {
+      var tip = e.target.closest && e.target.closest('.tip.help');
+      if (tip) placeTip(tip);
+    }
+    document.addEventListener('mouseover', on);
+    document.addEventListener('focusin', on);
+  })();
+</script>
 </head>
 <body>
 <header th:fragment="header">
@@ -632,8 +664,10 @@
   </script>
 </header>
 
-<!-- Подсказка под полем нового пароля (требования — Passwords.problem) -->
-<div th:fragment="passwordHint" class="muted hint" th:text="#{password.hint}"></div>
+<!-- Справка у подписи поля: значок «i», при наведении — компактная подсказка с текстом text
+     (для подсказки из нескольких абзацев — та же разметка вручную: <span class="tiptext"><span>…</span>…</span>) -->
+<span th:fragment="info(text)" class="icon tip help" tabindex="0" th:aria-label="#{help}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg><span class="tiptext" th:text="${text}"></span></span>
+
 
 <!-- Шапка страницы «Настройки»: заголовок и разделы (столбцом слева, см. main.settings); active — kinds | account | users -->
 <th:block th:fragment="settingsHead(active)">
