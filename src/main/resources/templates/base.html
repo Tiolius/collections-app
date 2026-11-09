@@ -280,7 +280,6 @@
   .pages a:hover { background: var(--hover); text-decoration: none; }
   .pages b { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
   .pages .muted { padding: 0 4px; }
-  .pager select { height: 24px; }
 
   /* Таблицы: синяя шапка, строки через одну серые */
   table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper); }
@@ -418,6 +417,7 @@
   input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
   .form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
   .form select.narrow { width: auto; }
+  .form input.narrow { width: 120px; }
   .form input[name=name] { max-width: none; }
   /* Описание объекта — многострочное поле во всю ширину колонки полей */
   textarea { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); line-height: 1.4; }

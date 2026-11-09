@@ -109,17 +109,32 @@ public class WebController {
         return "account";
     }
 
-    // Вкладка «Отображение»: показывать цены открыто или за иконкой глаза
+    // Вкладка «Отображение»: показывать цены открыто или за иконкой глаза; сколько коллекций и объектов на странице
     @GetMapping("/display")
     public String display(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("showPrices", repo.showPrices(uid));
+        m.addAttribute("pageSizes", repo.pageSizes(uid));
         return "display";
     }
 
     @PostMapping("/display")
-    public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices) {
+    public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices,
+                              @RequestParam String collectionsPerPage, @RequestParam String itemsPerPage) {
+        int collections = pageSize(collectionsPerPage, Repo.PageSizes.MIN_COLLECTIONS, Repo.PageSizes.MAX_COLLECTIONS);
+        int items = pageSize(itemsPerPage, Repo.PageSizes.MIN_ITEMS, Repo.PageSizes.MAX_ITEMS);
         repo.setShowPrices(uid, showPrices);
+        repo.setPageSizes(uid, new Repo.PageSizes(collections, items));
         return "redirect:/display?saved";
+    }
+
+    /** Число на странице из формы «Отображение»: целое в пределах min…max, иначе 400. */
+    private static int pageSize(String value, int min, int max) {
+        String v = value == null ? "" : value.trim();
+        if (v.matches("\\d{1,4}")) {
+            int n = Integer.parseInt(v);
+            if (n >= min && n <= max) return n;
+        }
+        throw Fail.badRequest("display.badPageSize", min, max);
     }
 
     // Вкладка «Импорт»: картинки объектов коллекции из Steam или Discogs (в фоне, прогресс — /import/status)
@@ -446,17 +461,16 @@ public class WebController {
 
     // ---------- Коллекции ----------
 
-    /** Коллекций на одной странице главной. */
-    private static final int COLLECTIONS_PER_PAGE = 10;
-
     @GetMapping("/")
     public String index(@SessionAttribute("uid") long uid, Model m, @RequestParam(defaultValue = "1") int page) {
         List<Entry> all = repo.collections(uid);
+        // Коллекций на странице — настройка «Отображение»
+        int perPage = repo.pageSizes(uid).collections();
         int total = all.size();
-        int pages = Math.max(1, (total + COLLECTIONS_PER_PAGE - 1) / COLLECTIONS_PER_PAGE);
+        int pages = Math.max(1, (total + perPage - 1) / perPage);
         page = Math.min(Math.max(page, 1), pages);
-        int from = (page - 1) * COLLECTIONS_PER_PAGE;
-        List<Entry> shown = all.subList(from, Math.min(from + COLLECTIONS_PER_PAGE, total));
+        int from = (page - 1) * perPage;
+        List<Entry> shown = all.subList(from, Math.min(from + perPage, total));
         m.addAttribute("collections", shown);
         // Счётчики под названием: всего, в наличии и стоимость — последние два, если у типа коллекции есть такие поля
         Map<Long, Repo.CollectionStats> stats = repo.collectionStats(uid);
@@ -563,15 +577,11 @@ public class WebController {
     /** Столбец таблицы объектов: ключ сортировки, заголовок (ключ текста), css-класс. */
     public record Col(String key, String label, String css) {}
 
-    /** Размеры страницы для выпадающего списка: 25, 50, … 200. */
-    private static final List<Integer> PAGE_SIZES = IntStream.rangeClosed(1, 8).map(i -> i * 25).boxed().toList();
-
     @GetMapping("/collections/{id}")
     public String collection(@SessionAttribute("uid") long uid, @PathVariable long id, Model m,
                              @RequestParam(defaultValue = "name") String sort,
                              @RequestParam(defaultValue = "asc") String dir,
                              @RequestParam(defaultValue = "1") int page,
-                             @RequestParam(defaultValue = "200") int size,
                              @RequestParam(name = "f_name", required = false) String fName,
                              @RequestParam(name = "f_platform", required = false) String fPlatform,
                              @RequestParam(name = "f_format", required = false) String fFormat,
@@ -613,7 +623,8 @@ public class WebController {
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
         boolean desc = "desc".equals(dir);
-        if (!PAGE_SIZES.contains(size)) size = 200;
+        // Объектов на странице — настройка «Отображение»
+        int size = repo.pageSizes(uid).items();
 
         // Фильтры по столбцам (только по тем, что есть у типа коллекции); пустые не учитываются
         Map<String, String> filters = new java.util.LinkedHashMap<>();
@@ -695,14 +706,12 @@ public class WebController {
         m.addAttribute("dir", desc ? "desc" : "asc");
         m.addAttribute("page", page);
         m.addAttribute("pages", pages);
-        m.addAttribute("size", size);
-        m.addAttribute("sizes", PAGE_SIZES);
         m.addAttribute("total", total);
         m.addAttribute("from", total == 0 ? 0 : fromIdx + 1);
         m.addAttribute("to", Math.min(page * size, total));
         m.addAttribute("pageLinks", pageLinks(page, pages));
         // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
-        String view = "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + "&size=" + size + filterQs;
+        String view = "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + filterQs;
         m.addAttribute("view", view + modeQs);
         // Запомнить вид для этого пользователя и коллекции (режим «Дубли» не запоминается)
         if (!dups) repo.setCollectionView(uid, id, view);

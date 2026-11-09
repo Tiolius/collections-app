@@ -82,6 +82,14 @@ CREATE TABLE IF NOT EXISTS user_settings (
     show_prices INTEGER NOT NULL DEFAULT 0
 );
 
+-- Сколько показывать на странице (вкладка «Отображение»): коллекций на главной и объектов в таблице коллекции;
+-- нет строки или NULL — по умолчанию (Repo.PageSizes)
+CREATE TABLE IF NOT EXISTS user_page_sizes (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    collections INTEGER,
+    items INTEGER
+);
+
 -- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
 CREATE TABLE IF NOT EXISTS user_tokens (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -282,6 +282,39 @@ public class Repo {
                 + "ON CONFLICT (user_id) DO UPDATE SET show_prices = excluded.show_prices", uid, show ? 1 : 0);
     }
 
+    /**
+     * Сколько показывать на странице (вкладка «Отображение»): коллекций на главной и объектов в таблице коллекции.
+     * Нет строки или значения — по умолчанию; значения вне допустимых пределов (MIN_…/MAX_…) приводятся к ним.
+     */
+    public record PageSizes(int collections, int items) {
+        public static final int DEFAULT_COLLECTIONS = 10, MIN_COLLECTIONS = 1, MAX_COLLECTIONS = 100;
+        public static final int DEFAULT_ITEMS = 200, MIN_ITEMS = 10, MAX_ITEMS = 1000;
+
+        static int clamp(Integer v, int def, int min, int max) {
+            return v == null ? def : Math.min(Math.max(v, min), max);
+        }
+    }
+
+    public PageSizes pageSizes(long uid) {
+        List<PageSizes> v = jdbc.query("SELECT collections, items FROM user_page_sizes WHERE user_id = ?",
+                (rs, i) -> {
+                    int c = rs.getInt("collections");
+                    Integer cv = rs.wasNull() ? null : c;
+                    int it = rs.getInt("items");
+                    Integer iv = rs.wasNull() ? null : it;
+                    return new PageSizes(
+                            PageSizes.clamp(cv, PageSizes.DEFAULT_COLLECTIONS, PageSizes.MIN_COLLECTIONS, PageSizes.MAX_COLLECTIONS),
+                            PageSizes.clamp(iv, PageSizes.DEFAULT_ITEMS, PageSizes.MIN_ITEMS, PageSizes.MAX_ITEMS));
+                }, uid);
+        return v.isEmpty() ? new PageSizes(PageSizes.DEFAULT_COLLECTIONS, PageSizes.DEFAULT_ITEMS) : v.get(0);
+    }
+
+    public void setPageSizes(long uid, PageSizes p) {
+        jdbc.update("INSERT INTO user_page_sizes (user_id, collections, items) VALUES (?, ?, ?) "
+                + "ON CONFLICT (user_id) DO UPDATE SET collections = excluded.collections, items = excluded.items",
+                uid, p.collections(), p.items());
+    }
+
     /** Запомненный вид таблицы объектов коллекции (строка параметров адреса) или null. */
     public String collectionView(long uid, long collectionId) {
         List<String> v = jdbc.queryForList("SELECT query FROM collection_views WHERE user_id = ? AND collection_id = ?",

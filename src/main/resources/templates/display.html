@@ -13,6 +13,22 @@
       <div class="muted" th:text="#{display.showPricesHint}"></div>
     </div>
 
+    <label for="f-coll-pp" th:text="#{display.collectionsPerPage}">Коллекций на странице</label>
+    <div>
+      <input id="f-coll-pp" class="narrow" type="number" name="collectionsPerPage" required autocomplete="off" step="1"
+             th:min="${T(app.Repo.PageSizes).MIN_COLLECTIONS}" th:max="${T(app.Repo.PageSizes).MAX_COLLECTIONS}"
+             th:value="${pageSizes.collections()}">
+      <div class="muted" th:text="#{display.collectionsPerPageHint(${T(app.Repo.PageSizes).MIN_COLLECTIONS}, ${T(app.Repo.PageSizes).MAX_COLLECTIONS})}"></div>
+    </div>
+
+    <label for="f-items-pp" th:text="#{display.itemsPerPage}">Объектов на странице</label>
+    <div>
+      <input id="f-items-pp" class="narrow" type="number" name="itemsPerPage" required autocomplete="off" step="1"
+             th:min="${T(app.Repo.PageSizes).MIN_ITEMS}" th:max="${T(app.Repo.PageSizes).MAX_ITEMS}"
+             th:value="${pageSizes.items()}">
+      <div class="muted" th:text="#{display.itemsPerPageHint(${T(app.Repo.PageSizes).MIN_ITEMS}, ${T(app.Repo.PageSizes).MAX_ITEMS})}"></div>
+    </div>
+
     <div class="full"><button class="btn" th:text="#{btn.save}">Сохранить</button></div>
   </form>
 </main>
