@@ -587,7 +587,7 @@
   // Подсказка справки (.tip.help) не выходит за границы блока (форма, окно, main) и экрана:
   // ширина — не больше блока, сдвиг влево, если не помещается справа; наверх, если не помещается снизу
   (function () {
-    function place(tip) {
+    function placeTip(tip) {
       var t = tip.querySelector('.tiptext');
       if (!t) return;
       t.classList.remove('above');
@@ -608,7 +608,7 @@
     }
     function on(e) {
       var tip = e.target.closest && e.target.closest('.tip.help');
-      if (tip) place(tip);
+      if (tip) placeTip(tip);
     }
     document.addEventListener('mouseover', on);
     document.addEventListener('focusin', on);
