@@ -127,11 +127,8 @@
         </span>
       </span>
     </label>
-    <div>
-      <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
-             th:placeholder="${discogsReady ? #messages.msg('import.token.savedHint', discogsTokenEnd) : #messages.msg('import.token.none')}">
-      <div class="muted" th:unless="${discogsReady}" th:text="#{import.noToken}"></div>
-    </div>
+    <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
+           th:placeholder="${discogsReady ? #messages.msg('import.token.savedHint', discogsTokenEnd) : #messages.msg('import.token.none')}">
     <div class="full split">  <!-- «Сохранить» слева, «Удалить токен» — у правого края формы -->
       <button class="btn" th:text="#{btn.save}">Сохранить</button>
       <button class="btn light danger" name="delete" value="true" th:if="${discogsReady}" formnovalidate th:text="#{import.token.delete}">Удалить токен</button>
