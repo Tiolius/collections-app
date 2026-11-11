@@ -21,9 +21,10 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      # Действия на Node.js 24 (Node.js 20 в GitHub Actions устарел)
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
@@ -51,7 +52,7 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path dist/CollectionsApp -DestinationPath "dist/CollectionsApp-${{ steps.v.outputs.version }}-windows.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: CollectionsApp-${{ steps.v.outputs.version }}-windows
           path: dist/*.zip
