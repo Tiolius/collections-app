@@ -21,7 +21,8 @@
     </select>
 
     <!-- Поля: галочка — поле есть у типа; своя подпись (пусто — стандартная); стрелки — порядок полей в окне объекта и столбцов таблицы.
-         Порядок строк = порядок полей (role в каждой строке); подписи — в том же порядке -->
+         Порядок строк = порядок полей; в каждой строке ровно одно role, label, type, opts (у встроенных type и opts пустые).
+         Свои поля: role «c<id>» (вид не меняется) или «n<номер>» (новое, вид выбирается); значения списка — по строке -->
     <label class="top"><span th:text="#{kinds.fields}">Поля объектов</span> <span th:replace="~{base :: info(#{kinds.fieldsHint})}"></span></label>
     <div>
       <table class="kind-fields">
@@ -30,10 +31,17 @@
           <tr class="fixed"><td><input type="checkbox" checked disabled></td><td th:text="#{field.name}">Название</td><td></td><td></td></tr>
         </tbody>
         <tbody id="kind-field-rows">
-          <tr th:each="r : ${rows}" th:data-was-on="${r.on() and kind != null ? '1' : ''}">
-            <td><input type="checkbox" name="on" th:value="${r.role()}" th:checked="${r.on()}" th:id="${'f-on-' + r.role()}" th:aria-label="${r.defaultLabel()}"></td>
-            <td><label th:for="${'f-on-' + r.role()}" th:text="${r.defaultLabel()}"></label><input type="hidden" name="role" th:value="${r.role()}"></td>
-            <td><input type="text" name="label" autocomplete="off" maxlength="60" th:value="${r.label()}" th:placeholder="${r.defaultLabel()}" th:aria-label="#{kinds.ownLabel}"></td>
+          <tr th:each="r : ${rows}" th:data-was-on="${r.on() and kind != null ? '1' : ''}" th:classappend="${r.custom()} ? 'custom'">
+            <td><input type="checkbox" name="on" th:value="${r.role()}" th:checked="${r.on()}" th:id="${'f-on-' + r.role()}"
+                       th:aria-label="${r.custom() ? r.label() : r.defaultLabel()}"></td>
+            <td th:unless="${r.custom()}"><label th:for="${'f-on-' + r.role()}" th:text="${r.defaultLabel()}"></label>
+              <input type="hidden" name="role" th:value="${r.role()}"><input type="hidden" name="type" value=""><input type="hidden" name="opts" value=""></td>
+            <td th:unless="${r.custom()}"><input type="text" name="label" autocomplete="off" maxlength="60" th:value="${r.label()}" th:placeholder="${r.defaultLabel()}" th:aria-label="#{kinds.ownLabel}"></td>
+            <!-- своё поле: вид (после создания не меняется) и подпись; у списка — значения -->
+            <td th:if="${r.custom()}"><input type="hidden" name="role" th:value="${r.role()}"><input type="hidden" name="type" th:value="${r.type()}">
+              <select disabled th:aria-label="#{kinds.type}"><option th:each="t : ${customTypes}" th:value="${t.key}" th:text="#{${t.value}}" th:selected="${t.key == r.type()}"></option></select></td>
+            <td th:if="${r.custom()}" class="custom-cell"><input type="text" name="label" autocomplete="off" maxlength="60" th:value="${r.label()}" th:placeholder="#{kinds.customLabel}" th:aria-label="#{kinds.customLabel}">
+              <textarea name="opts" rows="3" autocomplete="off" th:hidden="${r.type() != 'select'}" th:placeholder="#{kinds.optionsPlaceholder}" th:aria-label="#{kinds.options}" th:text="${r.opts()}"></textarea></td>
             <td class="moves">
               <button type="button" class="icon move-up" th:title="#{kinds.up}" th:aria-label="#{kinds.up}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-160v-526L222-458l-42-42 300-300 300 300-42 42-228-228v526h-60Z"/></svg></button>
               <button type="button" class="icon move-down" th:title="#{kinds.down}" th:aria-label="#{kinds.down}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-800v526L222-502l-42 42 300 300 300-300-42-42-228 228v-526h-60Z"/></svg></button>
@@ -41,6 +49,21 @@
           </tr>
         </tbody>
       </table>
+      <button type="button" class="btn gray" id="add-field" th:data-max="${maxCustom}" th:text="#{kinds.addField}">Добавить поле</button>
+      <!-- Новое своё поле: строка-образец (role n<номер> ставит скрипт) -->
+      <template id="new-field">
+        <tr class="custom">
+          <td><input type="checkbox" name="on" checked th:aria-label="#{kinds.customLabel}"></td>
+          <td><input type="hidden" name="role">
+            <select name="type" th:aria-label="#{kinds.type}"><option th:each="t : ${customTypes}" th:value="${t.key}" th:text="#{${t.value}}"></option></select></td>
+          <td class="custom-cell"><input type="text" name="label" autocomplete="off" maxlength="60" required th:placeholder="#{kinds.customLabel}" th:aria-label="#{kinds.customLabel}">
+            <textarea name="opts" rows="3" autocomplete="off" hidden th:placeholder="#{kinds.optionsPlaceholder}" th:aria-label="#{kinds.options}"></textarea></td>
+          <td class="moves">
+            <button type="button" class="icon move-up" th:title="#{kinds.up}" th:aria-label="#{kinds.up}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-160v-526L222-458l-42-42 300-300 300 300-42 42-228-228v526h-60Z"/></svg></button>
+            <button type="button" class="icon move-down" th:title="#{kinds.down}" th:aria-label="#{kinds.down}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-800v526L222-502l-42 42 300 300 300-300-42-42-228 228v-526h-60Z"/></svg></button>
+          </td>
+        </tr>
+      </template>
     </div>
 
     <!-- Статусы (значения поля «Статус»): по порядку; пустая строка не сохраняется; цвет строки объекта — если отмечен -->
@@ -82,6 +105,30 @@
       if (b.classList.contains('move-up') && tr.previousElementSibling) tr.parentNode.insertBefore(tr, tr.previousElementSibling);
       if (b.classList.contains('move-down') && tr.nextElementSibling) tr.parentNode.insertBefore(tr.nextElementSibling, tr);
       b.focus();
+    });
+    // Своё поле: новое — строкой-образцом (role n<номер>, отмечено); значения списка видны только у вида «список»
+    var fieldRows = document.getElementById('kind-field-rows'), addField = document.getElementById('add-field'), n = 0;
+    function customCount() { return fieldRows.querySelectorAll('tr.custom').length; }
+    addField.addEventListener('click', function () {
+      var tr = document.getElementById('new-field').content.firstElementChild.cloneNode(true), key = 'n' + (++n);
+      tr.querySelector('input[name=role]').value = key;
+      tr.querySelector('input[name=on]').value = key;
+      fieldRows.appendChild(tr);
+      addField.disabled = customCount() >= +addField.dataset.max;
+      tr.querySelector('input[name=label]').focus();
+    });
+    addField.disabled = customCount() >= +addField.dataset.max;
+    fieldRows.addEventListener('change', function (e) {
+      // новое поле, с которого сняли галочку, — просто убрать строку
+      if (e.target.name === 'on' && !e.target.checked && /^n/.test(e.target.value)) {
+        e.target.closest('tr').remove();
+        addField.disabled = customCount() >= +addField.dataset.max;
+        return;
+      }
+      if (e.target.name !== 'type') return;
+      var opts = e.target.closest('tr').querySelector('textarea[name=opts]');
+      opts.hidden = e.target.value !== 'select';
+      opts.required = e.target.value === 'select';
     });
     // Цвет строки: отправляется в скрытом stc, только если отмечена галочка
     var rows = document.querySelector('#status-rows tbody');

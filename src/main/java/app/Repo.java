@@ -89,6 +89,20 @@ public class Repo {
             Map.entry("purchased", "date"), Map.entry("available", "bool"), Map.entry("tags", "tags"),
             Map.entry("notes", "longtext"), Map.entry("oldgames", "link"));
 
+    /** Виды своих полей (заданных пользователем в типе): ключ → подпись (ключ текста). */
+    public static final Map<String, String> CUSTOM_TYPES = new LinkedHashMap<>();
+    static {
+        CUSTOM_TYPES.put("text", "ctype.text");
+        CUSTOM_TYPES.put("longtext", "ctype.longtext");
+        CUSTOM_TYPES.put("number", "ctype.number");
+        CUSTOM_TYPES.put("date", "ctype.date");
+        CUSTOM_TYPES.put("bool", "ctype.bool");
+        CUSTOM_TYPES.put("select", "ctype.select");
+    }
+
+    /** Наибольшее число своих полей у типа; длины значений своих полей: текст и длинный текст. */
+    public static final int MAX_CUSTOM = 30, MAX_TEXT = 500, MAX_LONGTEXT = 2000;
+
     /** Профили типов коллекций: ключ → подпись (ключ текста). Профиль задаёт подходящие источники импорта. */
     public static final Map<String, String> PROFILES = new LinkedHashMap<>();
     static {
@@ -211,6 +225,18 @@ public class Repo {
      */
     public long saveKind(long uid, Long id, String name, String profile, List<String> roles, List<String> enabled,
                          List<String> labels, List<String> statuses, List<String> colors) {
+        return saveKind(uid, id, name, profile, roles, enabled, labels, List.of(), List.of(), statuses, colors);
+    }
+
+    /**
+     * То же со своими полями. Строки формы полей (по порядку): roles — роль встроенного поля, «c<id>» — своё поле,
+     * «n<номер>» — новое своё поле; enabled — отмеченные строки; labels — подписи (у своего — обязательна);
+     * types — вид нового своего поля (CUSTOM_TYPES; у существующего не меняется); opts — значения списка
+     * (вид «список»), по одному в строке. Снятое своё поле удаляется со значениями.
+     */
+    @org.springframework.transaction.annotation.Transactional // ошибка в форме — тип не меняется вовсе
+    public long saveKind(long uid, Long id, String name, String profile, List<String> roles, List<String> enabled,
+                         List<String> labels, List<String> types, List<String> opts, List<String> statuses, List<String> colors) {
         requireName(name);
         String n = name.trim();
         for (Kind k : kinds(uid))
@@ -227,19 +253,33 @@ public class Repo {
             jdbc.update("UPDATE kinds SET name = ?, profile = ? WHERE id = ?", n, profile, id);
             kindId = id;
         }
-        // поля по порядку формы; роли — только из FIELDS, каждая один раз
-        List<String> order = new java.util.ArrayList<>();
-        Map<String, String> labelOf = new HashMap<>();
+        // поля по порядку формы: встроенные роли (каждая один раз) и свои поля
+        Set<Long> ownCustoms = new java.util.HashSet<>(jdbc.queryForList(
+                "SELECT id FROM kind_fields WHERE kind_id = ? AND role IS NULL", Long.class, kindId));
+        List<FieldSpec> specs = new java.util.ArrayList<>();
+        Set<String> seen = new java.util.HashSet<>();
         for (int i = 0; roles != null && i < roles.size(); i++) {
             String r = roles.get(i);
-            if (!FIELDS.containsKey(r) || order.contains(r) || enabled == null || !enabled.contains(r)) continue;
-            order.add(r);
-            String l = labels != null && i < labels.size() ? trim(labels.get(i)) : "";
+            if (r == null || !seen.add(r) || enabled == null || !enabled.contains(r)) continue;
+            String l = at(labels, i);
             if (l.length() > MAX_LABEL) throw Fail.badRequest("item.tooLong", MAX_LABEL);
-            // своя подпись, если отличается от стандартной
-            if (!l.isEmpty() && !l.equals(I18n.t(FIELDS.get(r)))) labelOf.put(r, l);
+            if (FIELDS.containsKey(r)) {
+                // своя подпись, если отличается от стандартной
+                specs.add(new FieldSpec(r, null, null, !l.isEmpty() && !l.equals(I18n.t(FIELDS.get(r))) ? l : null, null));
+            } else if (r.matches("c\\d{1,18}") || r.matches("n\\d{1,9}")) {
+                Long fid = r.startsWith("c") ? Long.parseLong(r.substring(1)) : null;
+                if (fid != null && !ownCustoms.contains(fid)) throw Fail.notFound(); // чужое поле
+                String type = fid != null ? jdbc.queryForObject("SELECT type FROM kind_fields WHERE id = ?", String.class, fid)
+                        : at(types, i);
+                if (!CUSTOM_TYPES.containsKey(type)) throw Fail.badRequest("kind.badType");
+                if (l.isEmpty()) throw Fail.badRequest("kind.labelRequired");
+                List<Kind.Option> values = type.equals("select") ? parseOptions(at(opts, i), l) : List.of();
+                specs.add(new FieldSpec(null, fid, type, l, values));
+            }
         }
-        setFields(kindId, order, labelOf);
+        if (specs.stream().filter(sp -> sp.role() == null).count() > MAX_CUSTOM)
+            throw Fail.badRequest("kind.tooManyFields", MAX_CUSTOM);
+        setFields(kindId, specs);
         Long statusField = fieldIdOfKind(kindId, "status");
         if (statusField != null) setOptions(statusField, options);
         return kindId;
@@ -248,20 +288,60 @@ public class Repo {
     /** Наибольшая длина своей подписи поля. */
     public static final int MAX_LABEL = 60;
 
-    /** Поля типа: роли по порядку и свои подписи; прежние поля этих ролей остаются (с их значениями), прочие удаляются. */
-    private void setFields(long kindId, List<String> roles, Map<String, String> labels) {
-        Map<String, Long> existing = new HashMap<>();
+    /** Поле в форме типа: встроенное (role) или своё (id — существующее, null — новое; вид, подпись, значения списка). */
+    private record FieldSpec(String role, Long id, String type, String label, List<Kind.Option> options) {}
+
+    private static String at(List<String> list, int i) {
+        return list != null && i < list.size() ? trim(list.get(i)) : "";
+    }
+
+    /** Значения списка из формы: по одному в строке, пустые пропускаются, повтор (без учёта регистра) — ошибка. */
+    private static List<Kind.Option> parseOptions(String text, String field) {
+        List<Kind.Option> res = new java.util.ArrayList<>();
+        Set<String> seen = new java.util.HashSet<>();
+        for (String line : text.split("\\R")) {
+            String v = line.trim();
+            if (v.isEmpty()) continue;
+            if (v.length() > MAX_OPTION) throw Fail.badRequest("item.tooLong", MAX_OPTION);
+            if (!seen.add(v.toLowerCase(Locale.ROOT))) throw Fail.badRequest("kind.optionTwice", v, field);
+            res.add(new Kind.Option(v, null));
+        }
+        if (res.isEmpty()) throw Fail.badRequest("kind.optionsRequired", field);
+        if (res.size() > MAX_OPTIONS) throw Fail.badRequest("kind.tooManyOptions", field, MAX_OPTIONS);
+        return res;
+    }
+
+    /** Поля типа по порядку; прежние поля (встроенные — по роли, свои — по id) остаются со значениями, прочие удаляются. */
+    private void setFields(long kindId, List<FieldSpec> specs) {
+        Map<String, Long> roles = new HashMap<>();
         jdbc.query("SELECT role, id FROM kind_fields WHERE kind_id = ? AND role IS NOT NULL",
-                rs -> { existing.put(rs.getString(1), rs.getLong(2)); }, kindId);
-        for (Map.Entry<String, Long> e : existing.entrySet())
-            if (!roles.contains(e.getKey())) jdbc.update("DELETE FROM kind_fields WHERE id = ?", e.getValue());
-        for (int pos = 0; pos < roles.size(); pos++) {
-            String r = roles.get(pos);
-            if (existing.containsKey(r))
-                jdbc.update("UPDATE kind_fields SET pos = ?, label = ? WHERE id = ?", pos, labels.get(r), existing.get(r));
-            else
-                jdbc.update("INSERT INTO kind_fields (kind_id, pos, role, type, label) VALUES (?, ?, ?, ?, ?)",
-                        kindId, pos, r, TYPES.get(r), labels.get(r));
+                rs -> { roles.put(rs.getString(1), rs.getLong(2)); }, kindId);
+        Set<Long> keep = new java.util.HashSet<>();
+        for (FieldSpec sp : specs) {
+            if (sp.role() != null && roles.containsKey(sp.role())) keep.add(roles.get(sp.role()));
+            if (sp.id() != null) keep.add(sp.id());
+        }
+        for (Long fid : jdbc.queryForList("SELECT id FROM kind_fields WHERE kind_id = ?", Long.class, kindId))
+            if (!keep.contains(fid)) jdbc.update("DELETE FROM kind_fields WHERE id = ?", fid);
+        for (int pos = 0; pos < specs.size(); pos++) {
+            FieldSpec sp = specs.get(pos);
+            if (sp.role() != null) {
+                if (roles.containsKey(sp.role()))
+                    jdbc.update("UPDATE kind_fields SET pos = ?, label = ? WHERE id = ?", pos, sp.label(), roles.get(sp.role()));
+                else
+                    jdbc.update("INSERT INTO kind_fields (kind_id, pos, role, type, label) VALUES (?, ?, ?, ?, ?)",
+                            kindId, pos, sp.role(), TYPES.get(sp.role()), sp.label());
+                continue;
+            }
+            long fid;
+            if (sp.id() != null) {
+                fid = sp.id();
+                jdbc.update("UPDATE kind_fields SET pos = ?, label = ? WHERE id = ?", pos, sp.label(), fid);
+            } else {
+                fid = jdbc.queryForObject("INSERT INTO kind_fields (kind_id, pos, role, type, label) VALUES (?, ?, NULL, ?, ?) "
+                        + "RETURNING id", Long.class, kindId, pos, sp.type(), sp.label());
+            }
+            if (sp.type().equals("select")) setOptions(fid, sp.options());
         }
     }
 
@@ -450,7 +530,7 @@ public class Repo {
         for (DefaultKind d : DEFAULT_KINDS) {
             long kindId = jdbc.queryForObject("INSERT INTO kinds (user_id, name, profile) VALUES (?, ?, ?) RETURNING id",
                     Long.class, uid, I18n.t(d.nameKey()), d.profile());
-            setFields(kindId, d.fields(), Map.of());
+            setFields(kindId, d.fields().stream().map(r -> new FieldSpec(r, null, null, null, null)).toList());
             Long statusField = fieldIdOfKind(kindId, "status");
             if (statusField != null)
                 setOptions(statusField, d.statuses().stream().map(st -> new Kind.Option(st, null)).toList());
@@ -518,12 +598,29 @@ public class Repo {
      * пустые значения всегда в конце, при равенстве — по названию.
      */
     public List<Entry> items(long collectionId, String sort, boolean desc, Map<String, String> filters) {
-        String col = ITEM_SORT.getOrDefault(sort, "name"); // псевдоним столбца ITEM_COLS
+        // своё поле типа коллекции — «c<id>»: сортировка и фильтры по значению в item_values
+        Map<Long, String> customs = new HashMap<>();
+        jdbc.query("SELECT f.id, f.type FROM kind_fields f JOIN collections c ON c.kind_id = f.kind_id "
+                + "WHERE c.id = ? AND f.role IS NULL", rs -> { customs.put(rs.getLong(1), rs.getString(2)); }, collectionId);
+        Long sortCustom = customKey(sort, customs);
+        String col = sortCustom != null ? cval(sortCustom) : ITEM_SORT.getOrDefault(sort, "name"); // иначе — псевдоним столбца ITEM_COLS
+        boolean numeric = col.equals("price") || col.equals("available") || col.equals("rating")
+                || sortCustom != null && List.of("number", "bool").contains(customs.get(sortCustom));
         String order = "(" + col + " IS NULL OR " + col + " = ''), "
-                + col + (col.equals("price") || col.equals("available") || col.equals("rating") ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
+                + col + (numeric ? "" : " COLLATE NOCASE") + (desc ? " DESC" : "")
                 + ", name COLLATE NOCASE, id";
         StringBuilder where = new StringBuilder("collection_id = ?");
         List<Object> args = new java.util.ArrayList<>(List.of(collectionId));
+        for (Map.Entry<String, String> e : filters.entrySet()) {
+            Long fid = customKey(e.getKey(), customs);
+            if (fid == null) continue;
+            if (customs.get(fid).equals("bool")) {
+                where.append(" AND ").append(cval(fid)).append("1".equals(e.getValue()) ? " IS NOT NULL" : " IS NULL");
+            } else {
+                where.append(" AND ").append(cval(fid)).append(" = ?");
+                args.add(e.getValue());
+            }
+        }
         for (String f : SELECT_FILTERS)
             if (filters.containsKey(f)) {
                 where.append(" AND ").append(val(f, "items")).append(" = ?"); // f — только из SELECT_FILTERS
@@ -586,6 +683,94 @@ public class Repo {
 
     private static final Locale RU = Locale.forLanguageTag("ru");
 
+    /** Значение своего поля объекта (подзапрос; items — таблица в запросе). fieldId — число, не ввод пользователя. */
+    private static String cval(long fieldId) {
+        return "(SELECT v.value FROM item_values v WHERE v.item_id = items.id AND v.field_id = " + fieldId + ")";
+    }
+
+    /** id своего поля по ключу «c<id>», если такое поле есть среди customs; иначе null. */
+    private static Long customKey(String key, Map<Long, String> customs) {
+        if (key == null || !key.matches("c\\d{1,18}")) return null;
+        long id = Long.parseLong(key.substring(1));
+        return customs.containsKey(id) ? id : null;
+    }
+
+    // ---------- свои поля: значения ----------
+
+    /** Значения своих полей объектов: id объекта → (id поля → значение: текст или число). Поля — типа коллекции объекта. */
+    public Map<Long, Map<Long, Object>> customValues(java.util.Collection<Long> itemIds) {
+        Map<Long, Map<Long, Object>> res = new HashMap<>();
+        List<Long> ids = List.copyOf(itemIds);
+        for (int i = 0; i < ids.size(); i += 500) { // по частям: у SQLite ограничено число параметров
+            List<Long> part = ids.subList(i, Math.min(ids.size(), i + 500));
+            jdbc.query("SELECT v.item_id, v.field_id, v.value FROM item_values v JOIN kind_fields f ON f.id = v.field_id "
+                    + "JOIN items i ON i.id = v.item_id JOIN collections c ON c.id = i.collection_id "
+                    + "WHERE f.role IS NULL AND f.kind_id = c.kind_id AND v.item_id IN ("
+                    + String.join(",", java.util.Collections.nCopies(part.size(), "?")) + ")", rs -> {
+                Object v = rs.getObject(3);
+                // целые числа — Long (драйвер отдаёт небольшие как Integer)
+                res.computeIfAbsent(rs.getLong(1), x -> new HashMap<>()).put(rs.getLong(2), v instanceof Integer n ? (Object) n.longValue() : v);
+            }, part.toArray());
+        }
+        return res;
+    }
+
+    /** Значения своего поля у объектов коллекции — для выпадающего списка фильтра (по алфавиту, без пустых). */
+    public List<String> customDistinct(long collectionId, long fieldId) {
+        return jdbc.queryForList("SELECT DISTINCT v.value FROM item_values v JOIN items i ON i.id = v.item_id "
+                + "WHERE i.collection_id = ? AND v.field_id = ?", Object.class, collectionId, fieldId).stream()
+                .map(String::valueOf).sorted(alphabetical()).toList();
+    }
+
+    /**
+     * Записывает значение своего поля объекта по виду поля (поле — типа коллекции объекта, иначе ничего): текст и длинный
+     * текст — до MAX_TEXT / MAX_LONGTEXT; число — целое или дробное (точка или запятая); дата — ГГГГ-ММ-ДД; да/нет —
+     * «1» или пусто; список — значение из списка (или прежнее значение). Пусто — значения нет; неверное — 400.
+     */
+    public void setCustom(long itemId, long fieldId, String raw) {
+        List<Map<String, Object>> f = jdbc.queryForList("SELECT f.type FROM kind_fields f JOIN collections c ON c.kind_id = f.kind_id "
+                + "JOIN items i ON i.collection_id = c.id WHERE i.id = ? AND f.id = ? AND f.role IS NULL", itemId, fieldId);
+        if (f.isEmpty()) return;
+        String type = (String) f.get(0).get("type"), v = raw == null ? "" : raw.replace("\r\n", "\n").trim();
+        Object value = v.isEmpty() ? null : switch (type) {
+            case "text" -> limit(v, MAX_TEXT);
+            case "longtext" -> limit(v, MAX_LONGTEXT);
+            case "number" -> number(v);
+            case "date" -> purchaseDate(v);
+            case "bool" -> v.equals("1") || v.equalsIgnoreCase("true") ? 1 : null;
+            case "select" -> {
+                List<String> options = jdbc.queryForList("SELECT value FROM field_options WHERE field_id = ?", String.class, fieldId);
+                Object old = jdbc.queryForList("SELECT value FROM item_values WHERE item_id = ? AND field_id = ?", Object.class,
+                        itemId, fieldId).stream().findFirst().orElse(null);
+                if (!options.contains(v) && !v.equals(String.valueOf(old))) throw Fail.badRequest("item.badOption", v);
+                yield v;
+            }
+            default -> throw new IllegalStateException(type);
+        };
+        List<Object> args = new java.util.ArrayList<>();
+        if (value == null) {
+            jdbc.update("DELETE FROM item_values WHERE item_id = ? AND field_id = ?", itemId, fieldId);
+            return;
+        }
+        args.add(itemId);
+        args.add(fieldId);
+        args.add(value);
+        jdbc.update("INSERT INTO item_values (item_id, field_id, value) VALUES (?, ?, ?) "
+                + "ON CONFLICT (item_id, field_id) DO UPDATE SET value = excluded.value", args.toArray());
+    }
+
+    /** Число из поля: целое — Long, дробное — Double (запятая = точка); не число — 400. */
+    static Number number(String v) {
+        String s = v.replace(',', '.').replace(" ", "").replace("\u00a0", "");
+        try {
+            java.math.BigDecimal d = new java.math.BigDecimal(s);
+            if (d.abs().compareTo(new java.math.BigDecimal("1e15")) >= 0) throw Fail.badRequest("item.badNumber", v);
+            return d.stripTrailingZeros().scale() <= 0 ? (Number) d.longValueExact() : (Number) d.doubleValue();
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw Fail.badRequest("item.badNumber", v);
+        }
+    }
+
     /** Сколько объектов показывать в поиске по всем коллекциям. */
     public static final int SEARCH_LIMIT = 200;
 
@@ -608,6 +793,14 @@ public class Repo {
                     return;
                 }
             }
+        }, uid);
+        // свои поля: текст, длинный текст, список
+        Set<Long> already = new java.util.HashSet<>(ids);
+        jdbc.query("SELECT v.item_id, v.value FROM item_values v JOIN kind_fields f ON f.id = v.field_id "
+                + "JOIN items i ON i.id = v.item_id JOIN collections c ON c.id = i.collection_id "
+                + "WHERE c.user_id = ? AND f.kind_id = c.kind_id AND f.role IS NULL AND f.type IN ('text', 'longtext', 'select')", rs -> {
+            String v = rs.getString(2);
+            if (v != null && v.toLowerCase(RU).contains(q) && already.add(rs.getLong(1))) ids.add(rs.getLong(1));
         }, uid);
         if (ids.isEmpty()) return new SearchResult(List.of(), 0);
         List<Entry> found = new java.util.ArrayList<>();

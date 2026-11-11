@@ -497,7 +497,8 @@ public class WebController {
                 fields.put(it.collectionId(), k == null ? Repo.FIELDS.keySet() : k.fields());
             }
             m.addAttribute("kindFields", fields);
-            m.addAttribute("itemJson", itemJson(r.items(), it -> kinds.get(it.collectionId())));
+            m.addAttribute("itemJson", itemJson(r.items(), it -> kinds.get(it.collectionId()),
+                    repo.customValues(r.items().stream().map(Entry::id).toList())));
         }
         return "search";
     }
@@ -566,6 +567,37 @@ public class WebController {
         return f != null && f.label() != null ? f.label() : I18n.t(defaultKey);
     }
 
+    /** Значения списка для фильтра: сначала значения из настроек поля, за ними прежние значения не из списка. */
+    private static List<String> mergeOptions(List<String> options, List<String> used) {
+        List<String> res = new ArrayList<>(options);
+        for (String u : used) if (!res.contains(u)) res.add(u);
+        return res;
+    }
+
+    /**
+     * Значения своих полей для показа в таблице: id объекта → («c<id>» → текст): число — с разрядами, дата —
+     * по языку интерфейса, да/нет — «1» (ячейка рисует галочку), остальное — как есть.
+     */
+    private static Map<Long, Map<String, String>> customText(Kind kind, Map<Long, Map<Long, Object>> values) {
+        Map<Long, Map<String, String>> res = new java.util.HashMap<>();
+        if (kind == null) return res;
+        values.forEach((itemId, byField) -> {
+            Map<String, String> row = new java.util.HashMap<>();
+            for (Kind.Field cf : kind.customs()) {
+                Object v = byField.get(cf.id());
+                if (v != null) row.put(cf.key(), switch (cf.type()) {
+                    case "number" -> v instanceof Number n && n.doubleValue() == Math.rint(n.doubleValue())
+                            ? formatPrice(n.longValue()) : String.valueOf(v);
+                    case "date" -> Entry.dateText(String.valueOf(v));
+                    case "bool" -> "1";
+                    default -> String.valueOf(v);
+                });
+            }
+            res.put(itemId, row);
+        });
+        return res;
+    }
+
     /** Подписи полей типа для шаблонов: роль → подпись (своя или стандартная); без типа — стандартные. */
     private static Map<String, String> labels(Kind kind) {
         if (kind != null) return kind.labels();
@@ -624,6 +656,23 @@ public class WebController {
             };
             if (col != null) cols.add(col);
         }
+        // свои поля — тоже в порядке типа (длинный текст в таблице не показывается)
+        List<String> order = kind == null ? List.of() : kind.keys();
+        Map<String, String> customTypes = new java.util.HashMap<>();
+        if (kind != null)
+            for (Kind.Field cf : kind.customs()) {
+                customTypes.put(cf.key(), cf.type());
+                if (cf.type().equals("longtext")) continue;
+                cols.add(new Col(cf.key(), cf.label(), switch (cf.type()) {
+                    case "number" -> "num";
+                    case "date" -> "date";
+                    case "bool" -> "flag";
+                    default -> "";
+                }));
+            }
+        // столбцы — в порядке полей типа (название — первым)
+        cols.sort(java.util.Comparator.comparingInt(col -> col.key().equals("name") ? -1 : order.indexOf(col.key())));
+        m.addAttribute("customTypes", customTypes);
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
@@ -652,7 +701,22 @@ public class WebController {
         if (fields.contains("rating") && fRating != null && fRating.matches("[0-5]")) filters.put("rating", fRating);
         // Картинки (есть у всех объектов): «any» — есть, «0» — нет, «1»…«5» — ровно столько
         if (fImages != null && fImages.matches("any|[0-" + ImageFiles.MAX_IMAGES + "]")) filters.put("images", fImages);
-        Map<String, List<String>> filterOptions = new java.util.HashMap<>();
+        // Свои поля: f_c<id> — да/нет: «1» / «0»; список и текст — значение
+        Map<String, List<String>> customOptions = new java.util.HashMap<>();
+        if (kind != null)
+            for (Kind.Field cf : kind.customs()) {
+                String v = req.getParameter("f_" + cf.key());
+                switch (cf.type()) {
+                    case "bool" -> { if ("1".equals(v) || "0".equals(v)) filters.put(cf.key(), v); }
+                    case "select", "text" -> {
+                        putFilter(filters, cf.key(), v);
+                        customOptions.put(cf.key(), cf.type().equals("select")
+                                ? mergeOptions(cf.values(), repo.customDistinct(id, cf.id())) : repo.customDistinct(id, cf.id()));
+                    }
+                    default -> { }
+                }
+            }
+        Map<String, List<String>> filterOptions = new java.util.HashMap<>(customOptions);
         for (String f : Repo.SELECT_FILTERS)
             if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
         for (String f : List.of("edition", "tags", "purchased"))
@@ -683,12 +747,17 @@ public class WebController {
         m.addAttribute("c", c);
         m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
-        m.addAttribute("sortable", Repo.ITEM_SORT.keySet());
+        // сортировать можно по встроенным полям из ITEM_SORT и по своим (кроме длинного текста — его нет в таблице)
+        Set<String> sortable = new java.util.HashSet<>(Repo.ITEM_SORT.keySet());
+        sortable.addAll(customTypes.keySet());
+        m.addAttribute("sortable", sortable);
         // Массовые действия: куда можно перенести объекты — другие коллекции пользователя
         m.addAttribute("moveTargets", repo.collections(uid).stream().filter(x -> x.id() != id).toList());
         List<Entry> pageItems = found.subList(fromIdx, Math.min(fromIdx + size, total));
         m.addAttribute("items", pageItems);
-        m.addAttribute("itemJson", itemJson(pageItems, it -> kind));
+        Map<Long, Map<Long, Object>> custom = repo.customValues(pageItems.stream().map(Entry::id).toList());
+        m.addAttribute("itemJson", itemJson(pageItems, it -> kind, custom));
+        m.addAttribute("customText", customText(kind, custom));
         m.addAttribute("kindJson", kindJson(kind));
         // В режиме дублей при сортировке по названию — первая строка каждой группы (над ней линия)
         Set<Long> groupStarts = new java.util.HashSet<>();
@@ -854,10 +923,12 @@ public class WebController {
     @PostMapping("/collections/{cid}/items/new")
     public String createItem(@SessionAttribute("uid") long uid, @PathVariable long cid,
                              @org.springframework.web.bind.annotation.ModelAttribute Repo.ItemForm form,
-                             @RequestParam Map<String, MultipartFile> files, @RequestParam(required = false) String view) {
+                             @RequestParam Map<String, MultipartFile> files, @RequestParam(required = false) String view,
+                             HttpServletRequest req) {
         Entry c = repo.collection(uid, cid);
         long id = repo.createItem(cid);
         repo.saveItem(uid, id, c.kind(), form, newImages(files), Set.of());
+        saveCustoms(id, req);
         return "redirect:" + collectionUrl(cid, view);
     }
 
@@ -866,6 +937,17 @@ public class WebController {
         Entry it = repo.item(uid, id);
         String v = isView(view) ? view : repo.collectionView(uid, it.collectionId());
         return "redirect:" + withParam(collectionUrl(it.collectionId(), v), "open=" + id);
+    }
+
+    /**
+     * Свои поля из окна объекта: параметры cf_<id поля> (у «да/нет» — скрытое 0 и галочка 1: берётся последнее значение).
+     * Поля, которых нет в форме, не меняются; поля не из типа коллекции объекта пропускает Repo.setCustom.
+     */
+    private void saveCustoms(long itemId, HttpServletRequest req) {
+        req.getParameterMap().forEach((name, values) -> {
+            if (name.matches("cf_\\d{1,18}") && values.length > 0)
+                repo.setCustom(itemId, Long.parseLong(name.substring(3)), values[values.length - 1]);
+        });
     }
 
     /** Добавляет параметр к адресу (с «?» или «&»). */
@@ -878,7 +960,8 @@ public class WebController {
     @org.springframework.web.bind.annotation.ResponseBody
     public Map<String, Object> itemData(@SessionAttribute("uid") long uid, @PathVariable long id) {
         Entry it = repo.item(uid, id);
-        return itemData(it, repo.kindByName(uid, repo.collection(uid, it.collectionId()).kind()));
+        return itemData(it, repo.kindByName(uid, repo.collection(uid, it.collectionId()).kind()),
+                repo.customValues(List.of(id)).getOrDefault(id, Map.of()));
     }
 
     /**
@@ -886,11 +969,15 @@ public class WebController {
      * data-item, JSON), и для /items/{id}/data. fields — поля типа коллекции объекта (окно показывает только их).
      * Новое поле объекта добавлять сюда и в окно (base :: itemDialog).
      */
-    private static Map<String, Object> itemData(Entry it, Kind kind) {
+    private static Map<String, Object> itemData(Entry it, Kind kind, Map<Long, Object> custom) {
         Map<String, Object> d = new java.util.HashMap<>();
         d.put("id", it.id());
         d.put("cid", it.collectionId());
         d.putAll(kindData(kind));
+        // свои поля: «c<id>» → значение (текстом)
+        Map<String, String> cv = new java.util.HashMap<>();
+        custom.forEach((fid, v) -> cv.put("c" + fid, String.valueOf(v)));
+        d.put("custom", cv);
         d.put("name", it.name());
         d.put("platform", it.platform());
         d.put("format", it.format());
@@ -914,7 +1001,13 @@ public class WebController {
      */
     private static Map<String, Object> kindData(Kind kind) {
         Map<String, Object> d = new java.util.HashMap<>();
-        d.put("fields", String.join(",", kind == null ? Repo.FIELDS.keySet() : kind.fields()));
+        d.put("fields", String.join(",", kind == null ? Repo.FIELDS.keySet() : kind.keys()));
+        // свои поля: ключ, подпись, вид, значения списка — окно создаёт для них строки
+        List<Map<String, Object>> customs = new ArrayList<>();
+        if (kind != null)
+            for (Kind.Field cf : kind.customs())
+                customs.add(Map.of("key", cf.key(), "label", cf.label(), "type", cf.type(), "options", cf.values()));
+        d.put("customs", customs);
         Map<String, String> own = new java.util.HashMap<>();
         if (kind != null)
             for (Kind.Field f : kind.defs())
@@ -936,11 +1029,12 @@ public class WebController {
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 
     /** Данные объектов для атрибута data-item строк таблицы: id → JSON. kindOf — тип коллекции объекта. */
-    private static Map<Long, String> itemJson(List<Entry> items, java.util.function.Function<Entry, Kind> kindOf) {
+    private static Map<Long, String> itemJson(List<Entry> items, java.util.function.Function<Entry, Kind> kindOf,
+                                              Map<Long, Map<Long, Object>> custom) {
         Map<Long, String> res = new java.util.HashMap<>();
         for (Entry it : items) {
             try {
-                res.put(it.id(), JSON.writeValueAsString(itemData(it, kindOf.apply(it))));
+                res.put(it.id(), JSON.writeValueAsString(itemData(it, kindOf.apply(it), custom.getOrDefault(it.id(), Map.of()))));
             } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
                 throw new IllegalStateException(e);
             }
@@ -953,10 +1047,12 @@ public class WebController {
                            @org.springframework.web.bind.annotation.ModelAttribute Repo.ItemForm form,
                            @RequestParam Map<String, MultipartFile> files,
                            @RequestParam(name = "remove", required = false) List<Integer> remove,
-                           @RequestParam(required = false) String view, @RequestParam(required = false) String q) {
+                           @RequestParam(required = false) String view, @RequestParam(required = false) String q,
+                           HttpServletRequest req) {
         Entry it = repo.item(uid, id);
         repo.saveItem(uid, id, repo.collection(uid, it.collectionId()).kind(), form, newImages(files),
                 remove == null ? Set.of() : Set.copyOf(remove));
+        saveCustoms(id, req);
         return "redirect:" + backUrl(it.collectionId(), view, q);
     }
 
@@ -1042,9 +1138,11 @@ public class WebController {
                              @RequestParam(name = "role", required = false) List<String> roles,
                              @RequestParam(name = "on", required = false) List<String> enabled,
                              @RequestParam(name = "label", required = false) List<String> labels,
+                             @RequestParam(name = "type", required = false) List<String> types,
+                             @RequestParam(name = "opts", required = false) List<String> opts,
                              @RequestParam(name = "st", required = false) List<String> statuses,
                              @RequestParam(name = "stc", required = false) List<String> colors) {
-        repo.saveKind(uid, null, name, profile, roles, enabled, labels, statuses, colors);
+        repo.saveKind(uid, null, name, profile, roles, enabled, labels, types, opts, statuses, colors);
         return "redirect:/kinds";
     }
 
@@ -1060,9 +1158,11 @@ public class WebController {
                            @RequestParam(name = "role", required = false) List<String> roles,
                            @RequestParam(name = "on", required = false) List<String> enabled,
                            @RequestParam(name = "label", required = false) List<String> labels,
+                           @RequestParam(name = "type", required = false) List<String> types,
+                           @RequestParam(name = "opts", required = false) List<String> opts,
                            @RequestParam(name = "st", required = false) List<String> statuses,
                            @RequestParam(name = "stc", required = false) List<String> colors) {
-        repo.saveKind(uid, id, name, profile, roles, enabled, labels, statuses, colors);
+        repo.saveKind(uid, id, name, profile, roles, enabled, labels, types, opts, statuses, colors);
         return "redirect:/kinds";
     }
 
@@ -1072,8 +1172,15 @@ public class WebController {
         return "redirect:/kinds";
     }
 
-    /** Строка поля в форме типа: роль, стандартная подпись, своя подпись (или ""), включено ли поле. */
-    public record KindFieldRow(String role, String defaultLabel, String label, boolean on) {}
+    /**
+     * Строка поля в форме типа: ключ (роль встроенного или «c<id>» своего), стандартная подпись (у своего — пусто),
+     * подпись (своя или ""), включено ли, вид своего поля (у встроенного — ""), значения списка по строкам.
+     */
+    public record KindFieldRow(String role, String defaultLabel, String label, boolean on, String type, String opts) {
+        public boolean custom() {
+            return !type.isEmpty();
+        }
+    }
 
     private String kindForm(long uid, Model m, Kind kind, String title) {
         m.addAttribute("kind", kind);
@@ -1081,13 +1188,18 @@ public class WebController {
         // Поля: сначала поля типа в его порядке, за ними остальные из набора (выключенные) — порядок меняется стрелками
         List<KindFieldRow> rows = new ArrayList<>();
         if (kind != null)
-            for (String r : kind.fields()) {
-                Kind.Field f = kind.field(r);
-                rows.add(new KindFieldRow(r, I18n.t(Repo.FIELDS.get(r)), f.label() == null ? "" : f.label(), true));
+            for (String key : kind.keys()) {
+                Kind.Field f = kind.field(key);
+                rows.add(f.custom()
+                        ? new KindFieldRow(key, "", f.label(), true, f.type(), String.join("\n", f.values()))
+                        : new KindFieldRow(key, I18n.t(Repo.FIELDS.get(key)), f.label() == null ? "" : f.label(), true, "", ""));
             }
         for (String r : Repo.FIELDS.keySet())
-            if (kind == null || !kind.fields().contains(r)) rows.add(new KindFieldRow(r, I18n.t(Repo.FIELDS.get(r)), "", false));
+            if (kind == null || !kind.fields().contains(r))
+                rows.add(new KindFieldRow(r, I18n.t(Repo.FIELDS.get(r)), "", false, "", ""));
         m.addAttribute("rows", rows);
+        m.addAttribute("customTypes", Repo.CUSTOM_TYPES);
+        m.addAttribute("maxCustom", Repo.MAX_CUSTOM);
         // Статусы с цветами по порядку и две пустые строки для новых (ещё строки добавляет кнопка «Добавить статус»)
         List<Kind.Option> statuses = new ArrayList<>();
         if (kind != null && kind.field("status") != null) statuses.addAll(kind.field("status").options());

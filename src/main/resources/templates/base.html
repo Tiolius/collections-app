@@ -8,7 +8,7 @@
 <script th:inline="javascript">
   // Тексты для скриптов страниц — на языке интерфейса (messages*.properties, ключи js.*)
   var T = {
-    confirm: [[#{js.confirm}]], close: [[#{js.close}]], cancel: [[#{js.cancel}]], del: [[#{js.delete}]],
+    yes: [[#{js.yes}]], confirm: [[#{js.confirm}]], close: [[#{js.close}]], cancel: [[#{js.cancel}]], del: [[#{js.delete}]],
     openFull: [[#{js.openFull}]], willRemove: [[#{js.willRemove}]], newImage: [[#{js.newImage}]],
     ratingOf: [[#{js.ratingOf}]], ratingNone: [[#{js.ratingNone}]], decimal: [[#{js.decimal}]],
     ogNeedId: [[#{js.ogNeedId}]], ogLoading: [[#{js.ogLoading}]], ogLoaded: [[#{js.ogLoaded}]], ogAnd: [[#{js.ogAnd}]],
@@ -454,9 +454,43 @@
     var iv = imageViewer(dlg);
     // Поля типа коллекции объекта (k.fields — роли по порядку): видны в этом порядке перед «Описанием», со своими
     // подписями (k.labels; нет — подпись из разметки); остальные скрыты и отключены (не отправляются — не меняются)
+    // Строка своего поля (c — {key, label, type, options}): поле формы cf_<id>; «да/нет» — скрытое 0 и галочка 1
+    function customRow(c) {
+      var r = document.createElement('div'), id = 'd-' + c.key, name = 'cf_' + c.key.substring(1), input;
+      r.className = 'frow custom'; r.dataset.field = c.key;
+      var label = document.createElement('label');
+      label.htmlFor = id; label.textContent = c.label; label.dataset.def = c.label;
+      if (c.type === 'longtext') {
+        input = document.createElement('textarea'); input.rows = 2; input.maxLength = 2000; input.spellcheck = false;
+      } else if (c.type === 'select') {
+        input = document.createElement('select');
+        input.add(new Option('—', ''));
+        c.options.forEach(function (v) { input.add(new Option(v, v)); });
+      } else if (c.type === 'bool') {
+        var box = document.createElement('span'), hidden = document.createElement('input'), l = document.createElement('label');
+        hidden.type = 'hidden'; hidden.name = name; hidden.value = '0';
+        input = document.createElement('input'); input.type = 'checkbox'; input.value = '1';
+        l.className = 'radio'; l.appendChild(input); l.appendChild(document.createTextNode(' ' + T.yes));
+        box.appendChild(hidden); box.appendChild(l);
+        input.id = id; input.name = name;
+        r.appendChild(label); r.appendChild(box);
+        return r;
+      } else {
+        input = document.createElement('input');
+        input.type = c.type === 'number' ? 'text' : c.type === 'date' ? 'date' : 'text';
+        if (c.type === 'number') input.inputMode = 'decimal';
+        if (c.type === 'text') input.maxLength = 500;
+      }
+      input.id = id; input.name = name; input.autocomplete = 'off';
+      r.appendChild(label); r.appendChild(input);
+      return r;
+    }
     function showFields(k) {
       var on = (k.fields || '').split(','), labels = k.labels || {}, rows = 1;
       var f = dlg.querySelector('.form'), anchor = f.querySelector('label[for=d-description]');
+      // свои поля — строки по описанию типа (прежние строки другого типа убираются)
+      f.querySelectorAll('.frow.custom').forEach(function (r) { r.remove(); });
+      (k.customs || []).forEach(function (c) { f.insertBefore(customRow(c), anchor); });
       on.forEach(function (key) {
         var r = f.querySelector('.frow[data-field="' + key + '"]');
         if (r && key !== 'oldgames') f.insertBefore(r, anchor); // Old-Games.ru — всегда после «Описания»
@@ -498,6 +532,15 @@
       }
       st.value = v;
       setRating(dlg.querySelector('.rating-input'), +d.rating || 0);
+      // свои поля: значения (у списка прежнее значение не из списка — отдельным пунктом)
+      var custom = d.custom || {};
+      dlg.querySelectorAll('.frow.custom').forEach(function (r) {
+        var key = r.dataset.field, v = custom[key] == null ? '' : custom[key], el = $('d-' + key);
+        if (el.type === 'checkbox') { el.checked = v === '1'; return; }
+        if (el.tagName === 'SELECT' && v && !Array.prototype.some.call(el.options, function (o) { return o.value === v; }))
+          el.add(new Option(v, v));
+        el.value = v;
+      });
       $('d-available').checked = d.available === '1';
       $('d-oldgames').value = d.oldgames || ''; $('d-og-status').hidden = true; ogSync();
       // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены

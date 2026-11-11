@@ -28,15 +28,19 @@ public record Entry(long id, String name, boolean hasImage, Long collectionId, i
 
     /** Дата покупки для показа: «01.05.2024» по-русски, «May 1, 2024» по-английски; null — не указана. */
     public String purchasedText() {
-        if (purchased == null) return null;
+        return purchased == null ? null : dateText(purchased);
+    }
+
+    /** Дата ГГГГ-ММ-ДД для показа по языку интерфейса; не дата — как есть. */
+    public static String dateText(String date) {
         java.util.Locale l = org.springframework.context.i18n.LocaleContextHolder.getLocale();
         java.time.format.DateTimeFormatter f = "en".equals(l.getLanguage())
                 ? java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.ENGLISH)
                 : java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
         try {
-            return java.time.LocalDate.parse(purchased).format(f);
+            return java.time.LocalDate.parse(date).format(f);
         } catch (java.time.format.DateTimeParseException e) {
-            return purchased;
+            return date;
         }
     }
 

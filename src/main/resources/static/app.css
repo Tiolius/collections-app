@@ -494,3 +494,8 @@ table.status-colors input[type=color]:disabled { opacity: .35; }
 @media (max-width: 700px) {
   table.kind-fields input[type=text], table.status-colors input[type=text] { width: 100%; }
 }
+table.kind-fields td.custom-cell { display: flex; flex-direction: column; gap: 4px; }
+table.kind-fields td.custom-cell textarea { width: 220px; resize: vertical; }
+table.kind-fields tr.custom td { padding-top: 4px; }
+#add-field { margin-top: 4px; }
+@media (max-width: 700px) { table.kind-fields td.custom-cell textarea { width: 100%; } }
