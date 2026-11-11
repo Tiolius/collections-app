@@ -113,7 +113,7 @@ public class OldGames {
         }
         String t = page.substring(start, end).replaceAll("(?i)<br\\s*/?>", "\n").replaceAll("(?i)</p>", "\n\n")
                 .replaceAll("<[^>]+>", "");
-        t = ImageImport.cleanDescription(t.replace("<", "&lt;")); // сущности; «<» в тексте не путать с тегами
+        t = Names.cleanDescription(t.replace("<", "&lt;")); // сущности; «<» в тексте не путать с тегами
         if (t == null) return null;
         t = t.replaceAll("[ \\t\\u00a0]+", " ").replaceAll(" *\\n *", "\n").replaceAll("\\n{3,}", "\n\n").trim();
         if (t.length() <= DESCRIPTION_LIMIT) return t;
