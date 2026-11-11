@@ -14,7 +14,7 @@
     <groupId>app</groupId>
     <artifactId>collections-app</artifactId>
     <!-- Версия приложения: показывается в «Настройках» → «О приложении». Повышать при выпуске изменений -->
-    <version>1.16.3</version>
+    <version>1.16.4</version>
 
     <properties>
         <java.version>25</java.version>
@@ -39,6 +39,12 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
+        </dependency>
+        <!-- Тесты (mvn test): JUnit 5, AssertJ, Spring Test — в программу не попадают -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

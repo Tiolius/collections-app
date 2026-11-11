@@ -29,9 +29,9 @@ jobs:
           java-version: '25'
           cache: maven
 
-      - name: Сборка app.jar
+      - name: Тесты и сборка app.jar
         shell: bash
-        run: mvn -B -q package -DskipTests
+        run: mvn -B -q package
 
       - name: Версия из pom.xml
         id: v

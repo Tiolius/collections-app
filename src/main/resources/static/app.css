@@ -1,0 +1,479 @@
+/* Стили приложения (каталожный стиль): подключаются в base :: head; цвета — только через переменные тем */
+/* ===== Оформление в «каталожном» стиле: Tahoma, синие шапки таблиц, серые полосы строк, оранжевый акцент ===== */
+
+/* Цвета. Светлая тема по умолчанию, тёмная — <html data-theme="dark"> (переключатель в шапке) */
+:root {
+  --page: #ddd;           /* поля по бокам */
+  --paper: #fff;          /* основная область */
+  --text: #222; --muted: #666;
+  --link: #1c58a9;        /* ссылки, названия */
+  --blue: #316dbe; --on-blue: #fff;   /* шапки таблиц, основные кнопки, активная вкладка */
+  --orange: #e88a1c; --on-orange: #fff;  /* акцент: активная страница, тип коллекции */
+  --label: #333;          /* подписи полей в формах — тёмный текст, без отдельного синего */
+  --heading: #1c58a9;     /* заголовки страниц — как ссылки, спокойнее шапок таблиц */
+  --zebra: #f5f5f5;       /* чётные строки таблиц */
+  --panel: #f3f3f3;       /* строка фильтров, полоса вкладок, поле только для чтения */
+  --form-bg: #fafafa;
+  --border: #d4d4d4; --input-border: #aaa; --line: #dcdcdc;
+  --bar-from: #fafafa; --bar-to: #e4e4e4; --bar-border: #bdbdbd; --bar-sep: #cfcfcf; --bar-hover: #fff;
+  --btn2-from: #f4f4f4; --btn2-to: #dedede; --btn2-border: #b9b9b9;
+  --hover: #f5f9ff; --icon: #9a9a9a; --placeholder: #ddd;
+  --red: #c62828; --on-red: #fff;
+  --error-bg: #fde3e3; --error-text: #7a1010; --ok-bg: #e2f3dc; --ok-text: #234d14;
+  --tip-bg: #333; --tip-text: #fff;
+  --overlay: rgba(0,0,0,.35); --overlay-hover: rgba(0,0,0,.55); --on-overlay: #fff;  /* кнопки и надписи поверх картинки */
+  --swatch-text: #222;    /* текст на цветном ярлыке статуса (цвета статусов светлые в обеих темах) */
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #15171b; --paper: #1f2227; --text: #dddddd; --muted: #9aa0a8;
+  --link: #6aa8ff; --blue: #316dbe; --on-blue: #fff; --orange: #e88a1c; --on-orange: #fff; --label: #c8ccd2; --heading: #6aa8ff;
+  --zebra: #262a30; --panel: #2a2e35; --form-bg: #23262c;
+  --border: #3a3e46; --input-border: #5a606a; --line: #343840;
+  --bar-from: #2c3037; --bar-to: #22252b; --bar-border: #3a3e46; --bar-sep: #3a3e46; --bar-hover: #34383f;
+  --btn2-from: #353941; --btn2-to: #2b2f36; --btn2-border: #4a4f58;
+  --hover: #26303d; --icon: #8a9099; --placeholder: #33373e;
+  --red: #c62828; --on-red: #fff;
+  --error-bg: #5c2626; --error-text: #fde3e3; --ok-bg: #22432f; --ok-text: #e2f3dc;
+  --tip-bg: #3a3f47; --tip-text: #e6e6e6;  /* тёмная подсказка, светлее фона страницы */
+  --swatch-text: #222;
+}
+
+/* Шрифт: Tahoma (где его нет — Verdana/Liberation Sans) везде (поля, списки и кнопки наследуют). Размер 13px везде, крупнее — только заголовки */
+* { box-sizing: border-box; }
+input, select, button, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+body { font-family: Tahoma, Verdana, "Liberation Sans", Geneva, sans-serif; font-size: 13px; margin: 0; background: var(--page); color: var(--text); }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h2 { margin: 0; font-size: 18px; color: var(--heading); }
+h3.section { margin: 24px 0 10px; padding: 4px 10px; font-size: 14px; color: var(--on-blue); background: var(--blue); }
+main { background: var(--paper); max-width: 1500px; margin: 0 auto; min-height: calc(100vh - 34px); padding: 16px 24px;
+       border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+input[type=checkbox], input[type=radio] { accent-color: var(--blue); width: 15px; height: 15px; }
+
+/* Иконки Material Symbols (встроенный SVG, цвет — как у текста) */
+.mi { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; vertical-align: middle; }
+
+/* Верхнее меню */
+/* Шапка той же ширины, что и белая область страницы (main, до 1500px по центру): кнопки справа заканчиваются
+   ровно на её правой границе, и вертикальная линия идёт из шапки вниз без излома */
+header { display: flex; align-items: center; justify-content: space-between; height: 34px;
+         padding: 0 max(0px, calc((100% - 1500px) / 2));
+         background: linear-gradient(var(--bar-from), var(--bar-to)); border-bottom: 1px solid var(--bar-border); color: var(--text); }
+header a { color: inherit; text-decoration: none; }
+header a:hover { text-decoration: none; }
+/* Логотип — ячейка с линиями слева (по левой границе белой области) и справа, как у кнопок справа */
+header .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: bold; height: 100%; padding: 0 14px 0 24px;
+               border-left: 1px solid var(--bar-sep); border-right: 1px solid var(--bar-sep); }
+header .logo .mi { color: var(--orange); }
+/* Логотип — книги на полке (контурная иконка, рисуется линией, а не заливкой) */
+header .logo .logo-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+header .right, header nav { display: flex; align-items: stretch; height: 100%; }
+header .right { border-right: 1px solid var(--bar-sep); }
+header .user, header a.update, header a.search, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 100%;
+         padding: 0 14px; border: none; border-left: 1px solid var(--bar-sep); background: none; font-weight: bold; cursor: pointer; }
+header .user { cursor: default; }
+header .mi { width: 16px; height: 16px; }
+header a.update { color: var(--orange); }  /* новая версия приложения — администратору */
+header a.settings:hover, header a.update:hover, header a.search:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); }
+/* Язык интерфейса: кнопка-глобус и меню из двух флажков под ней (у правого края кнопки) */
+header .lang { position: relative; display: flex; height: 100%; }
+header .lang-menu { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 150px; padding: 4px 0; margin-top: 1px;
+                    background: var(--paper); border: 1px solid var(--bar-border); box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+header .lang-menu[hidden] { display: none; }
+header .lang-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 12px; border: none;
+                           border-left: 3px solid transparent; background: none; color: var(--text); text-align: left; cursor: pointer; }
+header .lang-menu button:hover { background: var(--hover); }
+header .lang-menu button.active { border-left-color: var(--orange); font-weight: bold; }
+.lang-flag { width: 21px; height: 14px; flex-shrink: 0; box-shadow: 0 0 0 1px var(--border); }  /* рамка: белая полоса видна на белом */
+header .theme .sun, :root[data-theme="dark"] header .theme .moon { display: none; }
+:root[data-theme="dark"] header .theme .sun { display: inline; }
+
+/* Кнопки: основная (синяя), вторичная (серая), удаление (красная) */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 26px; padding: 0 12px;
+       border-radius: 2px; border: 1px solid transparent; background: var(--blue); color: var(--on-blue); font-weight: bold;
+       text-decoration: none; cursor: pointer; white-space: nowrap; }
+.btn:hover { filter: brightness(1.08); text-decoration: none; }
+.btn .mi { width: 16px; height: 16px; margin-left: -2px; }
+.btn.gray, .btn.light { background: linear-gradient(var(--btn2-from), var(--btn2-to)); color: var(--link); border-color: var(--btn2-border); }
+.btn.red { background: var(--red); color: var(--on-red); }
+/* Удаление — серая кнопка с красным текстом (не так бросается в глаза, как синяя «Сохранить») */
+.btn.danger { color: var(--red); }
+.btn.back { width: 26px; padding: 0; background: none; border: none; color: var(--blue); }
+.btn.back .mi { width: 22px; height: 22px; margin: 0; }
+.btn.small { height: 24px; padding: 0 10px; }
+.btn.disabled { opacity: .45; cursor: default; pointer-events: none; }
+form.inline { display: inline; }
+
+/* Иконки действий в строках */
+.icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0;
+        border: none; border-radius: 2px; background: none; color: var(--icon); cursor: pointer; vertical-align: middle; }
+.icon:hover { color: var(--link); background: var(--hover); }
+.icon.red:hover { color: var(--red); }
+.icon.disabled { opacity: .45; cursor: not-allowed; }
+.icon.big { width: 30px; height: 30px; }
+.icon.big .mi { width: 22px; height: 22px; }
+.icon.add { color: var(--blue); }  /* создание: «+» и папка с плюсом */
+.icon.add .mi { width: 26px; height: 26px; }
+.icon.disabled:hover { color: var(--icon); background: none; }
+
+/* Панели, подписи, сообщения */
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.bar .spacer { flex: 1; }
+.muted { color: var(--muted); }
+/* выбор файла (скрипт в head): стандартное поле скрыто, но остаётся в форме — подсказка «выберите файл» встаёт у кнопки */
+.file-pick { position: relative; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; }
+.file-pick input[type=file] { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; }
+.file-pick .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.type { color: var(--orange); }
+.name { font-weight: bold; }
+.empty { color: var(--muted); }
+.error, .ok { padding: 8px 12px; }
+.error { background: var(--error-bg); color: var(--error-text); }
+.ok { background: var(--ok-bg); color: var(--ok-text); }
+
+/* Вход */
+main.auth { min-height: 0; max-width: 520px; margin: 60px auto 0; border: none; background: none; }
+main.auth h2 { margin-bottom: 12px; }
+main.auth .form { grid-template-columns: 160px 1fr; }
+
+/* Вкладки «Настроек»: активная — синяя */
+/* Настройки: разделы столбцом слева, содержимое раздела справа (main.settings) */
+main.settings { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 24px; align-content: start; }
+main.settings > .bar:first-child { grid-column: 1 / -1; }  /* заголовок «Настройки» — на всю ширину */
+main.settings > nav.tabs { grid-column: 1; grid-row: 2 / span 50; align-self: start; }
+main.settings > :not(:first-child):not(nav.tabs) { grid-column: 2; }
+main.settings > nav.tabs + * { margin-top: 0; }  /* содержимое раздела — вровень с верхом списка разделов */
+nav.tabs { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); }
+nav.tabs a { padding: 8px 12px; color: var(--muted); border-left: 3px solid transparent; }
+nav.tabs a + a { border-top: 1px solid var(--line); }
+nav.tabs a:hover { color: var(--link); text-decoration: none; background: var(--hover); }
+nav.tabs a.active { background: var(--blue); color: var(--on-blue); border-left-color: var(--orange); }
+table.users { max-width: 900px; }
+
+/* Главная: карточки коллекций в 2 колонки, 10 на странице */
+.list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.list .row { display: flex; align-items: center; gap: 18px; height: 92px; padding: 0 12px; border: 1px solid var(--border);
+             background: var(--paper); text-decoration: none; color: inherit; min-width: 0; }
+.list .row:hover { background: var(--hover); text-decoration: none; }
+.list .row > div { min-width: 0; }
+.list .name { color: var(--link); margin-bottom: 4px; }
+.list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list .stats { margin-top: 4px; }  /* счётчики коллекции: всего · в наличии · стоимость */
+.list .thumb { width: 76px; height: 76px; }
+.thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; background: var(--placeholder); display: block; }
+
+/* Номера страниц: квадратные ячейки, текущая — оранжевая */
+/* Блок с названием коллекции и кнопками — тонкая рамка и фон, как у форм */
+.collhead { border: 1px solid var(--border); padding: 8px 12px; background: var(--form-bg); }
+.collhead .coll-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin-left: auto; }
+.collhead .thumb { width: 56px; height: 56px; }
+.pages { display: inline-flex; align-items: center; }
+.pages a, .pages b { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 24px; padding: 0 6px;
+                     margin-left: -1px; border: 1px solid var(--input-border); background: var(--paper); color: var(--text); font-weight: normal; }
+.pages a:hover { background: var(--hover); text-decoration: none; }
+.pages b { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
+.pages .muted { padding: 0 4px; }
+
+/* Таблицы: синяя шапка, строки через одну серые */
+table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper); }
+table.items th, table.items td { padding: 3px 6px; text-align: left; }
+table.items th { position: relative; font-weight: bold; }
+table.items thead tr:first-child th { background: var(--blue); color: var(--on-blue); padding: 6px 16px 6px 6px; }
+/* Названия столбцов (содержимое ячеек — как было): в таблицах настроек — по левому краю; в таблице объектов
+   (data-cols) «Название» — по левому краю, остальные — по центру */
+table.items thead tr:first-child th { text-align: left; }
+table.items[data-cols] thead tr:first-child th { text-align: center; padding-left: 16px; }  /* отступы поровну — текст ровно по центру */
+table.items[data-cols] thead tr:first-child th.pic-col { padding-left: 2px; }
+table.items[data-cols] thead tr:first-child th.c-name { text-align: left; padding-left: 6px; }
+/* Галочки строк (массовые действия): узкий первый столбец; выбранная строка подсвечена */
+table.items th.sel, table.items td.sel { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
+table.items[data-cols] thead tr:first-child th.sel { padding: 6px 2px; }
+table.items tbody tr.picked td { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--blue) 12%, transparent); }
+/* Панель массовых действий — над таблицей, пока выбран хотя бы один объект */
+.bulk { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px; padding: 8px 12px;
+        border: 1px solid var(--blue); background: var(--form-bg); }
+.bulk[hidden], .bulk select[hidden] { display: none; }
+table.items th a.sort { color: inherit; display: block; }
+table.items th a.sort:hover { text-decoration: underline; }
+/* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
+table.items thead { position: sticky; top: 0; z-index: 2; }
+table.items tr.filters th { background: var(--panel); padding: 4px 6px; font-weight: normal; border-bottom: 1px solid var(--border); }
+table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0; }
+table.items tr.filters select { min-width: 8em; }
+table.items.fixed tr.filters select { min-width: 0; }
+/* Фильтр цены «от — до»: два поля без стрелок */
+table.items tr.filters .range { display: flex; gap: 4px; }
+table.items tr.filters .range input { min-width: 4.5em; appearance: textfield; -moz-appearance: textfield; }
+table.items.fixed tr.filters .range input { min-width: 0; }
+table.items tr.filters .range input::-webkit-inner-spin-button, table.items tr.filters .range input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+table.items tr.filters .active { border-color: var(--orange); box-shadow: inset 0 0 0 1px var(--orange); }
+table.items tr.head th.actions { padding: 3px 6px; font-weight: normal; }
+/* «Сбросить фильтры» — иконка в строке фильтров; когда фильтры заданы — оранжевая (как активный фильтр) */
+table.items tr.filters th.actions { padding: 2px 6px; }
+/* Иконки после «На странице»: сброс ширины столбцов и фильтров — в одном стиле (серые, при наведении синие;
+   сброс фильтров без заданных фильтров — бледный) */
+.pager-tools { display: inline-flex; align-items: center; gap: 2px; }
+table.items td.empty { text-align: center; padding: 16px; }
+table.items td { height: 30px; line-height: 1.4; }
+table.items tbody tr:nth-child(even) td { background: var(--zebra); }
+/* Цвет строки по статусу (CSS-переменная --row-bg): бледная заливка (полосы зебры не перебивает)
+   при наведении строка чуть темнеет */
+table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 40%, var(--paper)); }
+:root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 18%, var(--paper)); }
+table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04); }
+:root[data-theme="dark"] table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px rgba(255,255,255,.04); }
+table.items[data-cols] td.title { color: var(--link); }
+table.items td.title a.edit-item, table.items td.title a.edit-item:hover, table.items td.title a.edit-item:focus, table.items td.title a.edit-item:active { color: inherit; text-decoration: none; }
+/* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
+table.items tbody tr.gstart td { border-top: 2px solid var(--border); }
+/* Название забирает всё свободное место, остальные столбцы — по содержимому */
+table.items th, table.items td { width: 1%; white-space: nowrap; }
+table.items .title { width: auto; white-space: normal; }
+table.items .num { text-align: right; }
+table.items .actions { text-align: right; }
+/* Границы столбцов — тонкие линии */
+table.items thead tr:first-child th + th { border-left: 1px solid rgba(255,255,255,.6); }
+table.items td + td, table.items tr.filters th + th { border-left: 1px solid var(--line); }
+/* Ручка — невидимая полоса у правого края заголовка (курсор ↔) */
+table.items .grip { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; }
+body.resizing { cursor: col-resize; user-select: none; }
+/* После ручной настройки ширины — фиксированная раскладка, длинный текст обрезается */
+table.items.fixed { table-layout: fixed; }
+table.items.fixed td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.items.fixed td.actions { overflow: visible; }
+/* Цена: иконка глаза, сама цена — в подсказке */
+table.items th.eye, table.items td.eye { text-align: center; }
+/* Наличие: галочка — есть, крестик (бледный) — нет */
+table.items th.flag, table.items td.flag { text-align: center; }
+table.items td.date { text-align: center; }
+/* Теги: небольшие ярлыки в строке */
+.tag { display: inline-block; padding: 0 6px; margin: 1px 4px 1px 0; border: 1px solid var(--line); border-radius: 8px;
+       background: var(--panel); line-height: 18px; }
+/* Рейтинг: контурные звёзды и поверх закрашенные (видна часть ширины) */
+.stars { position: relative; display: inline-block; white-space: nowrap; line-height: 0; vertical-align: middle; }
+.stars .mi { width: 14px; height: 14px; }
+.stars-off { display: inline-block; color: var(--icon); opacity: .6; }
+.stars-on { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; color: var(--orange); }
+.stars.edit { cursor: pointer; }
+.stars.edit .mi { width: 22px; height: 22px; }
+.stars.edit:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.rating-input { display: inline-flex; align-items: center; gap: 8px; min-height: 26px; }
+.rating-input .rating-text { min-width: 3.5em; }
+table.items th.rating, table.items td.rating { text-align: center; white-space: nowrap; }
+table.items td.flag .avail { display: inline-flex; vertical-align: middle; }
+table.items td.flag .avail.yes { color: var(--link); }
+table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
+/* Колонка «есть картинка»: узкая, иконка по центру */
+table.items th.pic-col, table.items td.pic-col { width: 64px; text-align: center; padding-left: 2px; padding-right: 2px; }
+table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
+table.items th.pic-col .mi { width: 15px; height: 15px; }
+table.items tr.filters th.pic-col select { min-width: 0; padding-left: 2px; padding-right: 0; }
+table.items td.pic-col .has-pic { color: var(--icon); display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+table.items td.pic-col .pic-n { line-height: 1; }
+table.items td.pic-col .mi { width: 16px; height: 16px; }
+table.items.fixed td.eye { overflow: visible; }
+.tip { position: relative; cursor: default; }
+.tip.none > svg { opacity: .45; }  /* бледная только иконка: подсказка остаётся непрозрачной */
+.tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
+                background: var(--tip-bg); color: var(--tip-text); padding: 2px 8px; white-space: nowrap; z-index: 3; line-height: 20px;
+                font-weight: normal; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.tip:hover .tiptext, .tip:focus .tiptext { display: block; }
+:root[data-theme="dark"] .tip .tiptext { border: 1px solid var(--input-border); }  /* тёмная подсказка отделена рамкой */
+.tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
+/* Справка: значок «i» у подписи поля и компактная подсказка под ним (с переносами, абзацами — <span>);
+   сдвиг влево и наверх, чтобы не выходила за границы блока и экрана, — скрипт placeTip в base :: head */
+.tip.help { display: inline-flex; vertical-align: middle; margin-left: 4px; color: var(--icon); cursor: help; width: 18px; height: 18px; }
+.tip.help > svg.mi { width: 16px; height: 16px; }
+.tip.help:hover, .tip.help:focus { color: var(--link); background: none; }
+.tip.help .tiptext { top: calc(100% + 4px); left: 0; right: auto; transform: none; width: max-content; max-width: 340px;
+                     white-space: normal; line-height: 1.4; padding: 6px 10px; text-align: left; }
+.tip.help .tiptext.above { top: auto; bottom: calc(100% + 4px); }
+.tip.help:hover .tiptext, .tip.help:focus .tiptext { display: flex; flex-direction: column; gap: 4px; }
+/* Описание под полем — для длинных пояснений, которым тесно в подсказке «i» (источники и Excel на «Импорте»); абзацы — <span> */
+.form .note { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-width: 640px; line-height: 1.4; }
+.icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
+.icon.small .mi { width: 16px; height: 16px; }
+.icon.small:hover { background: none; }
+.meta-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.meta-line > span { white-space: nowrap; }  /* строка «Тип · Объектов · стоимость» на одной линии */
+
+/* Формы: подпись слева (жирная, сине-серая), поле справа */
+.form { background: var(--form-bg); border: 1px solid var(--border); padding: 16px 24px; max-width: 900px;
+        display: grid; grid-template-columns: 200px 1fr; gap: 10px 16px; align-items: center; }
+.form > label { font-weight: bold; color: var(--label); }
+.form > label.at-field { align-self: start; padding-top: 6px; }  /* подпись у верхнего края высокого поля (список) */
+/* короткая подпись: колонка по её ширине; отступ подпись → поле равен отступу поле → кнопка (.inline) */
+.form.compact { --gap: 75px; grid-template-columns: auto 1fr; column-gap: var(--gap); }
+.form.compact .inline { column-gap: var(--gap); }
+.form .full { grid-column: 1 / -1; }
+.form .full.split { display: flex; justify-content: space-between; align-items: center; }  /* кнопки по краям формы */
+.form .full.end { display: flex; justify-content: flex-end; }  /* кнопка у правого края формы */
+.form .inline { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }  /* поле и кнопка в одну строку */
+input[type=text], input[type=number], input[type=password], input[type=search], select {
+    height: 26px; padding: 0 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); }
+input[type=text]:focus, input[type=number]:focus, input[type=password]:focus, input[type=search]:focus, select:focus {
+    outline: none; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+input[readonly] { background: var(--panel); border-color: var(--line); cursor: default; }
+input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
+.form input[type=text], .form input[type=number], .form input[type=password], .form select { width: 100%; max-width: 360px; }
+.form select.narrow { width: auto; }
+.form input.narrow { width: 120px; }
+.form input[name=name] { max-width: none; }
+/* Описание объекта — многострочное поле во всю ширину колонки полей */
+textarea { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 0; background: var(--paper); line-height: 1.4; }
+textarea:focus { outline: none; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.form textarea { width: 100%; resize: vertical; }
+.form label.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-weight: normal; color: var(--text); }
+.form > label.top { align-self: start; padding-top: 24px; }
+table.status-colors { border-collapse: collapse; }
+table.status-colors th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
+table.status-colors td { padding: 0 8px 6px 0; }
+table.status-colors input[type=text] { width: 260px; }
+.form input[type=color] { width: 44px; height: 26px; padding: 2px; border: 1px solid var(--input-border); background: var(--paper); cursor: pointer; }
+/* Модальное окно (изменение объекта): синяя полоса заголовка, внутри — обычная форма */
+dialog.modal { padding: 0; border: 1px solid var(--border); background: var(--form-bg); color: var(--text);
+               width: 640px; max-width: calc(100vw - 32px); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+dialog.modal::backdrop { background: rgba(0,0,0,.4); }
+dialog.modal .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 4px 12px;
+                           background: var(--blue); color: var(--on-blue); font-weight: bold; }
+dialog.modal .modal-head .icon { color: var(--on-blue); }
+dialog.modal .modal-head .icon:hover { background: rgba(255,255,255,.15); color: var(--on-blue); }
+/* Подписи — по ширине самой длинной, небольшой отступ до поля */
+dialog.modal .form { border: none; max-width: none; grid-template-columns: auto 1fr; column-gap: 12px; }
+.swatch { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 8px; border: 1px solid var(--line); color: var(--swatch-text); line-height: 18px; }
+.preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
+/* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
+/* Ширина окна задаётся от картинки (поля 480px + картинка + кнопки и отступы), а не по содержимому:
+   если чему-то не хватит места, ужмётся картинка, а окно не будет прокручиваться вбок */
+dialog.modal.wide { width: min(calc(100vw - 32px), calc(var(--pic-w) + 560px)); overflow-x: hidden; }
+/* Ширина области картинки (4:3): до 800px, но так, чтобы окно помещалось на экране без прокрутки */
+dialog.modal { --pic-w: min(800px, calc(100vw - 600px), calc((100vh - 190px) * 4 / 3)); }
+dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 4px; padding: 10px 24px;
+                         border-top: 1px solid var(--border); background: var(--panel); }
+/* Кнопка, стоящая в разметке после «Сохранить» (чтобы Enter сохранял, а не удалял), но показанная слева */
+.dlg-foot .first, .form .full.split > .first { order: -1; }
+.form .full.split > .btn.danger { display: inline-flex; align-items: center; gap: 4px; }
+/* Окно подтверждения (appConfirm): значок предупреждения и вопрос, внизу «Отмена» и красная «Удалить» */
+dialog.modal.confirm { width: 420px; }
+/* Поле «Old-Games.ru»: адрес, «Загрузить», «Открыть»; под ними — итог загрузки */
+.og-row { display: flex; gap: 6px; align-items: center; }
+.og-row input { flex: 1; min-width: 0; max-width: none !important; }
+.og-load:disabled { opacity: .4; cursor: wait; }  /* идёт загрузка */
+.og-status { margin-top: 4px; }
+.form > label.og-label { align-self: start; padding-top: 6px; }  /* подпись — на уровне поля, а не по центру вместе с итогом */
+.og-status.ok { color: var(--ok-text); }
+.og-status.error { color: var(--red); }
+dialog.modal .confirm-body { display: flex; align-items: center; gap: 12px; padding: 20px 24px; }
+dialog.modal .confirm-body p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+dialog.modal .confirm-icon { color: var(--red); flex-shrink: 0; }
+dialog.modal .confirm-icon .mi { width: 28px; height: 28px; }
+dialog.modal.confirm .dlg-foot { justify-content: flex-end; gap: 8px; }
+.pic { display: block; cursor: pointer; }
+a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не сохранённый файл */
+/* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
+.img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.img-tools label.icon { cursor: pointer; }
+.img-tools .spacer { flex: none; height: 24px; }
+.dlg-image > .viewer { grid-column: 1; grid-row: 1; position: relative; }
+/* Перелистывание картинок: полупрозрачные круглые кнопки у левого и правого края картинки (нажимается вся полоса края),
+   счётчик внизу справа */
+.viewer .nav { position: absolute; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center;
+                            border: none; padding: 0; background: none; color: var(--on-overlay); cursor: pointer; }
+.viewer .nav .mi { width: 44px; height: 44px; padding: 6px; border-radius: 50%; background: var(--overlay); }
+.viewer .nav:hover .mi, .viewer .nav:focus-visible .mi { background: var(--overlay-hover); }
+.viewer .nav.prev { left: 0; }
+.viewer .nav.next { right: 0; }
+.viewer .counter { position: absolute; right: 8px; bottom: 8px; padding: 1px 8px; background: var(--overlay-hover);
+                                color: var(--on-overlay); pointer-events: none; }
+.dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
+.dlg-image [hidden] { display: none !important; }
+/* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
+.no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+                         width: 100%; aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
+                         background: var(--panel); border: 2px dashed var(--border); }
+.no-image .mi { width: 96px; height: 96px; opacity: .6; }
+.no-image b { color: var(--text); }
+.no-image:hover { border-color: var(--blue); color: var(--link); }
+.no-image:hover .mi { opacity: 1; }
+dialog.modal .dlg-body { display: flex; align-items: stretch; }
+dialog.modal .dlg-body > .form { flex: 1; }
+/* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
+dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
+dialog.modal.wide .dlg-body > .form.after-desc { grid-template-rows: repeat(var(--rows), min-content) 1fr min-content; }
+dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
+dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
+dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
+                        justify-content: center; align-items: start; gap: 8px; flex: 1 1 auto; min-width: 0; }
+/* Строка поля в окне объекта (подпись + поле — ячейки сетки формы); поля не своего типа скрыты */
+.frow { display: contents; }
+.frow[hidden] { display: none; }
+/* Новый объект: «Удалить» скрыта, «Сохранить» остаётся справа */
+.dlg-foot > .btn:not(.first) { margin-left: auto; }
+#d-delete[hidden] { display: none; }
+.dlg-image img { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto;
+                              object-fit: contain; background: var(--panel); border: 1px solid var(--border); }
+@media (max-width: 1100px) {
+  dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
+  dialog.modal.wide .dlg-body > .form { flex: none; grid-template-rows: none; }
+  dialog.modal.wide #d-description { height: auto; resize: vertical; }
+  dialog.modal .dlg-image { order: 2; padding: 0 16px 16px 24px; grid-template-columns: minmax(0, 1fr) auto; }  /* сначала поля, под ними картинка */
+  dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка под полями */
+  dialog.modal .dlg-image img, .no-image { width: 100%; }
+}
+/* Экспорт: список коллекций с галочками в столбик */
+.export-list { display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+.export-list .all { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+/* Импорт: прогресс */
+.import-box { border: 1px solid var(--border); background: var(--form-bg); padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 900px; }
+.import-box progress { width: 100%; height: 16px; accent-color: var(--blue); }
+.import-box form { margin: 0; }
+.import-box[hidden], .form[hidden] { display: none; }
+/* Поиск по всем коллекциям */
+.search-form { display: flex; gap: 8px; max-width: 900px; margin-bottom: 16px; }
+.search-form input { flex: 1; min-width: 0; }
+table.items.found { max-width: 1200px; }
+/* Статистика: плитки итогов, полосы (рейтинг, покупки по годам) */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.tile { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); background: var(--form-bg); }
+.tile b { font-size: 18px; color: var(--heading); }
+.tile span { color: var(--muted); }
+.tile .icon { color: var(--icon); }
+table.items.stats td a { display: block; }
+.stat-blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); column-gap: 24px; }
+.bars { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; max-width: 560px; }
+.bar-track { height: 14px; background: var(--panel); border: 1px solid var(--line); }
+.bar-fill { display: block; height: 100%; background: var(--blue); }
+.bar-value { white-space: nowrap; }  /* атрибут hidden иначе перебивается display: grid */
+
+@media (max-width: 420px) {
+  header .logo span { display: none; }  /* узкий телефон: в шапке только значок логотипа, иначе кнопки не помещаются */
+}
+@media (max-width: 700px) {
+  main.settings { grid-template-columns: 1fr; }
+  main.settings > nav.tabs { grid-row: auto; margin-bottom: 14px; }
+  main.settings > :not(:first-child):not(nav.tabs) { grid-column: 1; }
+  main { padding: 12px; border: none; }
+  header .logo { padding-left: 12px; border-left: none; }  /* на телефоне у страницы нет боковых линий */
+  header .right { border-right: none; }
+  .form, .form.compact { grid-template-columns: 1fr; }
+  .list { grid-template-columns: 1fr; }
+  header .user span, header a.settings span, header a.update span { display: none; }
+  /* Таблица объектов на телефоне: название, статус, цена и корзина; платформа, формат и иконка картинки — в окне объекта */
+  table.items .c-platform, table.items .c-format, table.items .c-edition, table.items .c-purchased, table.items .c-tags,
+  table.items .c-rating, table.items .c-available, table.items .pic-col { display: none; }
+  table.items .grip, #reset-widths { display: none; }
+  table.items tr.filters select, table.items tr.filters .range input { min-width: 0; }
+  table.items tr.filters .range { flex-direction: column; gap: 2px; }
+  table.items td.title { overflow-wrap: anywhere; }
+  .collhead { flex-wrap: wrap; align-items: flex-start; }  /* на телефоне стрелка «назад» — по строке названия */
+  .collhead > .back { margin-top: -3px; }   /* (21px строка названия − 26px кнопка) / 2 */
+  .collhead > div { flex: 1 1 200px; min-width: 0; }
+  /* на телефоне иконки — отдельной строкой, начинаются ровно под названием (после стрелки 26px и промежутка 12px;
+     если у коллекции есть картинка — ещё 56px + 12px) */
+  .collhead > .coll-actions { margin-top: 0; margin-left: 36px; }  /* 38px минус внутренний отступ иконки */
+  .collhead:has(> .thumb) > .coll-actions { margin-left: 104px; }
+  .meta-line { column-gap: 12px; }
+  .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
+}
