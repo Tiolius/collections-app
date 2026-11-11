@@ -27,7 +27,8 @@ public class XlsxExport {
         List<Xlsx.Sheet> sheets = new ArrayList<>();
         for (Entry c : collections) {
             Kind kind = repo.kindByName(uid, c.kind());
-            Set<String> fields = new LinkedHashSet<>(repo.itemFields(uid, c.kind()));
+            // все поля типа по порядку: роли встроенных и «c<id>» своих
+            Set<String> fields = new LinkedHashSet<>(kind != null ? kind.keys() : repo.itemFields(uid, c.kind()));
             List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
@@ -35,6 +36,10 @@ public class XlsxExport {
                 Kind.Field def = kind == null ? null : kind.field(f);
                 headers.add(def != null && def.label() != null ? def.label()
                         : I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
+                if (def != null && def.custom()) {
+                    widths.add(def.type().equals("longtext") ? 40 : 18);
+                    continue;
+                }
                 widths.add(switch (f) {
                     case "price", "available", "rating", "purchased", "oldgames" -> 12;
                     case "tags", "notes" -> 30;
@@ -45,10 +50,20 @@ public class XlsxExport {
             headers.add(I18n.t("field.description"));
             widths.add(60);
             List<List<Object>> rows = new ArrayList<>();
-            for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
+            List<Entry> items = repo.items(c.id(), "name", false, Map.of());
+            Map<Long, Map<Long, Object>> custom = repo.customValues(items.stream().map(Entry::id).toList());
+            for (Entry it : items) {
                 List<Object> row = new ArrayList<>();
                 row.add(it.name());
-                for (String f : fields)
+                for (String f : fields) {
+                    Kind.Field def = kind == null ? null : kind.field(f);
+                    if (def != null && def.custom()) {
+                        // своё поле: число — числом, да/нет — «Есть»/«Нет», остальное — текстом
+                        Object v = custom.getOrDefault(it.id(), Map.of()).get(def.id());
+                        row.add(def.type().equals("bool") ? I18n.t(v != null ? "available.yes" : "available.no")
+                                : v instanceof Number ? v : v == null ? null : String.valueOf(v));
+                        continue;
+                    }
                     row.add(switch (f) {
                         case "platform" -> it.platform();
                         case "format" -> it.format();
@@ -63,6 +78,7 @@ public class XlsxExport {
                         case "oldgames" -> it.oldGamesId(); // номер игры в каталоге: «11»
                         default -> null;
                     });
+                }
                 row.add(it.description());
                 rows.add(row);
             }

@@ -96,10 +96,19 @@ public class XlsxImport {
                 Kind target = kinds.stream().filter(x -> x.name().equals(k)).findFirst().orElseThrow();
                 Set<String> fields = target.fields();
                 List<Object> header = sh.rows().get(headerRow);
+                // свои поля типа — по названию поля (как в выгрузке): номер столбца → поле
+                Map<Integer, Kind.Field> customCols = new HashMap<>();
                 for (int c = 0; c < header.size(); c++) {
                     String h = text(header.get(c));
                     if (h == null) continue;
                     String f = cols.get(c);
+                    if (f == null)
+                        for (Kind.Field cf : target.customs())
+                            if (key(cf.label()).equals(key(h)) && !customCols.containsValue(cf)) {
+                                customCols.put(c, cf);
+                                break;
+                            }
+                    if (customCols.containsKey(c)) continue;
                     if (f == null || !(f.equals(NAME) || f.equals(DESCRIPTION) || fields.contains(f))) skipped.add(h);
                 }
                 long cid;
@@ -124,12 +133,26 @@ public class XlsxImport {
                     form = statusOf(form, target);
                     java.util.ArrayDeque<Entry> same = byName.get(nameKey(form.name()));
                     Entry old = same == null ? null : same.poll();
+                    long itemId;
                     if (old != null) {
-                        repo.saveItem(uid, old.id(), k, keepOld(form, old), Map.of(), Set.of());
+                        itemId = old.id();
+                        repo.saveItem(uid, itemId, k, keepOld(form, old), Map.of(), Set.of());
                         changed++;
                     } else {
-                        repo.saveItem(uid, repo.createItem(cid), k, form, Map.of(), Set.of());
+                        itemId = repo.createItem(cid);
+                        repo.saveItem(uid, itemId, k, form, Map.of(), Set.of());
                         added++;
+                    }
+                    // свои поля: пустые ячейки не меняют значение, неверные значения пропускаются
+                    for (Map.Entry<Integer, Kind.Field> cc : customCols.entrySet()) {
+                        Object cell = cc.getKey() < row.size() ? row.get(cc.getKey()) : null;
+                        String v = cc.getValue().type().equals("bool") ? bool(cell) : text(cell);
+                        if (v == null) continue;
+                        try {
+                            repo.setCustom(itemId, cc.getValue().id(), v);
+                        } catch (org.springframework.web.server.ResponseStatusException e) {
+                            // неверное значение — пропускается
+                        }
                     }
                 }
             }
@@ -236,6 +259,16 @@ public class XlsxImport {
 
     private static String cut(String s, int max) {
         return s == null || s.length() <= max ? s : s.substring(0, max).trim();
+    }
+
+    /** «Да / нет» из ячейки: «Есть», «Да», «Yes», «1», «true» — «1»; «Нет», «No», «0», «false» — «0»; пусто и другое — null. */
+    static String bool(Object v) {
+        String s = text(v);
+        if (s == null) return null;
+        String l = s.toLowerCase(Locale.ROOT);
+        if (List.of("1", "true", "да", "есть", "yes", "+").contains(l)) return "1";
+        if (List.of("0", "false", "нет", "no", "-").contains(l)) return "0";
+        return null;
     }
 
     /** Статус как есть; проверяется по списку статусов типа коллекции при загрузке (statusOf). */

@@ -134,6 +134,13 @@
           <option th:each="v : ${filterOptions.get(col.key())}" th:value="${v}" th:text="${v}"
                   th:selected="${v == filters.get(col.key())}"></option>
         </select>
+        <!-- своё поле «да / нет»: Все / Да / Нет -->
+        <select th:if="${customTypes.get(col.key()) == 'bool'}" th:name="${'f_' + col.key()}" form="filter-form"
+                onchange="this.form.requestSubmit()" th:classappend="${filters.containsKey(col.key())} ? 'active'">
+          <option value="" th:text="#{filter.all}">Все</option>
+          <option value="1" th:selected="${filters.get(col.key()) == '1'}" th:text="#{available.yes}">Есть</option>
+          <option value="0" th:selected="${filters.get(col.key()) == '0'}" th:text="#{available.no}">Нет</option>
+        </select>
         <select th:if="${col.key() == 'available'}" name="f_available" form="filter-form"
                 onchange="this.form.requestSubmit()" th:classappend="${filters.containsKey('available')} ? 'active'">
           <option value="" th:text="#{filter.all}">Все</option>
@@ -197,6 +204,14 @@
         <span th:unless="${it.available()}" class="avail no" th:title="#{available.no}" th:aria-label="#{available.no}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></span>
       </td>
       <td th:case="'tags'" class="tags c-tags" th:title="${it.tags()}"><span class="tag" th:each="t : ${it.tagList()}" th:text="${t}"></span></td>
+      <!-- свои поля: значение для показа (customText); «да/нет» — галочкой -->
+      <td th:case="*" th:class="${col.css() + ' c-' + col.key()}"
+          th:with="v=${customText.get(it.id()) == null ? null : customText.get(it.id()).get(col.key())}">
+        <th:block th:if="${customTypes.get(col.key()) == 'bool'}">
+          <span th:if="${v != null}" class="avail yes" th:title="#{available.yes}" th:aria-label="#{available.yes}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg></span>
+        </th:block>
+        <th:block th:unless="${customTypes.get(col.key()) == 'bool'}" th:text="${v}"></th:block>
+      </td>
       </th:block></th:block>
       <td class="pic-col"><span th:if="${it.hasImage()}" class="has-pic" th:title="#{coll.imageCount(${it.imageCount()})}" th:aria-label="#{coll.imageCount(${it.imageCount()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg><span class="pic-n" th:text="${it.imageCount()}">1</span></span></td>
     </tr>
