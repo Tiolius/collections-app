@@ -32,10 +32,12 @@ public class WebController {
     private final Backup backup;
     private final Updates updates;
     private final XlsxImport xlsxImport;
+    private final XlsxExport xlsxExport;
 
     public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames,
-                         Backup backup, Updates updates, XlsxImport xlsxImport) {
+                         Backup backup, Updates updates, XlsxImport xlsxImport, XlsxExport xlsxExport) {
         this.xlsxImport = xlsxImport;
+        this.xlsxExport = xlsxExport;
         this.backup = backup;
         this.updates = updates;
         this.repo = repo;
@@ -269,40 +271,7 @@ public class WebController {
             m.addAttribute("error", I18n.t("export.none"));
             return "export";
         }
-        List<Xlsx.Sheet> sheets = new ArrayList<>();
-        for (Entry c : chosen) {
-            // Описание, заметки и номер Old-Games.ru в Excel не выгружаются (по просьбе пользователя)
-            Set<String> fields = new java.util.LinkedHashSet<>(repo.itemFields(uid, c.kind()));
-            fields.remove("oldgames");
-            fields.remove("notes");
-            List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
-            List<Integer> widths = new ArrayList<>(List.of(60));
-            for (String f : fields) {
-                headers.add(I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
-                widths.add(f.equals("price") || f.equals("available") || f.equals("rating") || f.equals("purchased") ? 12
-                        : f.equals("tags") ? 30 : 22);
-            }
-            List<List<Object>> rows = new ArrayList<>();
-            for (Entry it : repo.items(c.id(), "name", false, Map.of())) {
-                List<Object> row = new ArrayList<>();
-                row.add(it.name());
-                for (String f : fields)
-                    row.add(switch (f) {
-                        case "platform" -> it.platform();
-                        case "format" -> it.format();
-                        case "status" -> it.status();
-                        case "price" -> it.price();
-                        case "available" -> I18n.t(it.available() ? "available.yes" : "available.no");
-                        case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
-                        case "purchased" -> it.purchased(); // ГГГГ-ММ-ДД
-                        case "tags" -> it.tags();
-                        case "edition" -> it.edition();
-                        default -> null;
-                    });
-                rows.add(row);
-            }
-            sheets.add(new Xlsx.Sheet(c.name(), headers, rows, widths));
-        }
+        List<Xlsx.Sheet> sheets = xlsxExport.sheets(uid, chosen);
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         Xlsx.write(out, sheets);
         String file = (chosen.size() == 1 ? chosen.get(0).name() : I18n.t("export.file")) + " " + java.time.LocalDate.now() + ".xlsx";
