@@ -137,21 +137,21 @@
   </form>
 
 <script>
-  // Источник по профилю типа коллекции: игры — Steam (или уже выбранный игровой источник), музыка — Discogs,
-  // книги — FantLab; «другое» — выбор не меняется. При открытой странице с идущим импортом — его источник
+  // Источники по профилю типа коллекции: в списке — только подходящие (игры — Steam, GOG, Nintendo eShop, LaunchBox;
+  // музыка — Discogs; книги — FantLab), у «другое» — все. Выбранный неподходящий источник меняется на первый подходящий
   (function () {
     var coll = document.getElementById('f-coll'), src = document.getElementById('f-source');
     if (!coll || !src) return;
     function pick() {
-      var o = coll.options[coll.selectedIndex], p = o ? o.dataset.profile : '';
-      if (!p || p === 'other') return;
+      var o = coll.options[coll.selectedIndex], p = o ? o.dataset.profile : '', all = !p || p === 'other';
+      Array.prototype.forEach.call(src.options, function (s) { s.hidden = s.disabled = !all && s.dataset.profile !== p; });
       var cur = src.options[src.selectedIndex];
-      if (cur && cur.dataset.profile === p) return;
-      var first = src.querySelector('option[data-profile="' + p + '"]');
+      if (cur && !cur.disabled) return;
+      var first = src.querySelector('option:not([disabled])');
       if (first) { src.value = first.value; src.dispatchEvent(new Event('change')); }
     }
     coll.addEventListener('change', pick);
-    if (!coll.querySelector('option[selected]')) pick();
+    pick();
   })();
   // В описании под «Источником» — только выбранный источник (и общая строка о скорости)
   (function () {

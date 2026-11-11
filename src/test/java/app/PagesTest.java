@@ -91,4 +91,29 @@ class PagesTest extends DbTest {
         // фильтр по своему полю
         assertThat(page(uid, "/collections/" + cid + "?f_c" + auto + "=1")).doesNotContain(">Дюна<");
     }
+
+    @Test
+    void statsShowKindStatusesAndFiltersWork() throws Exception {
+        long uid = newUser();
+        List<String> f = List.of("status", "price");
+        repo.saveKind(uid, null, "Чтение", "books", f, f, List.of("Статус чтения", ""), List.of("Прочитано", "Читаю", "Брошено"),
+                List.of("#aabbcc", "", ""));
+        long cid = newCollection(uid, "Полка", "Чтение");
+        newItem(uid, cid, new Repo.ItemForm("Солярис", null, null, "Прочитано", 300, null, null, null, null, null, null, null, null));
+        newItem(uid, cid, new Repo.ItemForm("Пикник", null, null, "Прочитано", 150, null, null, null, null, null, null, null, null));
+        newItem(uid, cid, new Repo.ItemForm("Улитка", null, null, "Читаю", 90, null, null, null, null, null, null, null, null));
+        String stats = page(uid, "/stats");
+        // статусы — из списка типа, с числами, цветом и ссылкой на фильтр; в итогах — самые частые
+        assertThat(stats).contains("background:#aabbcc").contains("Прочитано <b>2</b>").contains("Читаю <b>1</b>")
+                .contains("Брошено <b>0</b>").contains("f_status=");
+        assertThat(stats).contains("<b>2</b><span>Прочитано</span>");
+        // фильтры таблицы: статус и цена «от — до»
+        String table = page(uid, "/collections/" + cid + "?f_status=Прочитано&f_price_min=200");
+        String rows = table.substring(table.indexOf("<tbody>"), table.indexOf("</tbody>"));
+        assertThat(rows).contains(">Солярис<").doesNotContain(">Пикник<").doesNotContain(">Улитка<");
+        // в списке фильтра статусов — статусы типа по порядку, даже без объектов
+        String head = table.substring(table.indexOf("<thead>"), table.indexOf("</thead>"));
+        assertThat(head.indexOf(">Прочитано<")).isLessThan(head.indexOf(">Читаю<"));
+        assertThat(head).contains(">Брошено<");
+    }
 }

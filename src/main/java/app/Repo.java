@@ -820,24 +820,32 @@ public class Repo {
      * Счётчики коллекции для страницы «Статистика»: объектов, в наличии, пройдено / не пройдено, с рейтингом и средний
      * рейтинг (в звёздах), стоимость, с картинками, с описанием.
      */
-    public record Stats(long collectionId, int items, int available, int completed, int unfinished, int rated,
+    public record Stats(long collectionId, int items, int available, int rated,
                         double avgRating, long price, int withImages, int withDescription) {}
 
     /** Счётчики всех коллекций пользователя: id коллекции → счётчики (коллекции без объектов — нули). */
     public Map<Long, Stats> stats(long uid) {
         Map<Long, Stats> res = new HashMap<>();
-        String rating = val("rating", "i"), status = val("status", "i");
+        String rating = val("rating", "i");
         jdbc.query("SELECT c.id, COUNT(i.id), "
                 + "COALESCE(SUM(" + val("available", "i") + " IS NOT NULL), 0), "
-                + "COALESCE(SUM(" + status + " = 'Completed'), 0), COALESCE(SUM(" + status + " = 'Unfinished'), 0), "
                 + "COUNT(" + rating + "), COALESCE(AVG(" + rating + "), 0), COALESCE(SUM(" + val("price", "i") + "), 0), "
                 + "COALESCE(SUM(EXISTS (SELECT 1 FROM item_pictures p WHERE p.item_id = i.id)), 0), "
                 + "COALESCE(SUM(EXISTS (SELECT 1 FROM item_descriptions d WHERE d.item_id = i.id)), 0) "
                 + "FROM collections c LEFT JOIN items i ON i.collection_id = c.id "
                 + "WHERE c.user_id = ? GROUP BY c.id", rs -> {
-            res.put(rs.getLong(1), new Stats(rs.getLong(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5),
-                    rs.getInt(6), rs.getDouble(7) / 2, rs.getLong(8), rs.getInt(9), rs.getInt(10)));
+            res.put(rs.getLong(1), new Stats(rs.getLong(1), rs.getInt(2), rs.getInt(3),
+                    rs.getInt(4), rs.getDouble(5) / 2, rs.getLong(6), rs.getInt(7), rs.getInt(8)));
         }, uid);
+        return res;
+    }
+
+    /** Сколько объектов с каждым статусом: id коллекции → (статус → число); объекты без статуса не считаются. */
+    public Map<Long, Map<String, Integer>> statusCounts(long uid) {
+        Map<Long, Map<String, Integer>> res = new HashMap<>();
+        jdbc.query("SELECT cid, st, COUNT(*) FROM (SELECT i.collection_id AS cid, " + val("status", "i") + " AS st FROM items i "
+                + "JOIN collections c ON c.id = i.collection_id WHERE c.user_id = ?) WHERE st IS NOT NULL AND st <> '' GROUP BY 1, 2",
+                rs -> { res.computeIfAbsent(rs.getLong(1), x -> new HashMap<>()).put(rs.getString(2), rs.getInt(3)); }, uid);
         return res;
     }
 

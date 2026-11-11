@@ -499,3 +499,6 @@ table.kind-fields td.custom-cell textarea { width: 220px; resize: vertical; }
 table.kind-fields tr.custom td { padding-top: 4px; }
 #add-field { margin-top: 4px; }
 @media (max-width: 700px) { table.kind-fields td.custom-cell textarea { width: 100%; } }
+/* Статистика: статусы коллекции — ссылки-ярлыки со своим цветом */
+table.stats td.statuses a.swatch { text-decoration: none; }
+table.stats td.statuses a.swatch b { margin-left: 2px; }
