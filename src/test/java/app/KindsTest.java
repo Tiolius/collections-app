@@ -147,8 +147,7 @@ class KindsTest extends DbTest {
         assertThat(repo.collectionStats(uid).get(cid)).isEqualTo(new Repo.CollectionStats(1, 150));
         Repo.Stats st = repo.stats(uid).get(cid);
         assertThat(st.items()).isEqualTo(2);
-        assertThat(st.completed()).isEqualTo(1);
-        assertThat(st.unfinished()).isEqualTo(1);
+        assertThat(repo.statusCounts(uid).get(cid)).containsExactlyInAnyOrderEntriesOf(Map.of("Completed", 1, "Unfinished", 1));
         assertThat(st.rated()).isEqualTo(2);
         assertThat(st.avgRating()).isEqualTo(2.75);
         assertThat(st.price()).isEqualTo(150);

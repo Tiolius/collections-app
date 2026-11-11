@@ -503,6 +503,9 @@ public class WebController {
         return "search";
     }
 
+    /** Статус коллекции на странице статистики: значение, сколько объектов, цвет строки (или null). */
+    public record StatusCount(String status, int count, String color) {}
+
     /** Статистика: итоги по всем коллекциям и по каждой, рейтинги, покупки по годам, частые теги. */
     @GetMapping("/stats")
     public String stats(@SessionAttribute("uid") long uid, Model m) {
@@ -510,24 +513,42 @@ public class WebController {
         Map<Long, Repo.Stats> stats = repo.stats(uid);
         Map<Long, Set<String>> fields = new java.util.HashMap<>();
         Map<Long, String> prices = new java.util.HashMap<>();
-        long items = 0, available = 0, completed = 0, unfinished = 0, price = 0, images = 0;
+        Map<Long, Map<String, Integer>> statusCounts = repo.statusCounts(uid);
+        // статусы коллекции — в порядке списка её типа (с цветом), за ними прежние значения не из списка
+        Map<Long, List<StatusCount>> statuses = new java.util.HashMap<>();
+        Map<String, Integer> statusTotals = new java.util.HashMap<>();
+        Map<String, String> kindLabel = new java.util.HashMap<>();
+        long items = 0, available = 0, price = 0, images = 0;
         for (Entry c : all) {
             Repo.Stats s = stats.get(c.id());
-            Set<String> f = repo.itemFields(uid, c.kind());
+            Kind kind = repo.kindByName(uid, c.kind());
+            Set<String> f = kind == null ? Repo.FIELDS.keySet() : kind.fields();
             fields.put(c.id(), f);
             prices.put(c.id(), formatPrice(s.price()));
             items += s.items();
             images += s.withImages();
             if (f.contains("available")) available += s.available();
-            if (f.contains("status")) { completed += s.completed(); unfinished += s.unfinished(); }
             if (f.contains("price")) price += s.price();
+            if (f.contains("status")) {
+                Map<String, Integer> counts = new java.util.LinkedHashMap<>(statusCounts.getOrDefault(c.id(), Map.of()));
+                List<StatusCount> list = new ArrayList<>();
+                Map<String, String> colors = kind == null ? Map.of() : kind.statusColors();
+                for (String st : kind == null ? List.<String>of() : kind.statuses())
+                    list.add(new StatusCount(st, counts.getOrDefault(st, 0), colors.get(st)));
+                counts.forEach((st, n) -> { if (list.stream().noneMatch(x -> x.status().equals(st))) list.add(new StatusCount(st, n, null)); });
+                statuses.put(c.id(), list);
+                for (StatusCount sc : list) statusTotals.merge(sc.status(), sc.count(), Integer::sum);
+            }
         }
+        // итоги: самые частые статусы (до 4), с объектами
+        m.addAttribute("statuses", statuses);
+        m.addAttribute("statusTotals", statusTotals.entrySet().stream().filter(e -> e.getValue() > 0)
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(4).toList());
         m.addAttribute("collections", all);
         m.addAttribute("stats", stats);
         m.addAttribute("kindFields", fields);
         m.addAttribute("prices", prices);
-        m.addAttribute("total", Map.of("items", items, "available", available, "completed", completed,
-                "unfinished", unfinished, "images", images));
+        m.addAttribute("total", Map.of("items", items, "available", available, "images", images));
         m.addAttribute("totalPrice", formatPrice(price));
         m.addAttribute("showPrices", repo.showPrices(uid));
         int[] hist = repo.ratingHistogram(uid);
@@ -565,6 +586,41 @@ public class WebController {
     private static String colLabel(Kind kind, String role, String defaultKey) {
         Kind.Field f = kind == null ? null : kind.field(role);
         return f != null && f.label() != null ? f.label() : I18n.t(defaultKey);
+    }
+
+    /**
+     * Фильтры таблицы объектов из параметров f_<ключ поля> — по виду поля: название и значения из списков (платформа,
+     * формат, статус, регион, тег, свои текст и список) — как есть; год покупки — 4 цифры; цена «от — до» (f_price_min,
+     * f_price_max) — целые числа; наличие и свои «да / нет» — «1» / «0»; рейтинг — «0» (без рейтинга) или «1»…«5» (не меньше
+     * звёзд); картинки (есть у всех) — «any», «0»…«5». Только по полям типа коллекции.
+     */
+    private static Map<String, String> filters(Kind kind, Set<String> fields, HttpServletRequest req) {
+        Map<String, String> res = new java.util.LinkedHashMap<>();
+        putFilter(res, "name", req.getParameter("f_name"));
+        for (String f : List.of("platform", "format", "status", "edition", "tags"))
+            if (fields.contains(f)) putFilter(res, f, req.getParameter("f_" + f));
+        String purchased = req.getParameter("f_purchased");
+        if (fields.contains("purchased") && purchased != null && purchased.matches("\\d{4}")) res.put("purchased", purchased);
+        if (fields.contains("price")) {
+            putPriceFilter(res, "price_min", req.getParameter("f_price_min"));
+            putPriceFilter(res, "price_max", req.getParameter("f_price_max"));
+        }
+        String available = req.getParameter("f_available");
+        if (fields.contains("available") && ("1".equals(available) || "0".equals(available))) res.put("available", available);
+        String rating = req.getParameter("f_rating");
+        if (fields.contains("rating") && rating != null && rating.matches("[0-5]")) res.put("rating", rating);
+        String images = req.getParameter("f_images");
+        if (images != null && images.matches("any|[0-" + ImageFiles.MAX_IMAGES + "]")) res.put("images", images);
+        if (kind != null)
+            for (Kind.Field cf : kind.customs()) {
+                String v = req.getParameter("f_" + cf.key());
+                switch (cf.type()) {
+                    case "bool" -> { if ("1".equals(v) || "0".equals(v)) res.put(cf.key(), v); }
+                    case "select", "text" -> putFilter(res, cf.key(), v);
+                    default -> { }
+                }
+            }
+        return res;
     }
 
     /** Значения списка для фильтра: сначала значения из настроек поля, за ними прежние значения не из списка. */
@@ -611,18 +667,6 @@ public class WebController {
                              @RequestParam(defaultValue = "name") String sort,
                              @RequestParam(defaultValue = "asc") String dir,
                              @RequestParam(defaultValue = "1") int page,
-                             @RequestParam(name = "f_name", required = false) String fName,
-                             @RequestParam(name = "f_platform", required = false) String fPlatform,
-                             @RequestParam(name = "f_format", required = false) String fFormat,
-                             @RequestParam(name = "f_status", required = false) String fStatus,
-                             @RequestParam(name = "f_price_min", required = false) String fPriceMin,
-                             @RequestParam(name = "f_price_max", required = false) String fPriceMax,
-                             @RequestParam(name = "f_available", required = false) String fAvailable,
-                             @RequestParam(name = "f_images", required = false) String fImages,
-                             @RequestParam(name = "f_rating", required = false) String fRating,
-                             @RequestParam(name = "f_edition", required = false) String fEdition,
-                             @RequestParam(name = "f_tags", required = false) String fTags,
-                             @RequestParam(name = "f_purchased", required = false) String fPurchased,
                              @RequestParam(defaultValue = "false") boolean dups,
                              HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
@@ -680,45 +724,19 @@ public class WebController {
         // Объектов на странице — настройка «Отображение»
         int size = repo.pageSizes(uid).items();
 
-        // Фильтры по столбцам (только по тем, что есть у типа коллекции); пустые не учитываются
-        Map<String, String> filters = new java.util.LinkedHashMap<>();
-        putFilter(filters, "name", fName);
-        if (fields.contains("platform")) putFilter(filters, "platform", fPlatform);
-        if (fields.contains("format")) putFilter(filters, "format", fFormat);
-        if (fields.contains("status")) putFilter(filters, "status", fStatus);
-        if (fields.contains("edition")) putFilter(filters, "edition", fEdition);
-        if (fields.contains("tags")) putFilter(filters, "tags", fTags);
-        if (fields.contains("purchased") && fPurchased != null && fPurchased.matches("\\d{4}")) filters.put("purchased", fPurchased);
-        // Цена «от — до» (включительно): только целые числа, остальное не учитывается
-        if (fields.contains("price")) {
-            putPriceFilter(filters, "price_min", fPriceMin);
-            putPriceFilter(filters, "price_max", fPriceMax);
-        }
-        // Наличие: «1» — есть, «0» — нет
-        if (fields.contains("available") && ("1".equals(fAvailable) || "0".equals(fAvailable)))
-            filters.put("available", fAvailable);
-        // Рейтинг: «0» — без рейтинга, «1»…«5» — не меньше стольких звёзд
-        if (fields.contains("rating") && fRating != null && fRating.matches("[0-5]")) filters.put("rating", fRating);
-        // Картинки (есть у всех объектов): «any» — есть, «0» — нет, «1»…«5» — ровно столько
-        if (fImages != null && fImages.matches("any|[0-" + ImageFiles.MAX_IMAGES + "]")) filters.put("images", fImages);
-        // Свои поля: f_c<id> — да/нет: «1» / «0»; список и текст — значение
+        // Фильтры по столбцам (параметры f_<ключ поля>; только по полям типа коллекции); пустые и неверные не учитываются
+        Map<String, String> filters = filters(kind, fields, req);
+        // Значения для выпадающих списков фильтров: списки (статусы, свои списки) — в порядке настроек типа, затем прочие значения
         Map<String, List<String>> customOptions = new java.util.HashMap<>();
         if (kind != null)
-            for (Kind.Field cf : kind.customs()) {
-                String v = req.getParameter("f_" + cf.key());
-                switch (cf.type()) {
-                    case "bool" -> { if ("1".equals(v) || "0".equals(v)) filters.put(cf.key(), v); }
-                    case "select", "text" -> {
-                        putFilter(filters, cf.key(), v);
-                        customOptions.put(cf.key(), cf.type().equals("select")
-                                ? mergeOptions(cf.values(), repo.customDistinct(id, cf.id())) : repo.customDistinct(id, cf.id()));
-                    }
-                    default -> { }
-                }
-            }
+            for (Kind.Field cf : kind.customs())
+                if (cf.type().equals("select") || cf.type().equals("text"))
+                    customOptions.put(cf.key(), cf.type().equals("select")
+                            ? mergeOptions(cf.values(), repo.customDistinct(id, cf.id())) : repo.customDistinct(id, cf.id()));
         Map<String, List<String>> filterOptions = new java.util.HashMap<>(customOptions);
         for (String f : Repo.SELECT_FILTERS)
-            if (fields.contains(f)) filterOptions.put(f, repo.distinctValues(id, f));
+            if (fields.contains(f)) filterOptions.put(f, f.equals("status") && kind != null
+                    ? mergeOptions(kind.statuses(), repo.distinctValues(id, f)) : repo.distinctValues(id, f));
         for (String f : List.of("edition", "tags", "purchased"))
             if (fields.contains(f)) filterOptions.put(f, repo.detailValues(id, f));
         StringBuilder filterQs = new StringBuilder();
