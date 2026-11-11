@@ -350,10 +350,11 @@
 <th:block th:fragment="itemDialog">
 <script th:replace="~{base :: imageViewerScript}"></script>
   <!-- Окно объекта — единственная форма объекта: изменение (из таблицы коллекции, поиска, по адресу open=<id>) и новый
-       объект. В разметке все поля; скрипт показывает поля типа коллекции объекта (data-fields у строки или у окна),
+       объект. В разметке все поля; скрипт показывает поля типа коллекции объекта в порядке типа, со своими подписями
+       и списком статусов (fields, labels, statuses — в data-item строки или, для нового объекта, в data-kind окна),
        у скрытых полей — disabled, чтобы они не отправлялись (нет поля в форме — значение не меняется) -->
   <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title"
-          th:data-fields="${fields == null ? '' : #strings.listJoin(fields, ',')}" th:data-cid="${c != null ? c.id() : ''}"
+          th:data-kind="${kindJson}" th:data-cid="${c != null ? c.id() : ''}"
           th:data-title-edit="#{item.edit}" th:data-title-new="#{item.new}">
     <div class="modal-head">
       <span id="item-dialog-title" th:text="#{item.edit}">Редактировать объект</span>
@@ -386,9 +387,9 @@
       </div>
       <div class="frow" data-field="status">
         <label for="d-status" th:text="#{field.status}">Статус прохождения</label>
+        <!-- значения — список статусов типа коллекции объекта (ставит скрипт окна) -->
         <select id="d-status" name="status">
           <option value="">—</option>
-          <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
         </select>
       </div>
       <div class="frow" data-field="rating">
@@ -451,23 +452,37 @@
     var form = dlg.querySelector('form');
     function $(id) { return document.getElementById(id); }
     var iv = imageViewer(dlg);
-    // Поля типа коллекции объекта: остальные скрыты и отключены (не отправляются — на сервере не меняются)
-    function showFields(list) {
-      var on = (list || '').split(','), rows = 1;
+    // Поля типа коллекции объекта (k.fields — роли по порядку): видны в этом порядке перед «Описанием», со своими
+    // подписями (k.labels; нет — подпись из разметки); остальные скрыты и отключены (не отправляются — не меняются)
+    function showFields(k) {
+      var on = (k.fields || '').split(','), labels = k.labels || {}, rows = 1;
+      var f = dlg.querySelector('.form'), anchor = f.querySelector('label[for=d-description]');
+      on.forEach(function (key) {
+        var r = f.querySelector('.frow[data-field="' + key + '"]');
+        if (r && key !== 'oldgames') f.insertBefore(r, anchor); // Old-Games.ru — всегда после «Описания»
+      });
       dlg.querySelectorAll('.frow').forEach(function (r) {
         var vis = on.indexOf(r.dataset.field) >= 0;
         r.hidden = !vis;
         r.querySelectorAll('input, select, textarea').forEach(function (el) { el.disabled = !vis; });
         if (vis && r.dataset.field !== 'oldgames') rows++;
+        var label = r.querySelector(':scope > label');
+        if (label) {
+          if (label.dataset.def == null) label.dataset.def = label.textContent;
+          label.textContent = labels[r.dataset.field] || label.dataset.def;
+        }
       });
-      var f = dlg.querySelector('.form');
       f.style.setProperty('--rows', rows); // строк до «Описания» (оно растягивается до низа окна)
       f.classList.toggle('after-desc', on.indexOf('oldgames') >= 0);
+      // статусы — список типа
+      var st = $('d-status');
+      while (st.options.length > 1) st.remove(1);
+      (k.statuses || []).forEach(function (v) { st.add(new Option(v, v)); });
     }
     // Открыть окно: d — данные объекта (data-item строки или ответ /items/{id}/data); без d.id — новый объект в коллекции cid
     function open(d, cid) {
       var isNew = !d.id;
-      showFields(d.fields || dlg.dataset.fields);
+      showFields(d.fields != null ? d : JSON.parse(dlg.dataset.kind || '{}'));
       $('item-dialog-title').textContent = isNew ? dlg.dataset.titleNew : dlg.dataset.titleEdit;
       form.action = isNew ? '/collections/' + cid + '/items/new' : '/items/' + d.id + '/edit';
       $('d-delete').hidden = isNew;
@@ -477,7 +492,6 @@
       });
       // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
       var st = $('d-status');
-      st.querySelectorAll('option.legacy').forEach(function (o) { o.remove(); });
       var v = d.status || '';
       if (!Array.prototype.some.call(st.options, function (o) { return o.value === v; })) {
         var o = new Option(v, v); o.className = 'legacy'; st.add(o);

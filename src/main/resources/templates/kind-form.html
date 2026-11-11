@@ -8,40 +8,58 @@
     <a class="btn light back" href="/kinds" th:title="#{nav.back}" th:aria-label="#{nav.back}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
     <h2 th:text="#{${title}}"></h2>
   </div>
-  <form autocomplete="off" class="form" method="post">
+  <!-- Снятие поля у типа, который используется, удаляет значения этого поля у объектов — с подтверждением -->
+  <form autocomplete="off" class="form kind-form" method="post" id="kind-form"
+        th:data-used="${kind != null ? kind.used() : 0}" th:data-confirm="#{kinds.dropConfirm}" th:data-ok="#{btn.save}">
     <label for="f-name" th:text="#{kinds.name} + ' *'">Название типа *</label>
     <input autocomplete="off" id="f-name" type="text" name="name" required autofocus th:value="${kind != null ? kind.name() : ''}">
 
-    <label th:text="#{kinds.fields}">Поля объектов</label>
+    <label for="f-profile"><span th:text="#{kinds.profile}">Профиль</span> <span th:replace="~{base :: info(#{kinds.profileHint})}"></span></label>
+    <select id="f-profile" name="profile" class="narrow" autocomplete="off">
+      <option th:each="p : ${profiles}" th:value="${p.key}" th:text="#{${p.value}}"
+              th:selected="${kind != null ? kind.profile() == p.key : p.key == 'other'}"></option>
+    </select>
+
+    <!-- Поля: галочка — поле есть у типа; своя подпись (пусто — стандартная); стрелки — порядок полей в окне объекта и столбцов таблицы.
+         Порядок строк = порядок полей (role в каждой строке); подписи — в том же порядке -->
+    <label class="top"><span th:text="#{kinds.fields}">Поля объектов</span> <span th:replace="~{base :: info(#{kinds.fieldsHint})}"></span></label>
     <div>
-      <label class="radio"><input type="checkbox" checked disabled> <span th:text="#{field.name}">Название</span></label>
-      <label class="radio" th:each="f : ${fieldNames}">
-        <input type="checkbox" name="fields" th:value="${f.key}" th:checked="${kind != null and kind.fields().contains(f.key)}">
-        <span th:text="${#messages.msg(f.value)}"></span>
-      </label>
+      <table class="kind-fields">
+        <thead><tr><th></th><th th:text="#{kinds.field}">Поле</th><th th:text="#{kinds.ownLabel}">Своя подпись</th><th></th></tr></thead>
+        <tbody>
+          <tr class="fixed"><td><input type="checkbox" checked disabled></td><td th:text="#{field.name}">Название</td><td></td><td></td></tr>
+        </tbody>
+        <tbody id="kind-field-rows">
+          <tr th:each="r : ${rows}" th:data-was-on="${r.on() and kind != null ? '1' : ''}">
+            <td><input type="checkbox" name="on" th:value="${r.role()}" th:checked="${r.on()}" th:id="${'f-on-' + r.role()}" th:aria-label="${r.defaultLabel()}"></td>
+            <td><label th:for="${'f-on-' + r.role()}" th:text="${r.defaultLabel()}"></label><input type="hidden" name="role" th:value="${r.role()}"></td>
+            <td><input type="text" name="label" autocomplete="off" maxlength="60" th:value="${r.label()}" th:placeholder="${r.defaultLabel()}" th:aria-label="#{kinds.ownLabel}"></td>
+            <td class="moves">
+              <button type="button" class="icon move-up" th:title="#{kinds.up}" th:aria-label="#{kinds.up}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-160v-526L222-458l-42-42 300-300 300 300-42 42-228-228v526h-60Z"/></svg></button>
+              <button type="button" class="icon move-down" th:title="#{kinds.down}" th:aria-label="#{kinds.down}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-800v526L222-502l-42 42 300 300 300-300-42-42-228 228v-526h-60Z"/></svg></button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <label class="top"><span th:text="#{kinds.rowColor}">Цвет строки по статусу</span> <span th:replace="~{base :: info(#{kinds.colorHint})}"></span></label>
+    <!-- Статусы (значения поля «Статус»): по порядку; пустая строка не сохраняется; цвет строки объекта — если отмечен -->
+    <label class="top"><span th:text="#{kinds.statuses}">Статусы</span> <span th:replace="~{base :: info(#{kinds.statusesHint})}"></span></label>
     <div>
-      <table class="status-colors">
-        <tr><th th:text="#{field.statusShort}">Статус</th><th th:text="#{kinds.color}">Цвет</th></tr>
-        <tr th:each="e : ${statusColors}">
-          <td><select name="st">
-            <option value="">—</option>
-            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${#strings.equalsIgnoreCase(s, e.key)}"></option>
-            <!-- старое значение не из списка — отдельным пунктом -->
-            <option th:if="${!#lists.contains(statusesLower, #strings.toLowerCase(e.key))}" th:value="${e.key}" th:text="${e.key}" selected></option>
-          </select></td>
-          <td><input type="color" name="stc" th:value="${e.value}"></td>
-        </tr>
-        <tr th:each="i : ${emptyRows}">
-          <td><select name="st">
-            <option value="">—</option>
-            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
-          </select></td>
-          <td><input type="color" name="stc" value="#fefcbf"></td>
-        </tr>
+      <table class="status-colors" id="status-rows" th:data-max="${maxStatuses}">
+        <thead><tr><th th:text="#{field.statusShort}">Статус</th><th th:text="#{kinds.rowColor}">Цвет строки</th></tr></thead>
+        <tbody>
+          <tr th:each="o : ${statusRows}">
+            <td><input type="text" name="st" autocomplete="off" maxlength="60" th:value="${o.value()}" th:aria-label="#{field.statusShort}"></td>
+            <td class="color-cell">
+              <input type="hidden" name="stc" th:value="${o.color() == null ? '' : o.color()}">
+              <label class="radio"><input type="checkbox" class="use-color" th:checked="${o.color() != null}" th:aria-label="#{kinds.rowColor}"></label>
+              <input type="color" class="pick-color" th:value="${o.color() == null ? '#fefcbf' : o.color()}" th:aria-label="#{kinds.color}">
+            </td>
+          </tr>
+        </tbody>
       </table>
+      <button type="button" class="btn gray" id="add-status" th:text="#{kinds.addStatus}">Добавить статус</button>
     </div>
 
     <p class="full muted" style="margin:0" th:if="${kind != null and kind.used() > 0}"
@@ -53,5 +71,51 @@
     </div>
   </form>
 </main>
+<script>
+  (function () {
+    var form = document.getElementById('kind-form');
+    // Порядок полей — стрелками
+    document.getElementById('kind-field-rows').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      var tr = b.closest('tr');
+      if (b.classList.contains('move-up') && tr.previousElementSibling) tr.parentNode.insertBefore(tr, tr.previousElementSibling);
+      if (b.classList.contains('move-down') && tr.nextElementSibling) tr.parentNode.insertBefore(tr.nextElementSibling, tr);
+      b.focus();
+    });
+    // Цвет строки: отправляется в скрытом stc, только если отмечена галочка
+    var rows = document.querySelector('#status-rows tbody');
+    function sync(tr) {
+      var use = tr.querySelector('.use-color'), pick = tr.querySelector('.pick-color');
+      pick.disabled = !use.checked;
+      tr.querySelector('input[name=stc]').value = use.checked ? pick.value : '';
+    }
+    rows.addEventListener('input', function (e) { sync(e.target.closest('tr')); });
+    rows.addEventListener('change', function (e) { sync(e.target.closest('tr')); });
+    rows.querySelectorAll('tr').forEach(sync);
+    // Новая строка статуса — копия последней, пустая
+    var add = document.getElementById('add-status'), max = +document.getElementById('status-rows').dataset.max;
+    function addState() { add.disabled = rows.rows.length >= max; }
+    add.addEventListener('click', function () {
+      var tr = rows.rows[rows.rows.length - 1].cloneNode(true);
+      tr.querySelector('input[name=st]').value = '';
+      tr.querySelector('.use-color').checked = false;
+      tr.querySelector('.pick-color').value = '#fefcbf';
+      rows.appendChild(tr);
+      sync(tr);
+      addState();
+      tr.querySelector('input[name=st]').focus();
+    });
+    addState();
+    // Снято поле, которое было у используемого типа, — его значения у объектов удалятся: подтверждение
+    form.addEventListener('submit', function (e) {
+      if (!+form.dataset.used) return;
+      var dropped = Array.prototype.some.call(form.querySelectorAll('tr[data-was-on="1"]'), function (tr) {
+        return !tr.querySelector('input[name=on]').checked;
+      });
+      if (dropped) appConfirm(e, form.dataset.confirm, form.dataset.ok);
+    });
+  })();
+</script>
 </body>
 </html>

@@ -14,6 +14,7 @@
   <table class="items" th:unless="${kinds.isEmpty()}">
     <thead><tr>
       <th th:text="#{kinds.kind}">Тип коллекции</th>
+      <th th:text="#{kinds.profile}">Профиль</th>
       <th th:text="#{kinds.fields}">Поля объектов</th>
       <th th:text="#{kinds.colors}">Цвета статусов</th>
       <th th:text="#{kinds.used}">Коллекций</th>
@@ -21,7 +22,8 @@
     </tr></thead>
     <tbody><tr th:each="k : ${kinds}">
       <td th:text="${k.name()}"></td>
-      <td class="title" th:text="${#messages.msg('field.name') + (k.fields().isEmpty() ? '' : ', ' + #strings.listJoin(k.fields().![#messages.msg('field.' + #this)], ', '))}"></td>
+      <td th:text="#{${'profile.' + k.profile()}}"></td>
+      <td class="title" th:text="${#messages.msg('field.name') + (k.fields().isEmpty() ? '' : ', ' + #strings.listJoin(k.labels().values(), ', '))}"></td>
       <td>
         <span class="swatch" th:each="e : ${k.statusColors()}" th:style="${'background:' + e.value}" th:text="${e.key}"></span>
       </td>

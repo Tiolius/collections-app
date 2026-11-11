@@ -477,3 +477,20 @@ table.items.stats td a { display: block; }
   .meta-line { column-gap: 12px; }
   .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
 }
+
+/* Форма типа коллекции: поля (галочка, подпись, своя подпись, стрелки порядка) и статусы с цветом строки */
+table.kind-fields { border-collapse: collapse; }
+table.kind-fields th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
+table.kind-fields td { padding: 0 8px 4px 0; vertical-align: middle; }
+table.kind-fields td label { font-weight: normal; color: var(--text); cursor: pointer; }
+table.kind-fields input[type=text] { width: 220px; }
+table.kind-fields tr.fixed td { color: var(--muted); }
+table.kind-fields td.moves { white-space: nowrap; }
+table.kind-fields tbody#kind-field-rows tr:first-child .move-up,
+table.kind-fields tbody#kind-field-rows tr:last-child .move-down { visibility: hidden; }
+table.status-colors td.color-cell { display: flex; align-items: center; gap: 6px; }
+table.status-colors input[type=color]:disabled { opacity: .35; }
+#add-status { margin-top: 2px; }
+@media (max-width: 700px) {
+  table.kind-fields input[type=text], table.status-colors input[type=text] { width: 100%; }
+}

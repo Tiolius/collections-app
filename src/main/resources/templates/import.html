@@ -32,19 +32,20 @@
   <form autocomplete="off" class="form" method="post" action="/import/start" th:unless="${job != null and job.active()}">
     <label for="f-coll" th:text="#{cache.collection}">Коллекция</label>
     <select id="f-coll" name="collection" required>
+      <!-- data-profile — профиль типа коллекции: при выборе коллекции выбирается подходящий источник -->
       <option th:each="c : ${collections}" th:value="${c.id()}" th:text="${c.name() + ' (' + c.count() + ')'}"
-              th:selected="${job != null and job.collectionId == c.id()}"></option>
+              th:data-profile="${profiles.get(c.id())}" th:selected="${job != null and job.collectionId == c.id()}"></option>
     </select>
 
     <label class="at-field" for="f-source" th:text="#{import.source}">Источник</label>
     <div>
       <select id="f-source" name="source">
-        <option value="steam" th:text="|Steam (#{import.games})|" th:selected="${job != null and job.source == 'steam'}">Steam (игры)</option>
-        <option value="gog" th:text="|GOG (#{import.games})|" th:selected="${job != null and job.source == 'gog'}">GOG (игры)</option>
-        <option value="nintendo" th:text="|Nintendo eShop (#{import.games})|" th:selected="${job != null and job.source == 'nintendo'}">Nintendo eShop (игры)</option>
-        <option value="launchbox" th:text="|LaunchBox (#{import.consoleGames})|" th:selected="${job != null and job.source == 'launchbox'}">LaunchBox (игры для консолей)</option>
-        <option value="discogs" th:text="|Discogs (#{import.music})|" th:selected="${job != null and job.source == 'discogs'}">Discogs (музыка)</option>
-        <option value="fantlab" th:text="|FantLab (#{import.books})|" th:selected="${job != null and job.source == 'fantlab'}">FantLab (книги)</option>
+        <option value="steam" data-profile="games" th:text="|Steam (#{import.games})|" th:selected="${job != null and job.source == 'steam'}">Steam (игры)</option>
+        <option value="gog" data-profile="games" th:text="|GOG (#{import.games})|" th:selected="${job != null and job.source == 'gog'}">GOG (игры)</option>
+        <option value="nintendo" data-profile="games" th:text="|Nintendo eShop (#{import.games})|" th:selected="${job != null and job.source == 'nintendo'}">Nintendo eShop (игры)</option>
+        <option value="launchbox" data-profile="games" th:text="|LaunchBox (#{import.consoleGames})|" th:selected="${job != null and job.source == 'launchbox'}">LaunchBox (игры для консолей)</option>
+        <option value="discogs" data-profile="music" th:text="|Discogs (#{import.music})|" th:selected="${job != null and job.source == 'discogs'}">Discogs (музыка)</option>
+        <option value="fantlab" data-profile="books" th:text="|FantLab (#{import.books})|" th:selected="${job != null and job.source == 'fantlab'}">FantLab (книги)</option>
       </select>
       <!-- Описание выбранного источника (остальные скрыты скриптом) и общая строка о скорости -->
       <div class="muted note">
@@ -136,6 +137,22 @@
   </form>
 
 <script>
+  // Источник по профилю типа коллекции: игры — Steam (или уже выбранный игровой источник), музыка — Discogs,
+  // книги — FantLab; «другое» — выбор не меняется. При открытой странице с идущим импортом — его источник
+  (function () {
+    var coll = document.getElementById('f-coll'), src = document.getElementById('f-source');
+    if (!coll || !src) return;
+    function pick() {
+      var o = coll.options[coll.selectedIndex], p = o ? o.dataset.profile : '';
+      if (!p || p === 'other') return;
+      var cur = src.options[src.selectedIndex];
+      if (cur && cur.dataset.profile === p) return;
+      var first = src.querySelector('option[data-profile="' + p + '"]');
+      if (first) { src.value = first.value; src.dispatchEvent(new Event('change')); }
+    }
+    coll.addEventListener('change', pick);
+    if (!coll.querySelector('option[selected]')) pick();
+  })();
   // В описании под «Источником» — только выбранный источник (и общая строка о скорости)
   (function () {
     var sel = document.getElementById('f-source');

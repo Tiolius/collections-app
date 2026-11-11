@@ -65,7 +65,7 @@ public class XlsxImport {
         if (!chosen.isEmpty() && kinds.stream().noneMatch(k -> k.name().equals(chosen)))
             throw Fail.badRequest("coll.kindRequired");
         if (kinds.isEmpty()) throw Fail.badRequest("coll.kindRequired");
-        Map<String, String> labels = labels();
+        Map<String, String> labels = labels(kinds);
         // листы со столбцом «Название» и хотя бы одной строкой под заголовком
         List<Object[]> todo = new ArrayList<>(); // [лист, номер строки заголовков, столбцы: номер → поле]
         for (Xlsx.Sheet sh : sheets) {
@@ -93,7 +93,8 @@ public class XlsxImport {
                 Entry existing = repo.collections(uid).stream().filter(c -> same(c.name(), name)).findFirst().orElse(null);
                 String k = existing != null && kinds.stream().anyMatch(x -> x.name().equals(existing.kind())) ? existing.kind()
                         : chosen.isEmpty() ? bestKind(kinds, cols.values()) : chosen;
-                Set<String> fields = kinds.stream().filter(x -> x.name().equals(k)).findFirst().orElseThrow().fields();
+                Kind target = kinds.stream().filter(x -> x.name().equals(k)).findFirst().orElseThrow();
+                Set<String> fields = target.fields();
                 List<Object> header = sh.rows().get(headerRow);
                 for (int c = 0; c < header.size(); c++) {
                     String h = text(header.get(c));
@@ -120,6 +121,7 @@ public class XlsxImport {
                 for (List<Object> row : sh.rows().subList(headerRow + 1, sh.rows().size())) {
                     Repo.ItemForm form = form(row, cols);
                     if (form == null) continue;
+                    form = statusOf(form, target);
                     java.util.ArrayDeque<Entry> same = byName.get(nameKey(form.name()));
                     Entry old = same == null ? null : same.poll();
                     if (old != null) {
@@ -155,9 +157,15 @@ public class XlsxImport {
                 f.tags(), f.edition(), f.notes(), f.description());
     }
 
-    /** Заголовки столбцов (без регистра и лишних пробелов) → поле: подписи полей на обоих языках и ключи полей. */
-    private static Map<String, String> labels() {
+    /**
+     * Заголовки столбцов (без регистра и лишних пробелов) → поле: свои подписи полей в типах пользователя
+     * (так их выгружает экспорт), стандартные подписи на обоих языках и ключи полей.
+     */
+    private static Map<String, String> labels(List<Kind> kinds) {
         Map<String, String> res = new HashMap<>();
+        for (Kind k : kinds)
+            for (Kind.Field f : k.defs())
+                if (f.role() != null && f.label() != null) res.putIfAbsent(key(f.label()), f.role());
         for (Locale loc : List.of(I18n.RU, Locale.ENGLISH)) {
             res.put(key(I18n.t(loc, "field.name")), NAME);
             res.put(key(I18n.t(loc, "field.description")), DESCRIPTION);
@@ -166,6 +174,7 @@ public class XlsxImport {
             Repo.FIELDS.forEach((f, label) -> res.put(key(I18n.t(loc, label)), f));
         }
         Repo.FIELDS.keySet().forEach(f -> res.put(f, f));
+        // стандартные подписи — главнее своих: свою подпись «Цена» у одного типа не спутать со столбцом другого поля
         res.put(NAME, NAME);
         res.put(DESCRIPTION, DESCRIPTION);
         return res;
@@ -229,11 +238,18 @@ public class XlsxImport {
         return s == null || s.length() <= max ? s : s.substring(0, max).trim();
     }
 
-    /** Статус из списка приложения (без учёта регистра); другое — не загружается. */
+    /** Статус как есть; проверяется по списку статусов типа коллекции при загрузке (statusOf). */
     static String status(Object v) {
-        String s = text(v);
-        if (s == null) return null;
-        return Repo.STATUSES.stream().filter(st -> st.equalsIgnoreCase(s)).findFirst().orElse(null);
+        return text(v);
+    }
+
+    /** Форма со статусом из списка типа (без учёта регистра — как в списке); статуса нет в списке — не загружается. */
+    static Repo.ItemForm statusOf(Repo.ItemForm f, Kind kind) {
+        if (f.status() == null) return f;
+        String st = kind == null ? null
+                : kind.statuses().stream().filter(x -> x.equalsIgnoreCase(f.status())).findFirst().orElse(null);
+        return new Repo.ItemForm(f.name(), f.platform(), f.format(), st, f.price(), f.available(), f.rating(), f.oldgames(),
+                f.purchased(), f.tags(), f.edition(), f.notes(), f.description());
     }
 
     /** Рейтинг в звёздах (0,5…5, как в выгрузке) → 1…10 половинок; другое — не загружается. */
