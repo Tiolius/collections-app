@@ -81,9 +81,9 @@
     <span><span th:text="#{bulk.selected}">Выбрано:</span> <b id="bulk-count">0</b></span>
     <select name="action" id="bulk-action" required>
       <option value="" selected disabled th:text="#{bulk.choose}">— действие —</option>
-      <option value="available" th:if="${fields.contains('available')}" th:text="#{field.available}">Наличие</option>
-      <option value="status" th:if="${fields.contains('status')}" th:text="#{field.status}">Статус прохождения</option>
-      <option value="rating" th:if="${fields.contains('rating')}" th:text="#{field.rating}">Рейтинг</option>
+      <option value="available" th:if="${fields.contains('available')}" th:text="${labels['available']}">Наличие</option>
+      <option value="status" th:if="${fields.contains('status')}" th:text="${labels['status']}">Статус прохождения</option>
+      <option value="rating" th:if="${fields.contains('rating')}" th:text="${labels['rating']}">Рейтинг</option>
       <option value="move" th:unless="${moveTargets.isEmpty()}" th:text="#{bulk.move}">Перенести в коллекцию</option>
       <option value="delete" th:text="#{js.delete}">Удалить</option>
     </select>
@@ -94,7 +94,7 @@
     </select>
     <select name="value" data-for="status" th:if="${fields.contains('status')}" hidden disabled>
       <option value="">—</option>
-      <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+      <option th:each="s : ${kind != null ? kind.statuses() : {}}" th:value="${s}" th:text="${s}"></option>
     </select>
     <select name="value" data-for="rating" th:if="${fields.contains('rating')}" hidden disabled>
       <option value="0" th:text="#{rating.none}">Без рейтинга</option>
@@ -112,10 +112,10 @@
     <thead><tr class="head">
       <th class="sel"><input type="checkbox" id="sel-all" th:title="#{bulk.all}" th:aria-label="#{bulk.all}"></th>
       <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
-        <span th:unless="${sortable.contains(col.key())}" th:text="${#messages.msg(col.label())}"></span>
+        <span th:unless="${sortable.contains(col.key())}" th:text="${col.label()}"></span>
         <a class="sort" th:if="${sortable.contains(col.key())}" th:title="${col.key() == 'price' ? #messages.msg('coll.sortByPrice') : null}"
            th:href="|?sort=${col.key()}&dir=${sort == col.key() and dir == 'asc' ? 'desc' : 'asc'}${filterQs}${modeQs}|"
-           th:text="${#messages.msg(col.label()) + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
+           th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
         <span class="grip" th:title="#{coll.dragWidth}"></span>
       </th>
       <!-- Картинка: иконка у объектов, у которых она есть -->
@@ -140,7 +140,7 @@
           <option value="1" th:selected="${filters.get('available') == '1'}" th:text="#{available.yes}">Есть</option>
           <option value="0" th:selected="${filters.get('available') == '0'}" th:text="#{available.no}">Нет</option>
         </select>
-        <select th:if="${col.key() == 'rating'}" name="f_rating" form="filter-form" th:title="#{field.rating}"
+        <select th:if="${col.key() == 'rating'}" name="f_rating" form="filter-form" th:title="${labels['rating']}"
                 onchange="this.form.requestSubmit()" th:classappend="${filters.containsKey('rating')} ? 'active'">
           <option value="" th:text="#{filter.all}">Все</option>
           <option value="0" th:selected="${filters.get('rating') == '0'}" th:text="#{rating.none}">Без рейтинга</option>
@@ -182,7 +182,7 @@
       <td class="num c-price" th:if="${fields.contains('price') and showPrices}"
           th:text="${it.price() == null ? '' : #numbers.formatInteger(it.price(), 1, 'WHITESPACE') + ' ₽'}"></td>
       <td class="eye c-price" th:if="${fields.contains('price') and !showPrices}">
-        <span class="icon tip" tabindex="0" th:aria-label="#{field.price}" th:classappend="${it.price() == null} ? 'none'">
+        <span class="icon tip" tabindex="0" th:aria-label="${labels['price']}" th:classappend="${it.price() == null} ? 'none'">
           <svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
           <span class="tiptext" th:text="${it.price() == null ? #messages.msg('price.none') : #messages.msg('price.tip', #numbers.formatInteger(it.price(), 1, 'WHITESPACE'))}"></span>
         </span>

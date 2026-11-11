@@ -35,6 +35,13 @@ public class App {
         // Папка для базы должна существовать до подключения к SQLite
         String dataDir = System.getProperty("DATA_DIR", System.getenv().getOrDefault("DATA_DIR", "/data"));
         new File(dataDir).mkdirs();
+        // База прежней версии (до 1.18) не переносится: откладывается в резервный файл, приложение начинает с чистой базы
+        try {
+            DataReset.resetIfOld(Path.of(dataDir));
+        } catch (java.io.IOException e) {
+            System.out.println("Previous data could not be moved aside: " + e.getMessage());
+            return;
+        }
         SpringApplication app = new SpringApplication(App.class);
         // Сообщения в окне программы — по-английски (консоль Windows не всегда показывает кириллицу)
         if (desktop) app.addListeners((ApplicationReadyEvent e) -> {

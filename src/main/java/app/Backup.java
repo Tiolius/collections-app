@@ -137,8 +137,18 @@ public class Backup {
         }
     }
 
-    /** База из архива открывается и в ней есть пользователи — иначе BadBackup. */
+    /**
+     * База из архива открывается, в ней есть пользователи и она этой версии (копия версии до 1.18 не подходит:
+     * её база не переносится, см. DataReset) — иначе BadBackup.
+     */
     private static void checkDb(Path db) throws BadBackup {
+        boolean old;
+        try {
+            old = DataReset.isOld(db);
+        } catch (java.io.IOException e) {
+            throw new BadBackup(I18n.t("backup.badDb"));
+        }
+        if (old) throw new BadBackup(I18n.t("backup.oldVersion"));
         try (Connection c = DriverManager.getConnection("jdbc:sqlite:" + db);
              ResultSet rs = c.createStatement().executeQuery("SELECT COUNT(*) FROM users")) {
             if (!rs.next() || rs.getInt(1) == 0) throw new BadBackup(I18n.t("backup.noUsers"));

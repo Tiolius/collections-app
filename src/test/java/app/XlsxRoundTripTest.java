@@ -4,66 +4,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 /** Выгрузка в Excel и загрузка обратно: все поля объектов (кроме картинок) переносятся без потерь. */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-class XlsxRoundTripTest {
+class XlsxRoundTripTest extends DbTest {
 
-    @DynamicPropertySource
-    static void props(DynamicPropertyRegistry r) throws Exception {
-        String dir = Files.createTempDirectory("collections-xlsx").toString();
-        r.add("DATA_DIR", () -> dir);
-        r.add("updates.enabled", () -> "false");
-    }
-
-    @Autowired Repo repo;
     @Autowired XlsxExport export;
     @Autowired XlsxImport load;
-    @Autowired JdbcTemplate jdbc;
 
-    @BeforeEach
-    void russian() {
-        LocaleContextHolder.setLocale(Locale.forLanguageTag("ru"));
-    }
+    static final List<String> ALL = List.of("platform", "format", "edition", "status", "rating", "price", "purchased",
+            "available", "tags", "notes", "oldgames");
 
     @Test
     void everyFieldSurvivesExportAndImport() throws Exception {
-        long uid = repo.createUser("owner", "Kwq7-zmlpt-Rvx9", "admin");
-        String kind = "Игры (диски)";
-        jdbc.update("UPDATE kinds SET fields = 'platform,format,edition,status,rating,price,purchased,available,tags,notes,oldgames' "
-                + "WHERE user_id = ? AND name = ?", uid, kind);
-        long cid = repo.createCollection(uid);
-        jdbc.update("UPDATE collections SET name = 'Мои игры', kind = ? WHERE id = ?", kind, cid);
-        long id = repo.createItem(cid);
-        jdbc.update("UPDATE items SET name = 'Gothic II', platform = 'PC', format = 'DVD', status = 'Completed', price = 1499 WHERE id = ?", id);
-        jdbc.update("INSERT INTO item_ratings (item_id, rating) VALUES (?, 7)", id);
-        jdbc.update("INSERT INTO item_present (item_id) VALUES (?)", id);
-        jdbc.update("INSERT INTO item_details (item_id, purchased, tags, edition, notes) VALUES (?, '2023-05-17', 'rpg, классика', 'Europe', ?)",
-                id, "Без коробки.\nДиск 2 поцарапан.");
-        jdbc.update("INSERT INTO item_oldgames (item_id, url) VALUES (?, 'https://www.old-games.ru/game/11.html')", id);
-        repo.setItemDescription(id, "Ролевая игра.\n\nПродолжение Gothic.");
-        long empty = repo.createItem(cid);
-        jdbc.update("UPDATE items SET name = 'Пустой' WHERE id = ?", empty);
+        long uid = newUser();
+        String kind = "Все поля";
+        repo.saveKind(uid, null, kind, "games", ALL, ALL, List.of(), List.of("Completed", "Unfinished"), List.of());
+        long cid = newCollection(uid, "Мои игры", kind);
+        newItem(uid, cid, new Repo.ItemForm("Gothic II", "PC", "DVD", "Completed", 1499, List.of("0", "1"), 7, "11",
+                "2023-05-17", "rpg, классика", "Europe", "Без коробки.\nДиск 2 поцарапан.", "Ролевая игра.\n\nПродолжение Gothic."));
+        newItem(uid, cid, form("Пустой"));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Xlsx.write(out, export.sheets(uid, List.of(repo.collection(uid, cid))));
 
-        long other = repo.createUser("other", "Kwq7-zmlpt-Rvx9", "user");
-        jdbc.update("UPDATE kinds SET fields = 'platform,format,edition,status,rating,price,purchased,available,tags,notes,oldgames' "
-                + "WHERE user_id = ? AND name = ?", other, kind);
+        long other = newUser();
+        repo.saveKind(other, null, kind, "games", ALL, ALL, List.of(), List.of("Completed", "Unfinished"), List.of());
         XlsxImport.Result r = load.load(other, new ByteArrayInputStream(out.toByteArray()), kind);
         assertThat(r.collections()).isEqualTo(1);
 
@@ -85,5 +55,26 @@ class XlsxRoundTripTest {
         Entry e = repo.item(other, items.get(1).id());
         assertThat(e.available()).isFalse();
         assertThat(e.description()).isNull();
+    }
+
+    @Test
+    void ownLabelsAreExportedAndRecognized() throws Exception {
+        long uid = newUser();
+        repo.saveKind(uid, null, "Книги2", "books", List.of("status", "price"), List.of("status", "price"),
+                List.of("Статус чтения", "Стоимость"), List.of("Прочитано", "Читаю"), List.of());
+        long cid = newCollection(uid, "Полка", "Книги2");
+        newItem(uid, cid, new Repo.ItemForm("Солярис", null, null, "Читаю", 350, null, null, null, null, null, null, null, null));
+        List<Xlsx.Sheet> sheets = export.sheets(uid, List.of(repo.collection(uid, cid)));
+        assertThat(sheets.get(0).headers()).containsExactly("Название", "Статус чтения", "Стоимость", "Описание");
+
+        sheets.get(0).rows().get(0).set(1, "читаю");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Xlsx.write(out, sheets);
+        jdbc.update("DELETE FROM items WHERE collection_id = ?", cid);
+        // статус в другом регистре — берётся из списка типа; столбцы узнаются по своим подписям
+        XlsxImport.Result r = load.load(uid, new ByteArrayInputStream(out.toByteArray()), "");
+        Entry it = repo.items(r.firstCollection(), "name", false, Map.of()).get(0);
+        assertThat(it.status()).isEqualTo("Читаю");
+        assertThat(it.price()).isEqualTo(350);
     }
 }

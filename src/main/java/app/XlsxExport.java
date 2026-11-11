@@ -26,11 +26,15 @@ public class XlsxExport {
     public List<Xlsx.Sheet> sheets(long uid, List<Entry> collections) {
         List<Xlsx.Sheet> sheets = new ArrayList<>();
         for (Entry c : collections) {
+            Kind kind = repo.kindByName(uid, c.kind());
             Set<String> fields = new LinkedHashSet<>(repo.itemFields(uid, c.kind()));
             List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
-                headers.add(I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
+                // своя подпись поля в типе (её понимает загрузка из Excel) или стандартная; у цены — «Цена (₽)»
+                Kind.Field def = kind == null ? null : kind.field(f);
+                headers.add(def != null && def.label() != null ? def.label()
+                        : I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
                 widths.add(switch (f) {
                     case "price", "available", "rating", "purchased", "oldgames" -> 12;
                     case "tags", "notes" -> 30;
