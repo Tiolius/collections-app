@@ -226,7 +226,7 @@ public class ImageImport {
                 try {
                     boolean img = needImage(job, item, onlyMissing), descr = needDescription(job, item, onlyMissing);
                     Found f = switch (job.source) {
-                        case DISCOGS -> findDiscogs(job, item.name(), img, descr);
+                        case DISCOGS -> findDiscogs(job, item.name(), item.format(), img, descr);
                         case FANTLAB -> findFantlab(job, item.name(), img, descr);
                         case GOG -> findGog(job, item.name(), img, descr);
                         case NINTENDO -> findNintendo(job, item.name(), item.platform(), img, descr);
@@ -763,11 +763,14 @@ public class ImageImport {
     /**
      * Альбом «Группа - Альбом» (без разделителя — не ищем): обложка (если нужна) и Notes (если нужно описание); null — не найден.
      * Сначала главная версия альбома (master), если её нет — отдельные издания (release).
+     * Картинки — издания на носителе объекта (поле «Формат»: винил, кассета; иначе CD): у главной версии картинки
+     * её основного издания, а это часто винил; нет такого издания — картинки главной версии.
      */
-    private Found findDiscogs(Job job, String name, boolean wantImage, boolean wantDescription) throws Exception {
+    private Found findDiscogs(Job job, String name, String itemFormat, boolean wantImage, boolean wantDescription) throws Exception {
         String[] aa = artistAlbum(name);
         if (aa == null) return null;
         String artist = aa[0], album = aa[1];
+        String format = discogsFormat(itemFormat);
         for (String type : List.of("master", "release")) {
             JsonNode res = api(job, discogsUrl + "/database/search?type=" + type + "&per_page=10&artist=" + enc(artist)
                     + "&release_title=" + enc(album));
@@ -785,10 +788,16 @@ public class ImageImport {
                 long id = r.path("id").asLong();
                 List<byte[]> imgs = List.of();
                 if (wantImage) {
+                    // Издание на нужном носителе того же альбома; нет — картинки найденного результата
+                    long masterId = type.equals("master") ? id : r.path("master_id").asLong();
+                    JsonNode media = discogsMediaRelease(job, artist, album, format, masterId);
+                    JsonNode src = media != null ? media : r;
+                    String srcType = media != null ? "release" : type;
+                    long srcId = src.path("id").asLong();
                     List<String> urls = new java.util.ArrayList<>();
                     // несколько картинок — из карточки альбома (обложка, оборот, вкладыш…), иначе — обложка из поиска
-                    if (job.maxImages > 1) urls.addAll(discogsImages(job, type, id, cache));
-                    String cover = r.path("cover_image").asText("");
+                    if (job.maxImages > 1) urls.addAll(discogsImages(job, srcType, srcId, cache));
+                    String cover = src.path("cover_image").asText("");
                     // обложка из поиска — если из карточки ничего нет (иначе была бы та же картинка в другом размере);
                     // нет обложки — у Discogs пустая заглушка spacer.gif
                     if (urls.isEmpty() && !cover.isEmpty() && !cover.contains("spacer.gif")) urls.add(cover);
@@ -800,6 +809,44 @@ public class ImageImport {
             }
         }
         return null;
+    }
+
+    /**
+     * Носитель для поиска изданий на Discogs по полю «Формат» объекта: винил, кассета; всё остальное (CD, пусто) — CD.
+     */
+    static String discogsFormat(String itemFormat) {
+        String f = itemFormat == null ? "" : itemFormat.toLowerCase(java.util.Locale.ROOT);
+        if (f.matches(".*(vinyl|винил|пластинк|\\blp\\b).*")) return "Vinyl";
+        if (f.matches(".*(cass|кассет|\\bmc\\b).*")) return "Cassette";
+        return "CD";
+    }
+
+    /**
+     * Самое популярное издание (release) альбома на носителе format — с обложкой; null — такого нет.
+     * Поиск — сразу по числу владельцев (sort=have): по умолчанию Discogs сортирует по релевантности,
+     * и самые популярные издания могут не попасть в первые 50.
+     * Тот же альбом — тот же master (masterId > 0), иначе — то же название «Группа - Альбом».
+     */
+    private JsonNode discogsMediaRelease(Job job, String artist, String album, String format, long masterId) throws Exception {
+        JsonNode res = api(job, discogsUrl + "/database/search?type=release&format=" + enc(format) + "&sort=have&sort_order=desc&per_page=50&artist="
+                + enc(artist) + "&release_title=" + enc(album));
+        if (res == null) return null;
+        JsonNode best = null;
+        for (JsonNode r : res.path("results")) {
+            if (masterId > 0) {
+                if (r.path("master_id").asLong() != masterId) continue;
+            } else {
+                String[] t = artistAlbum(r.path("title").asText(""));
+                if (t == null || !norm(t[1]).equals(norm(album)) || !sameArtist(t[0], artist)) continue;
+            }
+            // носитель — в списке форматов издания (на случай, если Discogs не учёл фильтр)
+            boolean hasFormat = false;
+            for (JsonNode f : r.path("format")) hasFormat |= f.asText("").equalsIgnoreCase(format);
+            String cover = r.path("cover_image").asText("");
+            if (!hasFormat || cover.isEmpty() || cover.contains("spacer.gif")) continue;
+            if (best == null || r.path("community").path("have").asLong() > best.path("community").path("have").asLong()) best = r;
+        }
+        return best;
     }
 
     /** Запрос к Discogs с запоминанием ответа в пределах одного альбома. */
