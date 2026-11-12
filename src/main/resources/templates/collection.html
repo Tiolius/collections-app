@@ -186,7 +186,7 @@
       <td th:case="'platform'" class="c-platform" th:text="${it.platform()}"></td>
       <td th:case="'format'" class="c-format" th:text="${it.format()}"></td>
       <td th:case="'edition'" class="c-edition" th:text="${it.edition()}"></td>
-      <td th:case="'status'" class="c-status" th:text="${it.status()}"></td>
+      <td th:case="'status'" class="c-status"><span th:if="${it.status() != null and !it.status().isBlank()}" class="chip" th:text="${it.status()}"></span></td>
       <td th:case="'rating'" class="rating c-rating"><span th:replace="~{base :: stars(${it.rating()})}"></span></td>
       <th:block th:case="'price'">
       <td class="num c-price" th:if="${showPrices}"

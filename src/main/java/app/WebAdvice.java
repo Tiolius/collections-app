@@ -33,6 +33,12 @@ public class WebAdvice {
         return u != null && u.isAdmin() ? updates.available() : null;
     }
 
+    /** Пара тем оформления вошедшего пользователя (ключ Repo.THEMES) или null — до входа (тогда — из браузера). */
+    @ModelAttribute("themePair")
+    public String themePair(HttpSession session) {
+        return session.getAttribute("uid") instanceof Long uid ? repo.themePair(uid) : null;
+    }
+
     /** Вошедший пользователь (или null) — для шапки страниц и прав администратора в шаблонах. */
     @ModelAttribute("currentUser")
     public Repo.User currentUser(HttpSession session) {

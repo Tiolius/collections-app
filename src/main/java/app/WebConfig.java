@@ -35,6 +35,6 @@ public class WebConfig implements WebMvcConfigurer {
                 res.sendRedirect("/login");
                 return false;
             }
-        }).excludePathPatterns("/login", "/setup", "/error", "/favicon.svg", "/app.css");
+        }).excludePathPatterns("/login", "/setup", "/error", "/favicon.svg", "/app.css", "/fonts/**");
     }
 }
