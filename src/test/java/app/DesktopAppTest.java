@@ -11,9 +11,15 @@ import org.junit.jupiter.api.io.TempDir;
 class DesktopAppTest {
 
     @Test
-    void dataFolderIsLockedByFirstStart(@TempDir Path dir) {
-        assertThat(DesktopApp.lock(dir)).isTrue();
-        assertThat(DesktopApp.lock(dir)).isFalse(); // второй запуск — только открыть браузер
+    void dataFolderIsLockedByFirstStart(@TempDir Path dir) throws Exception {
+        try {
+            assertThat(DesktopApp.lock(dir)).isTrue();
+            assertThat(DesktopApp.lock(dir)).isFalse(); // второй запуск — только открыть браузер
+        } finally {
+            DesktopApp.unlock(); // иначе в Windows временную папку не удалить
+        }
+        assertThat(DesktopApp.lock(dir)).isTrue(); // после выхода — снова можно запустить
+        DesktopApp.unlock();
     }
 
     @Test

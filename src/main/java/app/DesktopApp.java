@@ -101,6 +101,14 @@ final class DesktopApp {
         pair = source;
     }
 
+    /** Снимает блокировку папки данных (для тестов: в Windows занятый файл не удалить). */
+    static void unlock() throws IOException {
+        if (dataLock == null) return;
+        dataLock.release();
+        dataLock.channel().close();
+        dataLock = null;
+    }
+
     /** Значок у часов; exit — остановка приложения. Трея нет (не Windows) — приложение просто работает без значка. */
     static void show(Runnable open, File dataDir, Runnable exit) {
         EventQueue.invokeLater(() -> {
