@@ -3,6 +3,7 @@ package app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.util.List;
 
@@ -107,6 +108,11 @@ class PagesTest extends DbTest {
         assertThat(stats).contains("background:#aabbcc").contains("Прочитано <b>2</b>").contains("Читаю <b>1</b>")
                 .contains("Брошено <b>0</b>").contains("f_status=");
         assertThat(stats).contains("<b>2</b><span>Прочитано</span>");
+        // стоимость коллекции: при скрытых ценах — в подсказке у глаза, при показанных — в столбце
+        assertThat(stats).contains("Стоимость коллекции: 540 ₽");
+        repo.setShowPrices(uid, true);
+        stats = page(uid, "/stats");
+        assertThat(stats).contains(">540 ₽</span>");
         // фильтры таблицы: статус и цена «от — до»
         String table = page(uid, "/collections/" + cid + "?f_status=Прочитано&f_price_min=200");
         String rows = table.substring(table.indexOf("<tbody>"), table.indexOf("</tbody>"));
@@ -115,5 +121,24 @@ class PagesTest extends DbTest {
         String head = table.substring(table.indexOf("<thead>"), table.indexOf("</thead>"));
         assertThat(head.indexOf(">Прочитано<")).isLessThan(head.indexOf(">Читаю<"));
         assertThat(head).contains(">Брошено<");
+    }
+
+    @Test
+    void themePairIsSavedAndPutIntoPages() throws Exception {
+        long uid = newUser();
+        assertThat(repo.themePair(uid)).isEqualTo("night");                       // по умолчанию — первая пара
+        assertThat(page(uid, "/")).contains("var pair = \"night\"");
+        mvc.perform(post("/display").session(login(uid)).header("Sec-Fetch-Site", "same-origin")
+                .param("collectionsPerPage", "10").param("itemsPerPage", "200").param("theme", "dusk"));
+        assertThat(repo.themePair(uid)).isEqualTo("dusk");
+        assertThat(page(uid, "/stats")).contains("var pair = \"dusk\"");
+        String display = page(uid, "/display");
+        assertThat(display).containsPattern("value=\"dusk\"[^>]*checked").doesNotContainPattern("value=\"night\"[^>]*checked")
+                .contains("data-pair=\"forest\"");
+        // неизвестная пара — 400, выбор не меняется
+        int status = mvc.perform(post("/display").session(login(uid)).header("Sec-Fetch-Site", "same-origin")
+                .param("collectionsPerPage", "10").param("itemsPerPage", "200").param("theme", "neon")).andReturn().getResponse().getStatus();
+        assertThat(status).isEqualTo(400);
+        assertThat(repo.themePair(uid)).isEqualTo("dusk");
     }
 }

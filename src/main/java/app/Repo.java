@@ -445,6 +445,31 @@ public class Repo {
     }
 
     /**
+     * Пары тем оформления: ключ (атрибут data-pair у страницы, стили — app.css) → подписи тёмной и светлой темы
+     * (ключи текстов). Переключатель в шапке меняет тёмную и светлую тему пары.
+     */
+    public static final Map<String, List<String>> THEMES = new LinkedHashMap<>();
+    static {
+        THEMES.put("night", List.of("theme.night", "theme.paper"));
+        THEMES.put("graphite", List.of("theme.graphite", "theme.mint"));
+        THEMES.put("coal", List.of("theme.coal", "theme.sand"));
+        THEMES.put("midnight", List.of("theme.midnight", "theme.sky"));
+        THEMES.put("dusk", List.of("theme.dusk", "theme.lilac"));
+        THEMES.put("forest", List.of("theme.forest", "theme.minimal"));
+    }
+
+    /** Пара тем пользователя (ключ THEMES); не выбрана — первая. */
+    public String themePair(long uid) {
+        List<String> v = jdbc.queryForList("SELECT pair FROM user_theme WHERE user_id = ?", String.class, uid);
+        return v.isEmpty() || !THEMES.containsKey(v.get(0)) ? THEMES.keySet().iterator().next() : v.get(0);
+    }
+
+    public void setThemePair(long uid, String pair) {
+        if (!THEMES.containsKey(pair)) throw Fail.badRequest();
+        jdbc.update("INSERT INTO user_theme (user_id, pair) VALUES (?, ?) ON CONFLICT (user_id) DO UPDATE SET pair = excluded.pair", uid, pair);
+    }
+
+    /**
      * Сколько показывать на странице (вкладка «Отображение»): коллекций на главной и объектов в таблице коллекции.
      * Нет строки или значения — по умолчанию; значения вне допустимых пределов (MIN_…/MAX_…) приводятся к ним.
      */

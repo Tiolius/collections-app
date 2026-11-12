@@ -124,6 +124,13 @@ CREATE TABLE IF NOT EXISTS user_page_sizes (
     items INTEGER
 );
 
+-- Тема оформления пользователя (вкладка «Отображение»): пара тёмной и светлой темы (Repo.THEMES); нет строки — первая пара.
+-- Тёмная или светлая из пары — переключатель в шапке, запоминается в браузере
+CREATE TABLE IF NOT EXISTS user_theme (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    pair TEXT NOT NULL
+);
+
 -- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
 CREATE TABLE IF NOT EXISTS user_tokens (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

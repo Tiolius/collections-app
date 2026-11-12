@@ -116,6 +116,7 @@ public class WebController {
     public String display(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("showPrices", repo.showPrices(uid));
         m.addAttribute("pageSizes", repo.pageSizes(uid));
+        m.addAttribute("themes", Repo.THEMES);
         m.addAttribute("minCollections", Repo.PageSizes.MIN_COLLECTIONS);
         m.addAttribute("maxCollections", Repo.PageSizes.MAX_COLLECTIONS);
         m.addAttribute("minItems", Repo.PageSizes.MIN_ITEMS);
@@ -125,7 +126,9 @@ public class WebController {
 
     @PostMapping("/display")
     public String saveDisplay(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "false") boolean showPrices,
-                              @RequestParam String collectionsPerPage, @RequestParam String itemsPerPage) {
+                              @RequestParam String collectionsPerPage, @RequestParam String itemsPerPage,
+                              @RequestParam(required = false) String theme) {
+        if (theme != null) repo.setThemePair(uid, theme);
         int collections = pageSize(collectionsPerPage, Repo.PageSizes.MIN_COLLECTIONS, Repo.PageSizes.MAX_COLLECTIONS);
         int items = pageSize(itemsPerPage, Repo.PageSizes.MIN_ITEMS, Repo.PageSizes.MAX_ITEMS);
         repo.setShowPrices(uid, showPrices);

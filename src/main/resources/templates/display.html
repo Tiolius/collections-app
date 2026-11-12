@@ -7,6 +7,18 @@
   <th:block th:replace="~{base :: settingsHead('display')}"></th:block>
   <p class="ok" th:if="${param.saved != null}" th:text="#{display.saved}">Настройки сохранены.</p>
   <form autocomplete="off" class="form" method="post" action="/display">
+    <!-- Тема: пары «тёмная — светлая»; переключатель в шапке меняет тёмную и светлую тему выбранной пары.
+         Выбор сразу виден на странице (скрипт ставит data-pair), сохраняется кнопкой «Сохранить» -->
+    <label class="at-field"><span th:text="#{display.theme}">Тема</span> <span th:replace="~{base :: info(#{display.themeHint})}"></span></label>
+    <div class="theme-cards">
+      <label class="theme-card" th:each="t : ${themes}" th:data-pair="${t.key}">
+        <input type="radio" name="theme" th:value="${t.key}" th:checked="${t.key == themePair}"
+               onchange="document.documentElement.dataset.pair = this.value">
+        <span class="pv dark"><i></i><i></i><i></i></span><span class="pv light"><i></i><i></i><i></i></span>
+        <span class="tc-name"><th:block th:text="#{${t.value[0]}}"></th:block> <span class="muted">/</span> <th:block th:text="#{${t.value[1]}}"></th:block></span>
+      </label>
+    </div>
+
     <label for="f-show"><span th:text="#{display.prices}">Цены</span> <span th:replace="~{base :: info(#{display.showPricesHint})}"></span></label>
     <div><label class="radio"><input id="f-show" type="checkbox" name="showPrices" value="true" th:checked="${showPrices}"> <span th:text="#{display.showPrices}">Показывать цены</span></label></div>
 

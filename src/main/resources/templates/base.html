@@ -43,8 +43,16 @@
     var btn = document.querySelector('header .lang-btn');
     if (e.key === 'Escape' && btn && !btn.nextElementSibling.hidden) { toggleLangMenu(btn, false); btn.focus(); }
   });
-  // Тема из прошлого раза (localStorage) — до отрисовки, чтобы не мигала светлая
-  try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+  // Тема — до отрисовки, чтобы страница не мигала: пара тем — выбранная пользователем («Отображение»; до входа —
+  // запомненная в браузере), тёмная или светлая из пары — из прошлого раза (переключатель в шапке, localStorage)
+  (function () {
+    var pair = /*[[${themePair}]]*/ null, root = document.documentElement;
+    try {
+      if (pair) localStorage.setItem('pair', pair); else pair = localStorage.getItem('pair');
+      if (localStorage.getItem('theme') === 'dark') root.dataset.theme = 'dark';
+    } catch (e) {}
+    root.dataset.pair = pair || 'night';
+  })();
   function toggleTheme() {
     var dark = document.documentElement.dataset.theme !== 'dark';
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
