@@ -52,6 +52,10 @@ public class App {
             app.setHeadless(false); // значок у часов и окна сообщений — нужна графика
             app.addListeners((ApplicationReadyEvent e) -> {
                 try {
+                    // окна программы — в паре тем пользователя (первого, обычно он один)
+                    var jdbc = e.getApplicationContext().getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+                    DesktopApp.setPair(() -> jdbc.queryForList("SELECT pair FROM user_theme ORDER BY user_id LIMIT 1", String.class)
+                            .stream().findFirst().orElse("night"));
                     DesktopApp.show(App::openBrowser, new File(dataDir).getAbsoluteFile(),
                             () -> System.exit(SpringApplication.exit(e.getApplicationContext())));
                 } catch (Throwable t) { // без графики приложение всё равно работает — только без значка

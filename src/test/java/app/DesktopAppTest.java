@@ -23,4 +23,16 @@ class DesktopAppTest {
         assertThat(DesktopApp.t("desktop.exit")).isNotBlank();
         assertThat(DesktopApp.t("desktop.portBusy", "47321")).contains("47321");
     }
+
+    @Test
+    void windowColorsComeFromEveryThemeOfApp() {
+        // у каждой пары и режима в app.css есть все цвета, нужные окнам программы
+        for (String pair : Repo.THEMES.keySet())
+            for (boolean dark : new boolean[] {false, true})
+                assertThat(DesktopTheme.vars(pair, dark)).as(pair + (dark ? " dark" : " light"))
+                        .containsKeys("page", "paper", "card2", "text", "muted", "border", "blue", "on-blue", "btn2-border", "red");
+        assertThat(DesktopTheme.of("night", true).paper()).isEqualTo(java.awt.Color.decode("#18191c"));
+        assertThat(DesktopTheme.of("нет такой", false).paper()).isEqualTo(java.awt.Color.decode("#ffffff")); // первая пара
+        assertThat(DesktopTheme.of("night", false).font().getFamily()).startsWith("Inter");
+    }
 }
