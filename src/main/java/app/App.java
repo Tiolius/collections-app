@@ -16,16 +16,18 @@ public class App {
     /** Порт программы для Windows — тот же, что был у Docker: адрес в закладках не меняется. */
     static final int DESKTOP_PORT = 47321;
 
+    /** Порт этого запуска: DESKTOP_PORT, а если он занят другой программой — любой свободный (freePort). */
+    private static int port = DESKTOP_PORT;
+
     public static void main(String[] args) {
         // Запуск из CollectionsApp.exe (jpackage): лаунчер передаёт путь к exe в jpackage.app-path.
         // Окна консоли нет: управление — значок у часов (DesktopApp), ошибки — окном, журнал — logs/app.log рядом с exe (data — только для данных)
         String exe = System.getProperty("jpackage.app-path");
         boolean desktop = exe != null;
         if (desktop) {
-            // Данные — в папке data рядом с exe; адрес — http://localhost:47321, только с этого компьютера
+            // Данные — в папке data рядом с exe; адрес — http://localhost:47321 (занят — другой свободный), только с этого компьютера
             if (System.getenv("DATA_DIR") == null)
                 System.setProperty("DATA_DIR", Path.of(exe).toAbsolutePath().getParent().resolve("data").toString());
-            System.setProperty("server.port", String.valueOf(DESKTOP_PORT));
             System.setProperty("server.address", "127.0.0.1");
         }
         // Папка для базы должна существовать до подключения к SQLite
@@ -33,11 +35,21 @@ public class App {
         new File(dataDir).mkdirs();
         if (desktop) {
             // Уже запущена (второй двойной щелчок по exe) — дождаться её запуска и просто открыть браузер
+            // (порт — из файла блокировки: у запущенной он мог оказаться не 47321)
             if (!DesktopApp.lock(Path.of(dataDir))) {
-                for (int i = 0; i < 120 && !running(); i++) sleep(500);
+                for (int i = 0; i < 120; i++) {
+                    int saved = DesktopApp.savedPort(Path.of(dataDir));
+                    if (saved > 0) port = saved;
+                    if (saved > 0 && running()) break;
+                    sleep(500);
+                }
                 openBrowser();
                 return;
             }
+            // Порт 47321 занят другой программой — запуск на свободном порту, без ошибки
+            port = freePort();
+            System.setProperty("server.port", String.valueOf(port));
+            DesktopApp.savePort(port);
             System.setProperty("logging.file.name", logFile(exe).getAbsolutePath());
         }
         // База прежней версии (до 1.18) не переносится: откладывается в резервный файл, приложение начинает с чистой базы
@@ -75,7 +87,7 @@ public class App {
                 portBusy |= c instanceof java.net.BindException || c instanceof org.springframework.boot.web.server.PortInUseException;
                 cause = c;
             }
-            String reason = portBusy ? DesktopApp.t("desktop.portBusy", String.valueOf(DESKTOP_PORT)) : cause.getMessage();
+            String reason = portBusy ? DesktopApp.t("desktop.portBusy", String.valueOf(port)) : cause.getMessage();
             fail(true, DesktopApp.t("desktop.startFailed", reason, logFile(exe).getAbsolutePath()));
             System.exit(1);
         }
@@ -104,10 +116,23 @@ public class App {
         }
     }
 
+    /** DESKTOP_PORT, если он свободен, иначе свободный порт, который выберет система. */
+    static int freePort() {
+        try (java.net.ServerSocket s = new java.net.ServerSocket(DESKTOP_PORT, 1, java.net.InetAddress.getLoopbackAddress())) {
+            return DESKTOP_PORT;
+        } catch (java.io.IOException busy) {
+            try (java.net.ServerSocket s = new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())) {
+                return s.getLocalPort();
+            } catch (java.io.IOException e) {
+                return DESKTOP_PORT; // не выбрать — пусть запуск сообщит об ошибке
+            }
+        }
+    }
+
     /** Отвечает ли уже что-то на порту программы. */
     private static boolean running() {
         try (Socket s = new Socket()) {
-            s.connect(new InetSocketAddress("127.0.0.1", DESKTOP_PORT), 500);
+            s.connect(new InetSocketAddress("127.0.0.1", port), 500);
             return true;
         } catch (Exception e) {
             return false;
@@ -116,7 +141,7 @@ public class App {
 
     /** Открывает приложение в браузере по умолчанию (без AWT: работает и в Docker, где графики нет). */
     private static void openBrowser() {
-        String url = "http://localhost:" + DESKTOP_PORT;
+        String url = "http://localhost:" + port;
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         String[] cmd = os.contains("win") ? new String[] {"rundll32", "url.dll,FileProtocolHandler", url}
                 : os.contains("mac") ? new String[] {"open", url} : new String[] {"xdg-open", url};

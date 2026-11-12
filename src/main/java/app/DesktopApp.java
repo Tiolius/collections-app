@@ -77,7 +77,9 @@ final class DesktopApp {
         }
         FileLock lock = null;
         try {
-            lock = ch.tryLock(); // null — захвачена другим процессом
+            // блокируется байт далеко за концом файла: в Windows заблокированное нельзя читать другим процессам,
+            // а начало файла (порт программы, savePort) повторный запуск должен прочитать
+            lock = ch.tryLock(LOCK_AT, 1, false); // null — захвачена другим процессом
         } catch (java.nio.channels.OverlappingFileLockException | IOException e) {
             // уже захвачена в этом же процессе (или не проверить) — как занятая
         }
@@ -110,6 +112,32 @@ final class DesktopApp {
     /** Откуда брать пару тем: окна программы в тех же цветах, что и приложение. */
     static void setPair(java.util.function.Supplier<String> source) {
         pair = source;
+    }
+
+    /** Где блокировка в файле .lock: за пределами записанного в нём порта. */
+    private static final long LOCK_AT = 1L << 30;
+
+    /** Записывает порт этого запуска в .lock: повторный запуск exe откроет браузер по нему. */
+    static void savePort(int port) {
+        if (dataLock == null) return;
+        try {
+            var ch = dataLock.channel();
+            ch.truncate(0);
+            ch.write(java.nio.ByteBuffer.wrap(String.valueOf(port).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), 0);
+            ch.force(false);
+        } catch (IOException e) {
+            // не записался — повторный запуск откроет порт по умолчанию
+        }
+    }
+
+    /** Порт уже запущенной программы из .lock; не записан (ещё запускается) — -1. */
+    static int savedPort(Path dataDir) {
+        try {
+            return Integer.parseInt(java.nio.file.Files.readString(dataDir.resolve(".lock"),
+                    java.nio.charset.StandardCharsets.US_ASCII).trim());
+        } catch (IOException | NumberFormatException e) {
+            return -1;
+        }
     }
 
     /** Снимает блокировку папки данных (для тестов: в Windows занятый файл не удалить). */

@@ -23,6 +23,28 @@ class DesktopAppTest {
     }
 
     @Test
+    void portOfRunningProgramIsReadByNextStart(@TempDir Path dir) throws Exception {
+        try {
+            assertThat(DesktopApp.lock(dir)).isTrue();
+            assertThat(DesktopApp.savedPort(dir)).isEqualTo(-1); // ещё запускается
+            DesktopApp.savePort(51234);
+            assertThat(DesktopApp.savedPort(dir)).isEqualTo(51234);
+        } finally {
+            DesktopApp.unlock();
+        }
+    }
+
+    @Test
+    void busyPortIsReplacedByFreeOne() throws Exception {
+        int first = App.freePort();
+        if (first != App.DESKTOP_PORT) return; // 47321 уже чем-то занят на этой машине — проверка ниже не о том
+        try (var busy = new java.net.ServerSocket(App.DESKTOP_PORT, 1, java.net.InetAddress.getLoopbackAddress())) {
+            int other = App.freePort();
+            assertThat(other).isNotEqualTo(App.DESKTOP_PORT).isPositive();
+        }
+    }
+
+    @Test
     void messagesAreFormatted() {
         assertThat(DesktopApp.t("desktop.startFailed", "Port 47321 is in use", "C:\\app\\data\\app.log"))
                 .contains("Port 47321 is in use").contains("C:\\app\\data\\app.log").contains("\n\n");
