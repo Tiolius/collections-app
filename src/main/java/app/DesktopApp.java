@@ -25,7 +25,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.channels.FileLock;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -68,18 +67,30 @@ final class DesktopApp {
      * Захватывает папку данных за этим запуском: false — программа уже запущена (или ещё запускается) другим exe.
      * Блокировка снимается сама при выходе из программы.
      */
-    @SuppressWarnings("resource") // файл держится открытым до конца работы программы
     static boolean lock(Path dataDir) {
+        java.nio.channels.FileChannel ch;
         try {
-            FileLock lock = new RandomAccessFile(dataDir.resolve(".lock").toFile(), "rw").getChannel().tryLock();
-            if (lock == null) return false;
-            dataLock = lock;
-            return true;
-        } catch (java.nio.channels.OverlappingFileLockException e) {
-            return false; // уже захвачена в этом же процессе
+            ch = java.nio.channels.FileChannel.open(dataDir.resolve(".lock"),
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
         } catch (IOException e) {
             return true; // не удалось проверить — запускаемся, занятый порт покажет ошибку
         }
+        FileLock lock = null;
+        try {
+            lock = ch.tryLock(); // null — захвачена другим процессом
+        } catch (java.nio.channels.OverlappingFileLockException | IOException e) {
+            // уже захвачена в этом же процессе (или не проверить) — как занятая
+        }
+        if (lock == null) {
+            try {
+                ch.close(); // открытый файл в Windows не даёт удалить папку
+            } catch (IOException ignored) {
+                // закрыть не удалось — не мешает
+            }
+            return false;
+        }
+        dataLock = lock; // файл держится открытым до конца работы программы
+        return true;
     }
 
     /** Пара тем пользователя (после запуска — из базы); до запуска — первая пара. */

@@ -18,7 +18,7 @@ public class App {
 
     public static void main(String[] args) {
         // Запуск из CollectionsApp.exe (jpackage): лаунчер передаёт путь к exe в jpackage.app-path.
-        // Окна консоли нет: управление — значок у часов (DesktopApp), ошибки — окном, журнал — data/app.log
+        // Окна консоли нет: управление — значок у часов (DesktopApp), ошибки — окном, журнал — logs/app.log рядом с exe (data — только для данных)
         String exe = System.getProperty("jpackage.app-path");
         boolean desktop = exe != null;
         if (desktop) {
@@ -38,7 +38,7 @@ public class App {
                 openBrowser();
                 return;
             }
-            System.setProperty("logging.file.name", new File(dataDir, "app.log").getAbsolutePath());
+            System.setProperty("logging.file.name", logFile(exe).getAbsolutePath());
         }
         // База прежней версии (до 1.18) не переносится: откладывается в резервный файл, приложение начинает с чистой базы
         try {
@@ -76,9 +76,14 @@ public class App {
                 cause = c;
             }
             String reason = portBusy ? DesktopApp.t("desktop.portBusy", String.valueOf(DESKTOP_PORT)) : cause.getMessage();
-            fail(true, DesktopApp.t("desktop.startFailed", reason, new File(dataDir, "app.log").getAbsolutePath()));
+            fail(true, DesktopApp.t("desktop.startFailed", reason, logFile(exe).getAbsolutePath()));
             System.exit(1);
         }
+    }
+
+    /** Журнал программы для Windows: папка logs рядом с exe (не в data — там только данные). */
+    private static File logFile(String exe) {
+        return Path.of(exe).toAbsolutePath().getParent().resolve("logs").resolve("app.log").toFile();
     }
 
     /** Ошибка запуска: в программе для Windows — окном, иначе — в консоль. */
