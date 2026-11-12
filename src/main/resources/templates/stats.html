@@ -69,19 +69,6 @@
   </table>
 
   <div class="stat-blocks">
-    <!-- Стоимость по коллекциям: от самой дорогой, полоса — от самой дорогой, доля — от общей стоимости (если цены не скрыты) -->
-    <section th:if="${showPrices and !values.isEmpty()}">
-      <h3 class="section" th:text="#{stats.valueByCollection}">Стоимость по коллекциям</h3>
-      <div class="bars">
-        <th:block th:each="v : ${values}">
-          <a class="bar-label" th:href="@{/collections/{id}(id=${v.collection().id()})}" th:text="${v.collection().name()}"></a>
-          <span class="bar-track"><span class="bar-fill" th:style="${'width:' + v.width() + '%'}"></span></span>
-          <span class="bar-value"><span class="price" th:text="${v.price() + ' ₽'}"></span><span class="muted" th:text="${' · ' + v.share() + '%'}"></span></span>
-        </th:block>
-        <span class="bar-label total" th:text="#{stats.valueTotal}">Всего</span><span class="total"></span>
-        <span class="bar-value total price" th:text="${totalPrice + ' ₽'}"></span>
-      </div>
-    </section>
     <!-- Рейтинг: сколько объектов в каждой звезде (3,5 считается как 4) -->
     <section th:if="${ratingMax > 0}">
       <h3 class="section" th:text="#{field.rating}">Рейтинг</h3>
