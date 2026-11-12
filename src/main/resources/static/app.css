@@ -724,3 +724,9 @@ table.items tbody tr[style] .chip { background: color-mix(in srgb, var(--row-bg)
 @media (max-width: 700px) {
   table.items.stats { display: block; overflow-x: auto; }  /* статистика по коллекциям — прокрутка вбок, а не обрезка */
 }
+/* Статистика: стоимость по коллекциям — названия-ссылки, суммы моноширинным, строка «Всего» */
+.bars a.bar-label { color: var(--text); text-decoration: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars a.bar-label:hover { color: var(--link); }
+.bars .price { font-family: var(--mono); }
+.bars .total { font-weight: 700; padding-top: 6px; border-top: 1px solid var(--line); }
+table.items.stats td.num { font-family: var(--mono); white-space: nowrap; text-align: left; }

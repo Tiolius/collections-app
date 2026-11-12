@@ -37,7 +37,7 @@
       <th th:text="#{field.rating}">Рейтинг</th>
       <th th:text="#{stats.imagesCol}">С картинками</th>
       <th th:text="#{stats.descriptionsCol}">С описанием</th>
-      <th th:if="${showPrices}" th:text="#{stats.valueCol}">Стоимость</th>
+      <th th:text="#{stats.valueCol}">Стоимость</th>
     </tr></thead>
     <tbody><tr th:each="c : ${collections}" th:with="s=${stats.get(c.id())}, f=${kindFields.get(c.id())}">
       <td class="title"><a th:href="@{/collections/{id}(id=${c.id()})}" th:text="${c.name()}"></a></td>
@@ -58,11 +58,30 @@
       </td>
       <td th:text="${s.withImages()}"></td>
       <td th:text="${s.withDescription()}"></td>
-      <td th:if="${showPrices}"><span th:if="${f.contains('price')}" th:text="${prices.get(c.id()) + ' ₽'}"></span><span th:unless="${f.contains('price')}" class="muted">—</span></td>
+      <!-- стоимость коллекции; цены скрыты («Отображение») — за иконкой глаза, как в итогах -->
+      <td class="num">
+        <span th:if="${f.contains('price') and showPrices}" th:text="${prices.get(c.id()) + ' ₽'}"></span>
+        <span th:if="${f.contains('price') and !showPrices}" class="icon tip small" tabindex="0" th:aria-label="#{coll.valueLabel}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
+          <span class="tiptext" th:text="#{coll.valueTip(${prices.get(c.id())})}"></span></span>
+        <span th:unless="${f.contains('price')}" class="muted">—</span>
+      </td>
     </tr></tbody>
   </table>
 
   <div class="stat-blocks">
+    <!-- Стоимость по коллекциям: от самой дорогой, полоса — от самой дорогой, доля — от общей стоимости (если цены не скрыты) -->
+    <section th:if="${showPrices and !values.isEmpty()}">
+      <h3 class="section" th:text="#{stats.valueByCollection}">Стоимость по коллекциям</h3>
+      <div class="bars">
+        <th:block th:each="v : ${values}">
+          <a class="bar-label" th:href="@{/collections/{id}(id=${v.collection().id()})}" th:text="${v.collection().name()}"></a>
+          <span class="bar-track"><span class="bar-fill" th:style="${'width:' + v.width() + '%'}"></span></span>
+          <span class="bar-value"><span class="price" th:text="${v.price() + ' ₽'}"></span><span class="muted" th:text="${' · ' + v.share() + '%'}"></span></span>
+        </th:block>
+        <span class="bar-label total" th:text="#{stats.valueTotal}">Всего</span><span class="total"></span>
+        <span class="bar-value total price" th:text="${totalPrice + ' ₽'}"></span>
+      </div>
+    </section>
     <!-- Рейтинг: сколько объектов в каждой звезде (3,5 считается как 4) -->
     <section th:if="${ratingMax > 0}">
       <h3 class="section" th:text="#{field.rating}">Рейтинг</h3>

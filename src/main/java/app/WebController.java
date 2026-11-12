@@ -509,6 +509,9 @@ public class WebController {
     /** Статус коллекции на странице статистики: значение, сколько объектов, цвет строки (или null). */
     public record StatusCount(String status, int count, String color) {}
 
+    /** Стоимость коллекции на странице статистики: сумма (с разделителями), ширина полосы от самой дорогой и доля в общей, %. */
+    public record CollectionValue(Entry collection, String price, long width, long share) {}
+
     /** Статистика: итоги по всем коллекциям и по каждой, рейтинги, покупки по годам, частые теги. */
     @GetMapping("/stats")
     public String stats(@SessionAttribute("uid") long uid, Model m) {
@@ -554,6 +557,15 @@ public class WebController {
         m.addAttribute("total", Map.of("items", items, "available", available, "images", images));
         m.addAttribute("totalPrice", formatPrice(price));
         m.addAttribute("showPrices", repo.showPrices(uid));
+        // стоимость по коллекциям — у коллекций с полем «Цена» и ненулевой суммой, от самой дорогой
+        long total = price, maxPrice = all.stream().filter(c -> fields.get(c.id()).contains("price"))
+                .mapToLong(c -> stats.get(c.id()).price()).max().orElse(0);
+        m.addAttribute("values", all.stream()
+                .filter(c -> fields.get(c.id()).contains("price") && stats.get(c.id()).price() > 0)
+                .sorted(java.util.Comparator.comparingLong((Entry c) -> stats.get(c.id()).price()).reversed())
+                .map(c -> { long p = stats.get(c.id()).price();
+                    return new CollectionValue(c, formatPrice(p), p * 100 / maxPrice, Math.round(p * 100.0 / total)); })
+                .toList());
         int[] hist = repo.ratingHistogram(uid);
         m.addAttribute("ratingHist", hist);
         m.addAttribute("ratingMax", java.util.Arrays.stream(hist).max().orElse(0));

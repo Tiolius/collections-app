@@ -108,6 +108,11 @@ class PagesTest extends DbTest {
         assertThat(stats).contains("background:#aabbcc").contains("Прочитано <b>2</b>").contains("Читаю <b>1</b>")
                 .contains("Брошено <b>0</b>").contains("f_status=");
         assertThat(stats).contains("<b>2</b><span>Прочитано</span>");
+        // стоимость коллекции: при скрытых ценах — в подсказке у глаза, при показанных — в столбце и блоке по коллекциям с итогом
+        assertThat(stats).contains("Стоимость коллекции: 540 ₽").doesNotContain(">Стоимость по коллекциям</h3>");
+        repo.setShowPrices(uid, true);
+        stats = page(uid, "/stats");
+        assertThat(stats).contains(">Стоимость по коллекциям</h3>").contains(">Полка</a>").contains("540 ₽").contains(" · 100%");
         // фильтры таблицы: статус и цена «от — до»
         String table = page(uid, "/collections/" + cid + "?f_status=Прочитано&f_price_min=200");
         String rows = table.substring(table.indexOf("<tbody>"), table.indexOf("</tbody>"));
