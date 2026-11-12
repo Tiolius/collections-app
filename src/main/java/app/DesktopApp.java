@@ -38,7 +38,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
@@ -50,7 +49,6 @@ import javax.swing.SwingUtilities;
  * двойной щелчок по значку — приложение в браузере по умолчанию. Ошибки запуска — окном с сообщением.
  * Меню и окна — свои, в цветах и шрифте приложения (DesktopTheme), без системной рамки.
  * Тексты — messages*.properties (ключи desktop.*) на языке Windows: русский или английский.
- * Если трея нет (не Windows) — вместо значка маленькое окно с теми же кнопками.
  */
 final class DesktopApp {
 
@@ -103,11 +101,11 @@ final class DesktopApp {
         pair = source;
     }
 
-    /** Значок у часов (или окно, если трея нет); exit — остановка приложения. */
+    /** Значок у часов; exit — остановка приложения. Трея нет (не Windows) — приложение просто работает без значка. */
     static void show(Runnable open, File dataDir, Runnable exit) {
         EventQueue.invokeLater(() -> {
-            if (SystemTray.isSupported() && tray(open, dataDir, exit)) return;
-            window(open, dataDir, exit);
+            if (!SystemTray.isSupported() || !tray(open, dataDir, exit))
+                org.slf4j.LoggerFactory.getLogger(DesktopApp.class).warn("Tray icon is not available");
         });
     }
 
@@ -185,30 +183,6 @@ final class DesktopApp {
             @Override public void mouseReleased(MouseEvent e) { menu.dispose(); action.run(); }
         });
         return item;
-    }
-
-    /** Без значка у часов: небольшое окно с теми же действиями; закрытие окна — выход. */
-    private static void window(Runnable open, File dataDir, Runnable exit) {
-        DesktopTheme th = theme();
-        JFrame f = new JFrame("Collections App");
-        f.setIconImage(icon());
-        f.setUndecorated(true);
-        JPanel body = new JPanel(new BorderLayout(0, 16));
-        body.setOpaque(false);
-        JLabel text = new JLabel(t("desktop.running"));
-        text.setFont(th.font());
-        text.setForeground(th.text());
-        body.add(text, BorderLayout.CENTER);
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        buttons.setOpaque(false);
-        buttons.add(button(th, t("desktop.open"), true, open));
-        buttons.add(button(th, t("desktop.dataFolder"), false, () -> openFolder(dataDir)));
-        buttons.add(button(th, t("desktop.exit"), false, exit));
-        body.add(buttons, BorderLayout.SOUTH);
-        frame(f, panel(th, f, body, exit));
-        f.pack();
-        f.setLocationRelativeTo(null);
-        f.setVisible(true);
     }
 
     private static void openFolder(File dir) {
