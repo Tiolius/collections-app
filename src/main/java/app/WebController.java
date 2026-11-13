@@ -50,18 +50,18 @@ public class WebController {
         this.oldGames = oldGames;
     }
 
-    // ---------- Вход, пользователи, пароль ----------
-    // Кто вошёл — хранится в сессии ("uid"); без входа страницы недоступны (см. WebConfig).
+    // ---------- Sign-in, users, password ----------
+    // Who is signed in is kept in the session ("uid"); without signing in pages are not available (see WebConfig).
 
-    /** Атрибут сессии с хешем пароля на момент входа: после смены пароля старые сессии недействительны (WebConfig). */
+    /** Session attribute with the password hash at sign-in: after a password change old sessions are invalid (WebConfig). */
     static final String SESSION_PW = "pw";
 
-    /** Хеш для проверки пароля несуществующего пользователя — чтобы по времени ответа нельзя было узнать имена. */
+    /** Hash for checking the password of a non-existent user — so names cannot be learned from the response time. */
     private static final String DUMMY_HASH = Passwords.hash("dummy-password");
 
     @GetMapping("/login")
     public String loginPage(HttpServletRequest request, Model m) {
-        // компьютер запомнен — сразу в приложение (вход сделает WebConfig)
+        // the computer is remembered — straight into the application (WebConfig signs in)
         Long uid = remember.user(request);
         if (uid != null && repo.user(uid) != null) return "redirect:/";
         return loginForm(m);
@@ -76,7 +76,7 @@ public class WebController {
     public String login(@RequestParam String name, @RequestParam(defaultValue = "") String password,
                         @RequestParam(defaultValue = "false") boolean remember,
                         HttpServletRequest request, HttpServletResponse response, Model m) {
-        // Защита от подбора: адрес + имя (5 попыток) и адрес по любым именам (30 попыток)
+        // Protection against guessing: address + name (5 attempts) and address with any names (30 attempts)
         String ip = "ip:" + request.getRemoteAddr();
         String ipName = ip + "|" + name.trim().toLowerCase(java.util.Locale.ROOT);
         long locked = guard.lockedMinutes(ipName, ip);
@@ -100,7 +100,7 @@ public class WebController {
         return "redirect:/";
     }
 
-    // Первый запуск (пользователей ещё нет): на странице входа создаётся администратор.
+    // First start (no users yet): an administrator is created on the login page.
 
     @PostMapping("/setup")
     public String setup(@RequestParam String name, @RequestParam(defaultValue = "") String password,
@@ -116,14 +116,14 @@ public class WebController {
         return "redirect:/";
     }
 
-    // ---------- Настройки: вкладки «Пароль» и «Пользователи» (вкладка «Типы коллекций» — /kinds) ----------
+    // ---------- Settings: the "Password" and "Users" tabs (the "Collection types" tab — /kinds) ----------
 
     @GetMapping("/account")
     public String account(@SessionAttribute("uid") long uid) {
         return "account";
     }
 
-    // Вкладка «Отображение»: показывать цены открыто или за иконкой глаза; сколько коллекций и объектов на странице
+    // "Display" tab: show prices openly or behind the eye icon; how many collections and items per page
     @GetMapping("/display")
     public String display(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("showPrices", repo.showPrices(uid));
@@ -148,7 +148,7 @@ public class WebController {
         return "redirect:/display?saved";
     }
 
-    /** Число на странице из формы «Отображение»: целое в пределах min…max, иначе 400. */
+    /** Number per page from the "Display" form: a whole number within min…max, otherwise 400. */
     private static int pageSize(String value, int min, int max) {
         String v = value == null ? "" : value.trim();
         if (v.matches("\\d{1,4}")) {
@@ -158,12 +158,12 @@ public class WebController {
         throw Fail.badRequest("display.badPageSize", min, max);
     }
 
-    // Вкладка «Импорт»: картинки объектов коллекции из Steam или Discogs (в фоне, прогресс — /import/status)
+    // "Import" tab: pictures of collection items from Steam or Discogs (in the background, progress — /import/status)
     @GetMapping("/import")
     public String importPage(@SessionAttribute("uid") long uid, Model m) {
         List<Entry> collections = repo.collections(uid);
         m.addAttribute("collections", collections);
-        // профиль типа каждой коллекции — для выбора источника по умолчанию
+        // profile of the type of each collection — for choosing the default source
         Map<String, String> profileOf = new java.util.HashMap<>();
         for (Kind k : repo.kinds(uid)) profileOf.put(k.name(), k.profile());
         Map<Long, String> profiles = new java.util.HashMap<>();
@@ -172,13 +172,13 @@ public class WebController {
         m.addAttribute("job", images.job(uid));
         String token = repo.token(uid, ImageImport.DISCOGS);
         m.addAttribute("discogsReady", token != null);
-        // сам токен на страницу не выводится — только последние 4 символа
+        // the token itself is not shown on the page — only its last 4 characters
         m.addAttribute("discogsTokenEnd", token == null ? null : token.substring(Math.max(0, token.length() - 4)));
         m.addAttribute("kinds", repo.kinds(uid));
         return "import";
     }
 
-    /** Загрузка коллекций из Excel: каждый лист — новая коллекция; итог или ошибка — на странице «Импорт», в блоке загрузки. */
+    /** Loading collections from Excel: each sheet is a new collection; the result or an error — on the "Import" page, in the loading block. */
     @PostMapping("/import/excel")
     public String importExcel(@SessionAttribute("uid") long uid, @RequestParam(required = false) MultipartFile file,
                               @RequestParam(defaultValue = "") String kind,
@@ -195,13 +195,13 @@ public class WebController {
         return "redirect:/import#excel";
     }
 
-    /** Личный токен Discogs пользователя: сохранить или удалить (кнопка «Удалить токен»). */
+    /** The user's personal Discogs token: save or delete (the "Delete token" button). */
     @PostMapping("/import/discogs-token")
     public String discogsToken(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String token,
                                @RequestParam(defaultValue = "false") boolean delete) {
         token = delete ? "" : token.trim();
-        if (!delete && token.isEmpty()) return "redirect:/import"; // пустое поле — токен не меняется
-        // токен Discogs — латинские буквы и цифры; ограничение длины — с запасом
+        if (!delete && token.isEmpty()) return "redirect:/import"; // empty field — the token does not change
+        // a Discogs token — Latin letters and digits; the length limit has a margin
         if (!token.isEmpty() && !token.matches("[A-Za-z0-9]{10,200}"))
             throw Fail.badRequest("import.token.bad");
         repo.setToken(uid, ImageImport.DISCOGS, token);
@@ -216,13 +216,13 @@ public class WebController {
                               @RequestParam(defaultValue = "false") boolean loadDescriptions,
                               @RequestParam(defaultValue = "screenshot") String firstImage,
                               @RequestParam(defaultValue = "5") int imageCount) {
-        Entry c = repo.collection(uid, collection); // чужая коллекция — 404
-        // пока у коллекции удаляются картинки («Кэш»), импорт в неё не запускается
+        Entry c = repo.collection(uid, collection); // someone else's collection — 404
+        // while pictures of the collection are being deleted ("Cache"), no import into it is started
         if (cacheClear.active(collection))
             throw Fail.conflict("import.cacheBusy");
         if (!ImageImport.SOURCES.containsKey(source))
             throw Fail.badRequest("import.badSource");
-        // Обложки Discogs — только с токеном; без него — только описания
+        // Discogs covers — only with a token; without it — descriptions only
         String discogsToken = repo.token(uid, ImageImport.DISCOGS);
         if (source.equals(ImageImport.DISCOGS) && discogsToken == null) loadImages = false;
         boolean descriptions = loadDescriptions;
@@ -248,7 +248,7 @@ public class WebController {
                 "described", j.described, "notFound", j.notFound, "errors", j.errors, "current", j.current, "message", j.message);
     }
 
-    // Вкладка «Кэш»: удалить все картинки объектов выбранной коллекции (в фоне, прогресс — /cache/status)
+    // "Cache" tab: delete all pictures of the items of the selected collection (in the background, progress — /cache/status)
     @GetMapping("/cache")
     public String cachePage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
@@ -259,12 +259,12 @@ public class WebController {
 
     @PostMapping("/cache/clear")
     public String cacheClear(@SessionAttribute("uid") long uid, @RequestParam long collection) {
-        Entry c = repo.collection(uid, collection); // чужая коллекция — 404
+        Entry c = repo.collection(uid, collection); // someone else's collection — 404
         ImageImport.Job j = images.job(uid);
-        // пока идёт импорт в эту коллекцию, он сразу дописал бы картинки обратно
+        // while an import into this collection runs, it would write the pictures back right away
         if (j != null && j.active() && j.collectionId == collection)
             throw Fail.conflict("cache.importBusy");
-        cacheClear.start(uid, c, repo.collectionImageCounts(uid).getOrDefault(collection, 0)); // уже идёт — не запускается
+        cacheClear.start(uid, c, repo.collectionImageCounts(uid).getOrDefault(collection, 0)); // already running — not started
         return "redirect:/cache";
     }
 
@@ -276,7 +276,7 @@ public class WebController {
         return Map.of("state", j.state, "total", j.total, "done", j.done);
     }
 
-    // Вкладка «Экспорт»: выбранные коллекции в файл Excel, каждая на своём листе (картинки не выгружаются)
+    // "Export" tab: selected collections into an Excel file, each on its own sheet (pictures are not exported)
     @GetMapping("/export")
     public String exportPage(@SessionAttribute("uid") long uid, Model m) {
         m.addAttribute("collections", repo.collections(uid));
@@ -286,7 +286,7 @@ public class WebController {
     @PostMapping("/export")
     public Object export(@SessionAttribute("uid") long uid, @RequestParam(name = "c", required = false) List<Long> ids,
                          Model m) throws java.io.IOException {
-        // Только свои коллекции, в порядке списка (по алфавиту)
+        // Only own collections, in list order (alphabetically)
         List<Entry> chosen = repo.collections(uid).stream().filter(c -> ids != null && ids.contains(c.id())).toList();
         if (chosen.isEmpty()) {
             m.addAttribute("collections", repo.collections(uid));
@@ -298,7 +298,7 @@ public class WebController {
         Xlsx.write(out, sheets);
         String file = (chosen.size() == 1 ? chosen.get(0).name() : I18n.t("export.file")) + " " + java.time.LocalDate.now() + ".xlsx";
         return ResponseEntity.ok()
-                // Имя файла: латиницей для старых браузеров и по-русски (filename*, RFC 5987) для остальных
+                // File name: in Latin for old browsers and in Russian (filename*, RFC 5987) for the rest
                 .header("Content-Disposition", "attachment; filename=\"collections-" + java.time.LocalDate.now()
                         + ".xlsx\"; filename*=UTF-8''" + java.net.URLEncoder.encode(file, java.nio.charset.StandardCharsets.UTF_8)
                         .replace("+", "%20"))
@@ -306,11 +306,11 @@ public class WebController {
                 .body(out.toByteArray());
     }
 
-    /** Версия приложения (из pom.xml, см. app.version в application.properties). */
+    /** Application version (from pom.xml, see app.version in application.properties). */
     @org.springframework.beans.factory.annotation.Value("${app.version}")
     private String appVersion;
 
-    /** Автор, email и дата обновления — дата сборки (app.author, app.email, app.build-date в application.properties). */
+    /** Author, email and update date — the build date (app.author, app.email, app.build-date in application.properties). */
     @org.springframework.beans.factory.annotation.Value("${app.author}")
     private String appAuthor;
     @org.springframework.beans.factory.annotation.Value("${app.email}")
@@ -329,7 +329,7 @@ public class WebController {
         return "about";
     }
 
-    // Вкладка «Резервная копия» (только администратор): все данные приложения в zip и восстановление из него
+    // "Backup" tab (administrator only): all application data into a zip and restoring from it
 
     @GetMapping("/backup")
     public String backupPage(@SessionAttribute("uid") long uid, Model m) {
@@ -339,7 +339,7 @@ public class WebController {
         return "backup";
     }
 
-    /** Архив копии — прямо в ответ (без промежуточного файла): база и картинки. */
+    /** The backup archive goes straight into the response (without an intermediate file): database and pictures. */
     @GetMapping("/backup/download")
     public void backupDownload(@SessionAttribute("uid") long uid, jakarta.servlet.http.HttpServletResponse res)
             throws java.io.IOException {
@@ -350,8 +350,8 @@ public class WebController {
     }
 
     /**
-     * Восстановление: файл копии приходит телом запроса (скрипт страницы, с прогрессом загрузки) — так на него
-     * не действует ограничение размера загружаемых картинок. Ответ: {ok} или {error}.
+     * Restore: the backup file comes as the request body (a page script, with upload progress) — this way the
+     * picture upload size limit does not apply to it. Answer: {ok} or {error}.
      */
     @PostMapping("/backup/restore")
     @org.springframework.web.bind.annotation.ResponseBody
@@ -379,8 +379,8 @@ public class WebController {
     }
 
     /**
-     * Новый пароль другого пользователя (в т. ч. администратора) — только администратор, без текущего пароля.
-     * Свой пароль — на вкладке «Пароль» (там нужен текущий). Сессии пользователя завершаются: хеш пароля в них устарел.
+     * A new password for another user (including an administrator) — administrator only, without the current password.
+     * Own password — on the "Password" tab (the current one is needed there). The user's sessions end: the password hash in them is outdated.
      */
     @PostMapping("/users/{id}/password")
     public String setUserPassword(@SessionAttribute("uid") long uid, @PathVariable long id,
@@ -401,7 +401,7 @@ public class WebController {
         return "redirect:/users?passwordSet=" + java.net.URLEncoder.encode(u.name(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    /** Добавление пользователя — только администратор (в «Настройках»). */
+    /** Adding a user — administrator only (in "Settings"). */
     @PostMapping("/users/new")
     public String addUser(@SessionAttribute("uid") long uid, @RequestParam String name,
                           @RequestParam(defaultValue = "") String password,
@@ -420,7 +420,7 @@ public class WebController {
         return "redirect:/users?userAdded=" + java.net.URLEncoder.encode(name.trim(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    /** Проверка данных нового пользователя; null — всё в порядке. */
+    /** Checking the data of a new user; null — everything is fine. */
     private String newUserError(String name, String password, String password2) {
         if (name.isBlank()) return I18n.t("user.nameRequired");
         if (repo.userByName(name) != null) return I18n.t("user.exists", name.trim());
@@ -438,7 +438,7 @@ public class WebController {
 
     @PostMapping("/logout")
     public String logout(HttpSession session, HttpServletRequest request, HttpServletResponse response) {
-        remember.forget(request, response); // выход на запомненном компьютере — забыть его
+        remember.forget(request, response); // signing out on a remembered computer — forget it
         session.invalidate();
         return "redirect:/login";
     }
@@ -449,7 +449,7 @@ public class WebController {
                                  @RequestParam(defaultValue = "") String password2, HttpSession session,
                                  HttpServletRequest request, HttpServletResponse response, Model m) {
         String error = null;
-        // Подбор текущего пароля тоже ограничен: 5 неудачных попыток — блокировка
+        // Guessing the current password is limited too: 5 failed attempts — a lock
         String key = "pw:" + uid;
         long locked = guard.lockedMinutes(key);
         if (locked > 0) error = I18n.t("account.locked", locked);
@@ -466,14 +466,14 @@ public class WebController {
         }
         guard.success(key);
         boolean remembered = remember.user(request) != null;
-        repo.setPassword(uid, password); // удаляет ключи «Запомнить меня» на всех компьютерах
-        if (remembered) remember.issue(uid, response); // этот компьютер остаётся запомненным
-        // Эта сессия остаётся, остальные сессии пользователя завершатся (хеш пароля изменился)
+        repo.setPassword(uid, password); // deletes the "Remember me" keys on all computers
+        if (remembered) remember.issue(uid, response); // this computer stays remembered
+        // This session stays, the user's other sessions end (the password hash changed)
         session.setAttribute(SESSION_PW, repo.user(uid).passwordHash());
         return "redirect:/account?passwordChanged";
     }
 
-    /** Вход: новая сессия (защита от подмены сессии), id пользователя и хеш его пароля в ней. */
+    /** Sign-in: a new session (protection against session fixation), the user id and their password hash in it. */
     private void signIn(HttpServletRequest request, long uid) {
         HttpSession old = request.getSession(false);
         if (old != null) old.invalidate();
@@ -482,12 +482,12 @@ public class WebController {
         s.setAttribute(SESSION_PW, repo.user(uid).passwordHash());
     }
 
-    // ---------- Коллекции ----------
+    // ---------- Collections ----------
 
     @GetMapping("/")
     public String index(@SessionAttribute("uid") long uid, Model m, @RequestParam(defaultValue = "1") int page) {
         List<Entry> all = repo.collections(uid);
-        // Коллекций на странице — настройка «Отображение»
+        // Collections per page — the "Display" setting
         int perPage = repo.pageSizes(uid).collections();
         int total = all.size();
         int pages = Math.max(1, (total + perPage - 1) / perPage);
@@ -495,7 +495,7 @@ public class WebController {
         int from = (page - 1) * perPage;
         List<Entry> shown = all.subList(from, Math.min(from + perPage, total));
         m.addAttribute("collections", shown);
-        // Счётчики под названием: всего, в наличии и стоимость — последние два, если у типа коллекции есть такие поля
+        // Counters under the name: total, in stock and value — the last two if the collection type has such fields
         Map<Long, Repo.CollectionStats> stats = repo.collectionStats(uid);
         Map<Long, Set<String>> fields = new java.util.HashMap<>();
         Map<Long, Integer> available = new java.util.HashMap<>();
@@ -516,7 +516,7 @@ public class WebController {
         return "index";
     }
 
-    /** Поиск по всем коллекциям: объекты (название, теги, регион / издание, заметки) и коллекции по названию. */
+    /** Search across all collections: items (name, tags, region / edition, notes) and collections by name. */
     @GetMapping("/search")
     public String search(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String q, Model m) {
         String query = q.trim();
@@ -532,7 +532,7 @@ public class WebController {
             Repo.SearchResult r = repo.search(uid, query);
             m.addAttribute("found", r.items());
             m.addAttribute("foundTotal", r.total());
-            // поля типа каждой коллекции — чтобы показывать статус и наличие только там, где они есть
+            // fields of the type of each collection — to show status and availability only where they exist
             Map<Long, Kind> kinds = new java.util.HashMap<>();
             Map<Long, Set<String>> fields = new java.util.HashMap<>();
             for (Entry it : r.items()) {
@@ -546,10 +546,10 @@ public class WebController {
         return "search";
     }
 
-    /** Статус коллекции на странице статистики: значение, сколько объектов, цвет строки (или null). */
+    /** Collection status on the statistics page: value, how many items, row colour (or null). */
     public record StatusCount(String status, int count, String color) {}
 
-    /** Статистика: итоги по всем коллекциям и по каждой, рейтинги, покупки по годам, частые теги. */
+    /** Statistics: totals for all collections and for each, ratings, purchases by year, frequent tags. */
     @GetMapping("/stats")
     public String stats(@SessionAttribute("uid") long uid, Model m) {
         List<Entry> all = repo.collections(uid);
@@ -557,7 +557,7 @@ public class WebController {
         Map<Long, Set<String>> fields = new java.util.HashMap<>();
         Map<Long, String> prices = new java.util.HashMap<>();
         Map<Long, Map<String, Integer>> statusCounts = repo.statusCounts(uid);
-        // статусы коллекции — в порядке списка её типа (с цветом), за ними прежние значения не из списка
+        // collection statuses — in the order of its type's list (with colour), then previous values not in the list
         Map<Long, List<StatusCount>> statuses = new java.util.HashMap<>();
         Map<String, Integer> statusTotals = new java.util.HashMap<>();
         Map<String, String> kindLabel = new java.util.HashMap<>();
@@ -583,7 +583,7 @@ public class WebController {
                 for (StatusCount sc : list) statusTotals.merge(sc.status(), sc.count(), Integer::sum);
             }
         }
-        // итоги: самые частые статусы (до 4), с объектами
+        // totals: the most frequent statuses (up to 4), with items
         m.addAttribute("statuses", statuses);
         m.addAttribute("statusTotals", statusTotals.entrySet().stream().filter(e -> e.getValue() > 0)
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(4).toList());
@@ -622,20 +622,20 @@ public class WebController {
         return "redirect:/collections/" + id;
     }
 
-    /** Столбец таблицы объектов: ключ сортировки, заголовок (текст), css-класс. */
+    /** Item table column: sort key, title (text), css class. */
     public record Col(String key, String label, String css) {}
 
-    /** Подпись столбца: своя подпись поля в типе или стандартная (ключ текста defaultKey — короче, чем в форме). */
+    /** Column title: the own field label in the type or the standard one (text key defaultKey — shorter than in the form). */
     private static String colLabel(Kind kind, String role, String defaultKey) {
         Kind.Field f = kind == null ? null : kind.field(role);
         return f != null && f.label() != null ? f.label() : I18n.t(defaultKey);
     }
 
     /**
-     * Фильтры таблицы объектов из параметров f_<ключ поля> — по виду поля: название и значения из списков (платформа,
-     * формат, статус, регион, тег, свои текст и список) — как есть; год покупки — 4 цифры; цена «от — до» (f_price_min,
-     * f_price_max) — целые числа; наличие и свои «да / нет» — «1» / «0»; рейтинг — «0» (без рейтинга) или «1»…«5» (не меньше
-     * звёзд); картинки (есть у всех) — «any», «0»…«5». Только по полям типа коллекции.
+     * Item table filters from the f_<field key> parameters — by field kind: the name and values from lists (platform,
+     * format, status, region, tag, custom text and list) — as is; purchase year — 4 digits; price "from — to" (f_price_min,
+     * f_price_max) — whole numbers; available and custom yes/no — "1" / "0"; rating — "0" (no rating) or "1"…"5" (at least
+     * this many stars); pictures (every item has them) — "any", "0"…"5". Only by fields of the collection type.
      */
     private static Map<String, String> filters(Kind kind, Set<String> fields, HttpServletRequest req) {
         Map<String, String> res = new java.util.LinkedHashMap<>();
@@ -666,7 +666,7 @@ public class WebController {
         return res;
     }
 
-    /** Значения списка для фильтра: сначала значения из настроек поля, за ними прежние значения не из списка. */
+    /** List values for a filter: first the values from the field settings, then previous values not in the list. */
     private static List<String> mergeOptions(List<String> options, List<String> used) {
         List<String> res = new ArrayList<>(options);
         for (String u : used) if (!res.contains(u)) res.add(u);
@@ -674,8 +674,8 @@ public class WebController {
     }
 
     /**
-     * Значения своих полей для показа в таблице: id объекта → («c<id>» → текст): число — с разрядами, дата —
-     * по языку интерфейса, да/нет — «1» (ячейка рисует галочку), остальное — как есть.
+     * Values of custom fields for display in the table: item id → ("c<id>" → text): a number — with digit grouping, a date —
+     * by the interface language, yes/no — "1" (the cell draws a tick), the rest — as is.
      */
     private static Map<Long, Map<String, String>> customText(Kind kind, Map<Long, Map<Long, Object>> values) {
         Map<Long, Map<String, String>> res = new java.util.HashMap<>();
@@ -697,7 +697,7 @@ public class WebController {
         return res;
     }
 
-    /** Подписи полей типа для шаблонов: роль → подпись (своя или стандартная); без типа — стандартные. */
+    /** Labels of type fields for templates: role → label (own or standard); without a type — standard ones. */
     private static Map<String, String> labels(Kind kind) {
         if (kind != null) return kind.labels();
         Map<String, String> res = new java.util.LinkedHashMap<>();
@@ -713,7 +713,7 @@ public class WebController {
                              @RequestParam(defaultValue = "false") boolean dups,
                              HttpServletRequest req) {
         Entry c = repo.collection(uid, id);
-        // Открыта без параметров (с главной и т. п.) — запомненный вид списка этой коллекции: сортировка, страница, фильтры
+        // Opened without parameters (from the home page etc.) — the remembered list view of this collection: sorting, page, filters
         if (req.getQueryString() == null || req.getQueryString().isEmpty()) {
             String saved = repo.collectionView(uid, id);
             if (isView(saved)) return "redirect:" + collectionUrl(id, saved);
@@ -724,7 +724,7 @@ public class WebController {
         m.addAttribute("kind", kind);
         m.addAttribute("labels", labels(kind));
 
-        // Столбцы — в порядке полей типа; подпись — своя подпись поля в типе или стандартная
+        // Columns — in the order of type fields; the title — the own field label in the type or the standard one
         boolean showPrices = repo.showPrices(uid);
         m.addAttribute("showPrices", showPrices);
         List<Col> cols = new ArrayList<>();
@@ -734,16 +734,16 @@ public class WebController {
                 case "platform", "format", "edition" -> new Col(f, colLabel(kind, f, "field." + f), "");
                 case "status" -> new Col(f, colLabel(kind, f, "field.statusShort"), "");
                 case "rating" -> new Col(f, colLabel(kind, f, "field.rating"), "rating");
-                // Цена: открыто (настройка «Отображение») или в подсказке у иконки глаза
+                // Price: openly (the "Display" setting) or in the eye icon tooltip
                 case "price" -> showPrices ? new Col(f, colLabel(kind, f, "field.price"), "num") : new Col(f, I18n.t("col.priceEye"), "eye");
                 case "purchased" -> new Col(f, colLabel(kind, f, "field.purchased"), "date");
                 case "available" -> new Col(f, colLabel(kind, f, "field.available"), "flag");
                 case "tags" -> new Col(f, colLabel(kind, f, "field.tags"), "tags");
-                default -> null; // заметки и Old-Games.ru в таблице не показываются
+                default -> null; // notes and Old-Games.ru are not shown in the table
             };
             if (col != null) cols.add(col);
         }
-        // свои поля — тоже в порядке типа (длинный текст в таблице не показывается)
+        // custom fields — also in type order (long text is not shown in the table)
         List<String> order = kind == null ? List.of() : kind.keys();
         Map<String, String> customTypes = new java.util.HashMap<>();
         if (kind != null)
@@ -757,19 +757,19 @@ public class WebController {
                     default -> "";
                 }));
             }
-        // столбцы — в порядке полей типа (название — первым)
+        // columns — in the order of type fields (the name first)
         cols.sort(java.util.Comparator.comparingInt(col -> col.key().equals("name") ? -1 : order.indexOf(col.key())));
         m.addAttribute("customTypes", customTypes);
 
         String requested = sort;
         if (cols.stream().noneMatch(col -> col.key().equals(requested))) sort = "name";
         boolean desc = "desc".equals(dir);
-        // Объектов на странице — настройка «Отображение»
+        // Items per page — the "Display" setting
         int size = repo.pageSizes(uid).items();
 
-        // Фильтры по столбцам (параметры f_<ключ поля>; только по полям типа коллекции); пустые и неверные не учитываются
+        // Column filters (f_<field key> parameters; only by fields of the collection type); empty and invalid ones are ignored
         Map<String, String> filters = filters(kind, fields, req);
-        // Значения для выпадающих списков фильтров: списки (статусы, свои списки) — в порядке настроек типа, затем прочие значения
+        // Values for filter dropdowns: lists (statuses, custom lists) — in the order of the type settings, then other values
         Map<String, List<String>> customOptions = new java.util.HashMap<>();
         if (kind != null)
             for (Kind.Field cf : kind.customs())
@@ -786,7 +786,7 @@ public class WebController {
         filters.forEach((k, v) -> filterQs.append("&f_").append(k).append("=")
                 .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8)));
 
-        // Режим «Дубли»: только объекты, у которых в коллекции есть объект с тем же названием
+        // "Duplicates" mode: only items that have an item with the same name in the collection
         Set<Long> dupIds = new java.util.HashSet<>();
         int dupGroups = 0;
         if (dups) {
@@ -808,11 +808,11 @@ public class WebController {
         m.addAttribute("c", c);
         m.addAttribute("fields", fields);
         m.addAttribute("cols", cols);
-        // сортировать можно по встроенным полям из ITEM_SORT и по своим (кроме длинного текста — его нет в таблице)
+        // sorting is possible by built-in fields from ITEM_SORT and by custom ones (except long text — it is not in the table)
         Set<String> sortable = new java.util.HashSet<>(Repo.ITEM_SORT.keySet());
         sortable.addAll(customTypes.keySet());
         m.addAttribute("sortable", sortable);
-        // Массовые действия: куда можно перенести объекты — другие коллекции пользователя
+        // Bulk actions: where items can be moved — the user's other collections
         m.addAttribute("moveTargets", repo.collections(uid).stream().filter(x -> x.id() != id).toList());
         List<Entry> pageItems = found.subList(fromIdx, Math.min(fromIdx + size, total));
         m.addAttribute("items", pageItems);
@@ -820,14 +820,14 @@ public class WebController {
         m.addAttribute("itemJson", itemJson(pageItems, it -> kind, custom));
         m.addAttribute("customText", customText(kind, custom));
         m.addAttribute("kindJson", kindJson(kind));
-        // В режиме дублей при сортировке по названию — первая строка каждой группы (над ней линия)
+        // In duplicates mode sorted by name — the first row of each group (with a line above it)
         Set<Long> groupStarts = new java.util.HashSet<>();
         if (dups && sort.equals("name"))
             for (int i = fromIdx; i < fromIdx + pageItems.size(); i++)
                 if (i == 0 || !dupKey(found.get(i).name()).equals(dupKey(found.get(i - 1).name())))
                     groupStarts.add(found.get(i).id());
         m.addAttribute("groupStarts", groupStarts);
-        // Общая стоимость — только если у типа коллекции есть поле «Цена»; формат «717 841» (по-английски «717,841»)
+        // Total value — only if the collection type has the "Price" field; format "717 841" (in English "717,841")
         if (fields.contains("price"))
             m.addAttribute("totalPrice", formatPrice(repo.totalPrice(id)));
         m.addAttribute("dups", dups);
@@ -836,7 +836,7 @@ public class WebController {
         m.addAttribute("filters", filters);
         m.addAttribute("filterOptions", filterOptions);
         m.addAttribute("filterQs", filterQs.toString());
-        // Всего без фильтров: в режиме дублей — все дубли, иначе — все объекты коллекции
+        // Total without filters: in duplicates mode — all duplicates, otherwise — all collection items
         m.addAttribute("totalAll", dups ? dupIds.size() : filters.isEmpty() ? total : repo.countItems(id));
         m.addAttribute("sort", sort);
         m.addAttribute("dir", desc ? "desc" : "asc");
@@ -846,23 +846,23 @@ public class WebController {
         m.addAttribute("from", total == 0 ? 0 : fromIdx + 1);
         m.addAttribute("to", Math.min(page * size, total));
         m.addAttribute("pageLinks", pageLinks(page, pages));
-        // Текущий вид списка — чтобы после изменения/удаления объекта вернуться туда же
+        // The current list view — to return to it after changing/deleting an item
         String view = "sort=" + sort + "&dir=" + (desc ? "desc" : "asc") + "&page=" + page + filterQs;
         m.addAttribute("view", view + modeQs);
-        // Запомнить вид для этого пользователя и коллекции (режим «Дубли» не запоминается)
+        // Remember the view for this user and collection ("Duplicates" mode is not remembered)
         if (!dups) repo.setCollectionView(uid, id, view);
         return "collection";
     }
 
-    /** Сумма в рублях с разделением разрядов по языку интерфейса: «717 841» (по-английски «717,841»). */
+    /** Amount in roubles with digit grouping by the interface language: "717 841" (in English "717,841"). */
     private static String formatPrice(long sum) {
         return String.format(org.springframework.context.i18n.LocaleContextHolder.getLocale(), "%,d", sum)
                 .replace('\u00a0', ' ').replace('\u202f', ' ');
     }
 
     /**
-     * Массовое действие над выбранными объектами коллекции: наличие, статус, рейтинг (если поле есть у типа),
-     * перенос в другую коллекцию, удаление. Чужие и не из этой коллекции объекты — 404. Затем — тот же вид списка.
+     * A bulk action on the selected collection items: availability, status, rating (if the type has the field),
+     * moving to another collection, deletion. Someone else's items and items not from this collection — 404. Then — the same list view.
      */
     @PostMapping("/collections/{id}/bulk")
     public String bulk(@SessionAttribute("uid") long uid, @PathVariable long id,
@@ -874,17 +874,17 @@ public class WebController {
         Long target = null;
         if (action.equals("move")) {
             if (!v.matches("\\d{1,18}")) throw Fail.badRequest();
-            target = repo.collection(uid, Long.parseLong(v)).id(); // чужая коллекция — 404
+            target = repo.collection(uid, Long.parseLong(v)).id(); // someone else's collection — 404
         } else if (!action.equals("delete") && !(Set.of("available", "status", "rating").contains(action) && fields.contains(action))) {
             throw Fail.badRequest();
         }
         List<Long> chosen = ids == null ? List.of() : ids;
-        // сначала проверка всех (чужой или из другой коллекции — 404, ничего не меняется), потом изменения
-        // (без общей транзакции: удаление сразу освобождает файлы картинок)
+        // first check all (someone else's or from another collection — 404, nothing changes), then the changes
+        // (without a shared transaction: deletion frees picture files right away)
         for (long itemId : chosen)
             if (repo.item(uid, itemId).collectionId() != id)
                 throw Fail.notFound();
-        // неверный статус (не из списка типа коллекции) — 400 до изменений
+        // invalid status (not from the collection type list) — 400 before any changes
         if (action.equals("status") && !v.isEmpty()) {
             Kind kind = repo.kindByName(uid, c.kind());
             if (kind == null || !kind.statuses().contains(v)) throw Fail.badRequest("item.badStatus");
@@ -903,7 +903,7 @@ public class WebController {
         return "redirect:" + collectionUrl(id, view);
     }
 
-    /** Номера страниц для навигации: первая, последняя и соседние с текущей; 0 — пропуск («…»). */
+    /** Page numbers for navigation: the first, the last and those next to the current one; 0 — a gap ("…"). */
     private static List<Integer> pageLinks(int page, int pages) {
         List<Integer> res = new ArrayList<>();
         for (int p = 1; p <= pages; p++) {
@@ -922,14 +922,14 @@ public class WebController {
     }
 
     /**
-     * Адрес страницы коллекции с сохранённым видом списка (сортировка, страница, фильтры).
-     * view — только из нашей же ссылки: допускаются лишь символы параметров и URL-кодирования.
+     * Address of the collection page with the saved list view (sorting, page, filters).
+     * view — only from our own link: only parameter and URL-encoding characters are allowed.
      */
     private static String collectionUrl(long cid, String view) {
         return "/collections/" + cid + (isView(view) ? "?" + view : "");
     }
 
-    /** Куда вернуться со страницы объекта: в поиск (q — запрос, если объект открыт из поиска) или в коллекцию. */
+    /** Where to return from an item page: to the search (q — the query, if the item was opened from the search) or to the collection. */
     private static String backUrl(long cid, String view, String q) {
         return q != null ? "/search?q=" + java.net.URLEncoder.encode(q, java.nio.charset.StandardCharsets.UTF_8)
                 : collectionUrl(cid, view);
@@ -939,7 +939,7 @@ public class WebController {
         return view != null && !view.isEmpty() && view.matches("[A-Za-z0-9=&%+._*-]*");
     }
 
-    /** Ключ для поиска дублей: название без учёта регистра и лишних пробелов. */
+    /** Key for finding duplicates: the name ignoring case and extra spaces. */
     private static String dupKey(String name) {
         return name.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.forLanguageTag("ru"));
     }
@@ -956,27 +956,27 @@ public class WebController {
                                  @RequestParam(required = false) String kind,
                                  @RequestParam(required = false) MultipartFile image,
                                  @RequestParam(name = "remove_image", required = false) String removeImage) {
-        repo.collection(uid, id); // 404, если нет
+        repo.collection(uid, id); // 404 if there is none
         repo.saveCollection(uid, id, name, kind, image, removeImage != null);
         return "redirect:/collections/" + id;
     }
 
     @PostMapping("/collections/{id}/delete")
     public String deleteCollection(@SessionAttribute("uid") long uid, @PathVariable long id) {
-        repo.collection(uid, id); // 404, если коллекция чужая
+        repo.collection(uid, id); // 404 if the collection is someone else's
         repo.delete("collections", id);
         return "redirect:/";
     }
 
-    // ---------- Объекты ----------
+    // ---------- Items ----------
 
     /**
-     * Страниц объекта нет — объект создаётся и меняется в окне объекта. Прежние адреса (закладки, открытие в новой
-     * вкладке) ведут в коллекцию с запомненным видом списка, окно открывает скрипт по параметру new=1 / open=<id>.
+     * There are no item pages — an item is created and changed in the item window. Old addresses (bookmarks, opening in a new
+     * tab) lead to the collection with the remembered list view; the script opens the window by the new=1 / open=<id> parameter.
      */
     @GetMapping("/collections/{cid}/items/new")
     public String newItemForm(@SessionAttribute("uid") long uid, @PathVariable long cid) {
-        repo.collection(uid, cid); // чужая — 404
+        repo.collection(uid, cid); // someone else's — 404
         return "redirect:" + withParam(collectionUrl(cid, repo.collectionView(uid, cid)), "new=1");
     }
 
@@ -1001,8 +1001,8 @@ public class WebController {
     }
 
     /**
-     * Свои поля из окна объекта: параметры cf_<id поля> (у «да/нет» — скрытое 0 и галочка 1: берётся последнее значение).
-     * Поля, которых нет в форме, не меняются; поля не из типа коллекции объекта пропускает Repo.setCustom.
+     * Custom fields from the item window: cf_<field id> parameters (yes/no has a hidden 0 and a tick 1: the last value is taken).
+     * Fields not in the form do not change; fields not of the item's collection type are skipped by Repo.setCustom.
      */
     private void saveCustoms(long itemId, HttpServletRequest req) {
         req.getParameterMap().forEach((name, values) -> {
@@ -1011,12 +1011,12 @@ public class WebController {
         });
     }
 
-    /** Добавляет параметр к адресу (с «?» или «&»). */
+    /** Adds a parameter to an address (with "?" or "&"). */
     private static String withParam(String url, String param) {
         return url + (url.contains("?") ? "&" : "?") + param;
     }
 
-    /** Данные объекта для окна объекта по адресу open=<id> (объекта может не быть в таблице на странице). */
+    /** Item data for the item window by the address open=<id> (the item may not be in the table on the page). */
     @GetMapping("/items/{id}/data")
     @org.springframework.web.bind.annotation.ResponseBody
     public Map<String, Object> itemData(@SessionAttribute("uid") long uid, @PathVariable long id) {
@@ -1026,16 +1026,16 @@ public class WebController {
     }
 
     /**
-     * Данные объекта для окна объекта — единственное описание: и для строк таблицы коллекции и поиска (атрибут
-     * data-item, JSON), и для /items/{id}/data. fields — поля типа коллекции объекта (окно показывает только их).
-     * Новое поле объекта добавлять сюда и в окно (base :: itemDialog).
+     * Item data for the item window — the single definition: both for rows of the collection table and the search (the
+     * data-item attribute, JSON) and for /items/{id}/data. fields — the fields of the item's collection type (the window shows only them).
+     * Add a new item field here and to the window (base :: itemDialog).
      */
     private static Map<String, Object> itemData(Entry it, Kind kind, Map<Long, Object> custom) {
         Map<String, Object> d = new java.util.HashMap<>();
         d.put("id", it.id());
         d.put("cid", it.collectionId());
         d.putAll(kindData(kind));
-        // свои поля: «c<id>» → значение (текстом)
+        // custom fields: "c<id>" → value (as text)
         Map<String, String> cv = new java.util.HashMap<>();
         custom.forEach((fid, v) -> cv.put("c" + fid, String.valueOf(v)));
         d.put("custom", cv);
@@ -1057,13 +1057,13 @@ public class WebController {
     }
 
     /**
-     * Что окно объекта берёт из типа коллекции: fields — роли полей по порядку (окно показывает только их, в этом
-     * порядке), labels — свои подписи полей (роль → подпись; нет — подпись из разметки окна), statuses — список статусов.
+     * What the item window takes from the collection type: fields — field roles in order (the window shows only them, in this
+     * order), labels — own field labels (role → label; none — the label from the window markup), statuses — the status list.
      */
     private static Map<String, Object> kindData(Kind kind) {
         Map<String, Object> d = new java.util.HashMap<>();
         d.put("fields", String.join(",", kind == null ? Repo.FIELDS.keySet() : kind.keys()));
-        // свои поля: ключ, подпись, вид, значения списка — окно создаёт для них строки
+        // custom fields: key, label, kind, list values — the window creates rows for them
         List<Map<String, Object>> customs = new ArrayList<>();
         if (kind != null)
             for (Kind.Field cf : kind.customs())
@@ -1078,7 +1078,7 @@ public class WebController {
         return d;
     }
 
-    /** То же для окна нового объекта на странице коллекции (атрибут data-kind окна), JSON. */
+    /** The same for the new item window on the collection page (the data-kind attribute of the window), JSON. */
     private static String kindJson(Kind kind) {
         try {
             return JSON.writeValueAsString(kindData(kind));
@@ -1089,7 +1089,7 @@ public class WebController {
 
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 
-    /** Данные объектов для атрибута data-item строк таблицы: id → JSON. kindOf — тип коллекции объекта. */
+    /** Item data for the data-item attribute of table rows: id → JSON. kindOf — the item's collection type. */
     private static Map<Long, String> itemJson(List<Entry> items, java.util.function.Function<Entry, Kind> kindOf,
                                               Map<Long, Map<Long, Object>> custom) {
         Map<Long, String> res = new java.util.HashMap<>();
@@ -1118,9 +1118,9 @@ public class WebController {
     }
 
     /**
-     * Описание и картинки со страницы игры Old-Games.ru (кнопка «Загрузить» в окне объекта). Ничего не сохраняет:
-     * окно подставляет описание и картинки в форму, сохраняются они кнопкой «Сохранить».
-     * Ответ: {url, description, images: [{mime, data (base64)}]} или {error}.
+     * Description and pictures from an Old-Games.ru game page (the "Load" button in the item window). Saves nothing:
+     * the window puts the description and pictures into the form, they are saved with the "Save" button.
+     * Answer: {url, description, images: [{mime, data (base64)}]} or {error}.
      */
     @PostMapping("/oldgames")
     @org.springframework.web.bind.annotation.ResponseBody
@@ -1142,7 +1142,7 @@ public class WebController {
         }
     }
 
-    /** Новые картинки из окна объекта: «image_N» — на место N. */
+    /** New pictures from the item window: "image_N" — into place N. */
     private static Map<Integer, MultipartFile> newImages(Map<String, MultipartFile> files) {
         Map<Integer, MultipartFile> res = new java.util.HashMap<>();
         for (int pos = 0; pos < ImageFiles.MAX_IMAGES; pos++) {
@@ -1153,9 +1153,9 @@ public class WebController {
     }
 
     /**
-     * Картинка по хешу содержимого: /img/<хеш> — сама картинка, /img/<хеш>/thumb — уменьшенная копия (главная, шапка
-     * коллекции, поиск; если уменьшать нечего — сама картинка). Содержимое по адресу никогда не меняется (другая
-     * картинка — другой хеш), поэтому браузер хранит её год и не спрашивает снова. Только свои картинки, иначе 404.
+     * Picture by content hash: /img/<hash> — the picture itself, /img/<hash>/thumb — a smaller copy (home page, collection
+     * header, search; if there is nothing to shrink — the picture itself). The content at an address never changes (another
+     * picture — another hash), so the browser keeps it for a year and does not ask again. Only own pictures, otherwise 404.
      */
     @GetMapping({"/img/{hash}", "/img/{hash}/thumb"})
     public ResponseEntity<byte[]> picture(@SessionAttribute("uid") long uid, @PathVariable String hash, HttpServletRequest req) {
@@ -1178,7 +1178,7 @@ public class WebController {
         return "redirect:" + backUrl(it.collectionId(), view, q);
     }
 
-    // ---------- Настройки: типы коллекций ----------
+    // ---------- Settings: collection types ----------
 
     @GetMapping("/kinds")
     public String kinds(@SessionAttribute("uid") long uid, Model m) {
@@ -1234,8 +1234,8 @@ public class WebController {
     }
 
     /**
-     * Строка поля в форме типа: ключ (роль встроенного или «c<id>» своего), стандартная подпись (у своего — пусто),
-     * подпись (своя или ""), включено ли, вид своего поля (у встроенного — ""), значения списка по строкам.
+     * A field row in the type form: key (role of a built-in or "c<id>" of a custom field), standard label (empty for custom),
+     * label (own or ""), whether it is on, kind of a custom field ("" for built-in), list values one per line.
      */
     public record KindFieldRow(String role, String defaultLabel, String label, boolean on, String type, String opts) {
         public boolean custom() {
@@ -1246,7 +1246,7 @@ public class WebController {
     private String kindForm(long uid, Model m, Kind kind, String title) {
         m.addAttribute("kind", kind);
         m.addAttribute("profiles", Repo.PROFILES);
-        // Поля: сначала поля типа в его порядке, за ними остальные из набора (выключенные) — порядок меняется стрелками
+        // Fields: first the type fields in its order, then the rest of the set (off) — the order is changed with the arrows
         List<KindFieldRow> rows = new ArrayList<>();
         if (kind != null)
             for (String key : kind.keys()) {
@@ -1261,7 +1261,7 @@ public class WebController {
         m.addAttribute("rows", rows);
         m.addAttribute("customTypes", Repo.CUSTOM_TYPES);
         m.addAttribute("maxCustom", Repo.MAX_CUSTOM);
-        // Статусы с цветами по порядку и две пустые строки для новых (ещё строки добавляет кнопка «Добавить статус»)
+        // Statuses with colours in order and two empty rows for new ones (more rows are added by the "Add status" button)
         List<Kind.Option> statuses = new ArrayList<>();
         if (kind != null && kind.field("status") != null) statuses.addAll(kind.field("status").options());
         statuses.add(new Kind.Option("", null));
@@ -1272,9 +1272,9 @@ public class WebController {
         return "kind-form";
     }
 
-    // ---------- вспомогательное ----------
+    // ---------- helpers ----------
 
-    /** Форма коллекции (новая или изменение); объекты меняются в окне объекта. */
+    /** Collection form (new or edit); items are changed in the item window. */
     private String form(long uid, Model m, Entry obj, String imgUrl, String title, String back) {
         m.addAttribute("obj", obj);
         m.addAttribute("kinds", repo.kinds(uid).stream().map(Kind::name).toList());

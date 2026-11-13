@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-/** Новое окно браузера по умолчанию: разбор ответов реестра Windows и ключ нового окна. */
+/** New window of the default browser: parsing Windows registry output and the new-window switch. */
 class BrowserWindowTest {
 
     @Test
@@ -30,6 +30,6 @@ class BrowserWindowTest {
         assertThat(BrowserWindow.newWindow("C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", url)).contains("--new-window");
         assertThat(BrowserWindow.newWindow("C:\\Users\\me\\AppData\\Local\\Yandex\\YandexBrowser\\Application\\browser.exe", url)).contains("--new-window");
         assertThat(BrowserWindow.newWindow("C:\\Program Files\\Mozilla Firefox\\FIREFOX.EXE", url)).contains("-new-window");
-        assertThat(BrowserWindow.newWindow("C:\\Program Files\\Some\\other.exe", url)).isNull(); // незнакомый — обычная ссылка
+        assertThat(BrowserWindow.newWindow("C:\\Program Files\\Some\\other.exe", url)).isNull(); // unknown browser — a plain link
     }
 }

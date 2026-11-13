@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Платформы игр для импорта (Nintendo eShop, LaunchBox): «PS2», «PlayStation 2» и «Sony Playstation 2» — одна платформа. */
+/** Game platforms for import (Nintendo eShop, LaunchBox): "PS2", "PlayStation 2" and "Sony Playstation 2" are one platform. */
 final class Platforms {
 
     private Platforms() {}
 
-    /** Названия платформ (после norm) → код. */
+    /** Platform names (after norm) → code. */
     private static final Map<String, String> CODES = new HashMap<>();
     static {
         add("ps1", "playstation", "playstation 1", "ps1", "psx", "ps one", "psone", "ps");
@@ -48,14 +48,14 @@ final class Platforms {
         for (String n : names) CODES.put(Names.norm(n), code);
     }
 
-    /** Код платформы по названию; без известной приписки производителя («Sony», «Nintendo»…) тоже. null — неизвестная. */
+    /** Platform code by name, also without a known maker prefix ("Sony", "Nintendo"…). null — unknown. */
     static String code(String name) {
         String n = Names.norm(name);
         String code = CODES.get(n);
         return code != null ? code : CODES.get(n.replaceFirst("^(sony|nintendo|microsoft|sega) ", ""));
     }
 
-    /** Известные платформы из поля «Платформа» (можно несколько через «,», «/», «;», «+»: «PS4 / PS5»). */
+    /** Known platforms from the "Platform" field (several allowed, separated by ",", "/", ";", "+": "PS4 / PS5"). */
     static Set<String> codes(String field) {
         Set<String> res = new HashSet<>();
         if (field != null)
@@ -66,7 +66,7 @@ final class Platforms {
         return res;
     }
 
-    /** Подходит ли запись источника (её платформы) объекту: у объекта нет известной платформы — подходит любая. */
+    /** Whether a source record (its platforms) fits the item: if the item has no known platform, any fits. */
     static boolean same(Set<String> wanted, List<String> sourcePlatforms) {
         if (wanted.isEmpty()) return true;
         for (String p : sourcePlatforms)

@@ -7,7 +7,7 @@
   <th:block th:replace="~{base :: settingsHead('users')}"></th:block>
   <p class="ok" th:if="${param.userAdded != null}" th:text="#{users.added(${param.userAdded})}"></p>
   <p class="ok" th:if="${param.passwordSet != null}" th:text="#{users.passwordSet(${param.passwordSet})}"></p>
-  <!-- Ключ в строке — к форме «Сменить пароль» с этим пользователем; у себя — вкладка «Пароль» (нужен текущий пароль) -->
+  <!-- The key in a row leads to the "Change password" form with this user; for yourself — the "Password" tab (current password needed) -->
   <table class="items users">
     <thead><tr><th th:text="#{users.name}">Имя</th><th class="title" th:text="#{users.role}">Роль</th><th></th></tr></thead>
     <tbody><tr th:each="u : ${users}">
@@ -20,8 +20,8 @@
     </tr></tbody>
   </table>
 
-  <!-- Новый пароль другого пользователя (в т. ч. администратора): текущий пароль не нужен, его сессии завершатся.
-       Других пользователей нет — блока нет -->
+  <!-- A new password for another user (including an administrator): the current password is not needed, their sessions end.
+       No other users — no block -->
   <th:block th:if="${users.size() > 1}">
   <h3 class="section" id="pw-form" th:text="#{users.setPassword}">Сменить пароль</h3>
   <p class="error" th:if="${pwError != null}" th:text="${pwError}"></p>
@@ -44,7 +44,7 @@
     <div class="full"><button class="btn" th:text="#{users.setPasswordBtn}">Сменить пароль</button></div>
   </form>
   <script>
-    // адрес формы — по выбранному пользователю (в том числе выбранному ссылкой-ключом)
+    // form address — by the selected user (including one selected via the key link)
     (function () { var s = document.getElementById('f-pwuser'); s.form.action = '/users/' + s.value + '/password'; })();
   </script>
   </th:block>

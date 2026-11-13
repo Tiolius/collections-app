@@ -13,19 +13,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Проверка обновлений: последний релиз на GitHub (updates.url) не чаще раза в CHECK_EVERY, в фоне — страницы не ждут.
- * Новее установленной версии (app.version) — показывается администратору в шапке и в «О приложении».
- * Отключить — updates.enabled=false (переменная UPDATES_ENABLED=false). Ошибка сети — молча, следующая попытка позже.
+ * Update check: the latest release on GitHub (updates.url) at most once per CHECK_EVERY, in the background — pages do not wait.
+ * Newer than the installed version (app.version) — shown to the administrator in the header and in "About".
+ * Turn off with updates.enabled=false (variable UPDATES_ENABLED=false). A network error is silent; the next attempt comes later.
  */
 @Component
 public class Updates {
 
     private static final Logger log = LoggerFactory.getLogger(Updates.class);
     private static final Duration CHECK_EVERY = Duration.ofHours(12);
-    /** После неудачной проверки — повтор раньше. */
+    /** After a failed check — retry sooner. */
     private static final Duration RETRY_AFTER = Duration.ofHours(1);
 
-    /** Последний релиз: версия (без «v») и страница релиза. */
+    /** Latest release: version (without "v") and release page. */
     public record Release(String version, String url) {}
 
     @Value("${updates.enabled:true}")
@@ -46,20 +46,20 @@ public class Updates {
     private volatile boolean failed;
     private volatile long nextCheck;
 
-    /** Первая проверка — сразу после запуска, чтобы к первой странице ответ уже был. */
+    /** The first check runs right after start, so the answer is ready by the first page. */
     @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     public void onStart() {
         refreshIfDue();
     }
 
-    /** Новая версия, если она есть (иначе null); заодно запускает проверку в фоне, если пора. */
+    /** New version if there is one (otherwise null); also starts a background check if it is time. */
     public Release available() {
         refreshIfDue();
         Release r = latest;
         return r != null && newer(r.version(), current) ? r : null;
     }
 
-    /** Состояние для «О приложении»: проверка выключена, ещё не было ответа или последняя попытка не удалась. */
+    /** State for "About": check turned off, no answer yet or the last attempt failed. */
     public String state() {
         if (!enabled) return "off";
         refreshIfDue();
@@ -100,7 +100,7 @@ public class Updates {
         }
     }
 
-    /** a новее b: сравнение по числам («1.10.0» новее «1.9.3»); не номер версии — не новее. */
+    /** a is newer than b: compared by numbers ("1.10.0" is newer than "1.9.3"); not a version number — not newer. */
     static boolean newer(String a, String b) {
         String[] x = a.split("\\."), y = b.replaceFirst("-.*", "").split("\\.");
         try {

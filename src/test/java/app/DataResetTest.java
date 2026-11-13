@@ -10,7 +10,7 @@ import java.sql.DriverManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** База прежней версии откладывается в резервный файл вместе с картинками; новая база не трогается. */
+/** A database of a previous version is moved aside into a backup file together with pictures; a new database is left alone. */
 class DataResetTest {
 
     @TempDir Path dir;
@@ -32,7 +32,7 @@ class DataResetTest {
         assertThat(dir.resolve("app-before-1.18.db")).exists();
         assertThat(dir.resolve("images-before-1.18/ab/cd/x.png")).exists();
         assertThat(dir.resolve("images")).doesNotExist();
-        // второй раз — нечего откладывать; следующая старая база — под другим именем
+        // second time — nothing to move aside; the next old database gets another name
         assertThat(DataReset.resetIfOld(dir)).isFalse();
         db("CREATE TABLE collections (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, kind TEXT)");
         assertThat(DataReset.resetIfOld(dir)).isTrue();
@@ -44,7 +44,7 @@ class DataResetTest {
         db("CREATE TABLE collections (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, kind_id INTEGER)");
         assertThat(DataReset.resetIfOld(dir)).isFalse();
         assertThat(dir.resolve("app.db")).exists();
-        // пустая папка — тоже ничего
+        // empty folder — nothing either
         Files.delete(dir.resolve("app.db"));
         assertThat(DataReset.resetIfOld(dir)).isFalse();
     }

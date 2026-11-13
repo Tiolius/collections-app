@@ -9,9 +9,9 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * Выгрузка коллекций в Excel («Настройки» → «Экспорт»): каждая коллекция — свой лист, столбцы — название,
- * поля типа коллекции и описание. Подписи столбцов те же, что понимает загрузка из Excel (XlsxImport),
- * поэтому выгруженный файл загружается обратно без потерь (кроме картинок).
+ * Export of collections to Excel ("Settings" → "Export"): each collection is its own sheet, columns — name,
+ * the fields of the collection type and description. Column titles are the ones Excel loading (XlsxImport) understands,
+ * so the exported file loads back without losses (except pictures).
  */
 @Component
 public class XlsxExport {
@@ -22,17 +22,17 @@ public class XlsxExport {
         this.repo = repo;
     }
 
-    /** Листы для выбранных коллекций пользователя (по порядку). */
+    /** Sheets for the user's selected collections (in order). */
     public List<Xlsx.Sheet> sheets(long uid, List<Entry> collections) {
         List<Xlsx.Sheet> sheets = new ArrayList<>();
         for (Entry c : collections) {
             Kind kind = repo.kindByName(uid, c.kind());
-            // все поля типа по порядку: роли встроенных и «c<id>» своих
+            // all fields of the type in order: roles of built-in fields and "c<id>" of custom ones
             Set<String> fields = new LinkedHashSet<>(kind != null ? kind.keys() : repo.itemFields(uid, c.kind()));
             List<String> headers = new ArrayList<>(List.of(I18n.t("field.name")));
             List<Integer> widths = new ArrayList<>(List.of(60));
             for (String f : fields) {
-                // своя подпись поля в типе (её понимает загрузка из Excel) или стандартная; у цены — «Цена (₽)»
+                // the field's own label in the type (Excel loading understands it) or the standard one; price — "Цена (₽)"
                 Kind.Field def = kind == null ? null : kind.field(f);
                 headers.add(def != null && def.label() != null ? def.label()
                         : I18n.t(f.equals("price") ? "field.priceRub" : Repo.FIELDS.get(f)));
@@ -46,7 +46,7 @@ public class XlsxExport {
                     default -> 22;
                 });
             }
-            // описание есть у всех объектов, независимо от типа — последним столбцом
+            // every item has a description regardless of type — the last column
             headers.add(I18n.t("field.description"));
             widths.add(60);
             List<List<Object>> rows = new ArrayList<>();
@@ -58,7 +58,7 @@ public class XlsxExport {
                 for (String f : fields) {
                     Kind.Field def = kind == null ? null : kind.field(f);
                     if (def != null && def.custom()) {
-                        // своё поле: число — числом, да/нет — «Есть»/«Нет», остальное — текстом
+                        // custom field: number — as a number, yes/no — "Есть"/"Нет", the rest — as text
                         Object v = custom.getOrDefault(it.id(), Map.of()).get(def.id());
                         row.add(def.type().equals("bool") ? I18n.t(v != null ? "available.yes" : "available.no")
                                 : v instanceof Number ? v : v == null ? null : String.valueOf(v));
@@ -70,12 +70,12 @@ public class XlsxExport {
                         case "status" -> it.status();
                         case "price" -> it.price();
                         case "available" -> I18n.t(it.available() ? "available.yes" : "available.no");
-                        case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // звёзды: 3.5
-                        case "purchased" -> it.purchased(); // ГГГГ-ММ-ДД
+                        case "rating" -> it.rating() == null ? null : it.rating() / 2.0; // stars: 3.5
+                        case "purchased" -> it.purchased(); // YYYY-MM-DD
                         case "tags" -> it.tags();
                         case "edition" -> it.edition();
                         case "notes" -> it.notes();
-                        case "oldgames" -> it.oldGamesId(); // номер игры в каталоге: «11»
+                        case "oldgames" -> it.oldGamesId(); // game number in the catalogue: "11"
                         default -> null;
                     });
                 }

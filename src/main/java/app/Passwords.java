@@ -9,8 +9,8 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
 /**
- * Хеши паролей: PBKDF2-HMAC-SHA256 со случайной солью (встроено в Java, без библиотек).
- * Формат строки: pbkdf2$итерации$соль$хеш (соль и хеш в Base64).
+ * Password hashes: PBKDF2-HMAC-SHA256 with a random salt (built into Java, no libraries).
+ * String format: pbkdf2$iterations$salt$hash (salt and hash in Base64).
  */
 public final class Passwords {
 
@@ -20,22 +20,22 @@ public final class Passwords {
     private Passwords() {
     }
 
-    // ---------- требования к новому паролю ----------
-    // По рекомендациям NIST SP 800-63B: важна длина и непредсказуемость, а не обязательные
-    // «заглавная + цифра + символ». Разрешены любые символы, включая пробелы, — удобно вводить фразу.
+    // ---------- requirements for a new password ----------
+    // Following NIST SP 800-63B: length and unpredictability matter, not mandatory
+    // "capital + digit + symbol". Any characters are allowed, including spaces — handy for typing a phrase.
 
     public static final int MIN_LENGTH = 12;
     public static final int MAX_LENGTH = 128;
-    /** Минимум разных символов (отсекает «aaaaaaaaaaaa», «abababababab»). */
+    /** Minimum number of different characters (rejects "aaaaaaaaaaaa", "abababababab"). */
     private static final int MIN_DISTINCT = 5;
 
-    /** Ряды клавиатуры, алфавиты и цифры: пароль не может быть их куском (в т.ч. задом наперёд). */
+    /** Keyboard rows, alphabets and digits: a password cannot be a piece of them (backwards too). */
     private static final String[] SEQUENCES = {
             "01234567890", "abcdefghijklmnopqrstuvwxyz", "абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
             "qwertyuiopasdfghjklzxcvbnm", "qazwsxedcrfvtgbyhnujmikolp", "1qaz2wsx3edc4rfv5tgb6yhn7ujm8ik9ol0p",
             "1q2w3e4r5t6y7u8i9o0p", "q1w2e3r4t5y6u7i8o9p0", "йцукенгшщзхъфывапролджэячсмитьбю"};
 
-    /** Слова, на которых строят слабые пароли: пароль не может состоять только из них плюс цифры и знаки. */
+    /** Words weak passwords are built from: a password cannot consist only of them plus digits and symbols. */
     private static final java.util.Set<String> WEAK_WORDS = java.util.Set.of(
             "password", "passwords", "passw", "pass", "qwerty", "admin", "administrator", "root", "user", "login",
             "welcome", "letmein", "iloveyou", "monkey", "dragon", "master", "secret", "football", "baseball",
@@ -44,8 +44,8 @@ public final class Passwords {
             "привет", "любовь", "qwertyuiop", "asdfghjkl", "zxcvbnm", "abc", "abcd", "abcdef");
 
     /**
-     * Почему пароль не подходит (текст для пользователя) или null, если подходит.
-     * name — имя пользователя: пароль не должен его содержать.
+     * Why the password does not fit (text for the user) or null if it fits.
+     * name — the user name: the password must not contain it.
      */
     public static String problem(String password, String name) {
         int len = password.codePointCount(0, password.length());
@@ -64,7 +64,7 @@ public final class Passwords {
         }
         String n = name == null ? "" : name.trim().toLowerCase(java.util.Locale.ROOT);
         if (n.length() >= 3 && p.contains(n)) return I18n.t("password.hasName");
-        // Буквы пароля без цифр и знаков; и вариант с заменами вида P@ssw0rd (цифры и знаки по краям не трогаем)
+        // Letters of the password without digits and symbols; and a variant with substitutions like P@ssw0rd (digits and symbols at the edges are kept)
         String letters = p.replaceAll("[^\\p{L}]", "");
         String leet = deLeet(p.replaceAll("^[^\\p{L}]+|[^\\p{L}]+$", "")).replaceAll("[^\\p{L}]", "");
         if (letters.isEmpty() || weak(letters) || weak(leet))
@@ -78,12 +78,12 @@ public final class Passwords {
         return "pbkdf2$" + ITERATIONS + "$" + b64(salt) + "$" + b64(pbkdf2(password, salt, ITERATIONS));
     }
 
-    /** Слабое слово, в т.ч. повторённое («passwordpassword»). */
+    /** A weak word, also repeated ("passwordpassword"). */
     private static boolean weak(String letters) {
         return WEAK_WORDS.contains(letters) || WEAK_WORDS.contains(letters.replaceAll("^(.+?)\\1+$", "$1"));
     }
 
-    /** Типичные замены букв цифрами и знаками: @ → a, 0 → o, 1 → l, 3 → e, $ → s и т. п. */
+    /** Typical substitutions of letters with digits and symbols: @ → a, 0 → o, 1 → l, 3 → e, $ → s etc. */
     private static String deLeet(String p) {
         StringBuilder b = new StringBuilder(p.length());
         for (char ch : p.toCharArray())
@@ -102,7 +102,7 @@ public final class Passwords {
 
     public static boolean matches(String password, String stored) {
         if (stored == null) return false;
-        // Очень длинный пароль не проверяем: расчёт хеша для него был бы лишней нагрузкой на сервер
+        // A very long password is not checked: computing its hash would be extra load on the server
         if (password != null && password.length() > MAX_LENGTH * 4) return false;
         String[] p = stored.split("\\$");
         if (p.length != 4 || !p[0].equals("pbkdf2")) return false;
@@ -124,7 +124,7 @@ public final class Passwords {
         return Base64.getEncoder().encodeToString(b);
     }
 
-    /** Печатает хеш для пароля (нужно для SQL-скриптов): java -cp ... app.Passwords "пароль" */
+    /** Prints the hash of a password (needed for SQL scripts): java -cp ... app.Passwords "password" */
     public static void main(String[] args) {
         System.out.println(hash(args.length > 0 ? args[0] : ""));
     }

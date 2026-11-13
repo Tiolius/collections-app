@@ -16,19 +16,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Steam: объект сопоставляется с игрой по названию, картинки — скриншоты галереи игры (нет скриншотов — шапка
- * страницы игры, header.jpg), описание — краткое описание игры (по-русски, если есть).
+ * Steam: the item is matched to a game by name, pictures — the game's gallery screenshots (no screenshots — the header
+ * of the game page, header.jpg), description — the short description of the game (in Russian if available).
  */
 @Component
 class SteamSource extends ImportSource {
 
-    /** Около 200 запросов за 5 минут. */
+    /** About 200 requests per 5 minutes. */
     @Value("${steam.api-interval-ms:1500}")
     private long intervalMs;
     @Value("${steam.store-url:https://store.steampowered.com}")
     private String steamUrl;
 
-    /** Регион и язык поиска Steam: США по-английски (основной) и Россия по-русски (русские названия). */
+    /** Steam search region and language: USA in English (main) and Russia in Russian (Russian names). */
     private static final String SEARCH_EN = "cc=us&l=english", SEARCH_RU = "cc=ru&l=russian";
 
     SteamSource(ImportFetch fetch) {
@@ -51,42 +51,42 @@ class SteamSource extends ImportSource {
     }
 
     /**
-     * Игра с таким же названием: картинка (если нужна) и краткое описание (если нужно); null — в Steam такой игры нет.
-     * Карточка игры (appdetails, по-русски) запрашивается, только если нужно описание или шапки нет рядом с картинкой из поиска.
+     * A game with the same name: picture (if needed) and short description (if needed); null — no such game on Steam.
+     * The game card (appdetails, in Russian) is requested only if a description is needed or there is no header next to the search picture.
      */
     @Override
     Found find(ImageImport.Job job, Entry item, boolean wantImage, boolean wantDescription) throws Exception {
         String name = item.name(), key = norm(name);
         if (key.isEmpty()) return null;
-        // Поиск Steam спотыкается о знаки («Batman: … - Game of the Year Edition», «F.E.A.R.»):
-        // если по названию как есть совпадения нет — ещё раз по названию без знаков препинания
+        // Steam search stumbles on punctuation ("Batman: … - Game of the Year Edition", "F.E.A.R."):
+        // if there is no match by the name as is — once more by the name without punctuation
         String plain = Names.plain(name);
-        // Русские названия Steam находит только в поиске с регионом Россия и русским языком
-        // («Бельтион: Свод Равновесия» = Beltion: Beyond Ritual): для названий на кириллице — ещё и так
+        // Steam finds Russian names only in a search with region Russia and Russian language
+        // ("Бельтион: Свод Равновесия" = Beltion: Beyond Ritual): for Cyrillic names — that way too
         List<String> regions = name.matches("(?s).*\\p{IsCyrillic}.*") ? List.of(SEARCH_EN, SEARCH_RU) : List.of(SEARCH_EN);
         for (String region : regions)
             for (String term : plain.equals(name) ? List.of(name) : List.of(name, plain)) {
                 Found f = findTerm(job, region, term, key, false, wantImage, wantDescription);
                 if (f != null) return f;
             }
-        // Последняя попытка — по части до двоеточия: консольные издания с подзаголовком продаются в Steam
-        // как ПК-издания («Disgaea 2: Dark Hero Days» → «Disgaea 2 PC», «Disgaea 4: A Promise Revisited» →
-        // «Disgaea 4 Complete+»). Засчитывается только результат с припиской издания или платформы:
-        // иначе консольная «Fallout: Brotherhood of Steel» получила бы картинки первой Fallout
+        // The last attempt — by the part before the colon: console editions with a subtitle are sold on Steam
+        // as PC editions ("Disgaea 2: Dark Hero Days" → "Disgaea 2 PC", "Disgaea 4: A Promise Revisited" →
+        // "Disgaea 4 Complete+"). Only a result with an edition or platform suffix counts:
+        // otherwise the console "Fallout: Brotherhood of Steel" would get the pictures of the first Fallout
         int colon = name.indexOf(':');
         String prefix = colon > 0 ? name.substring(0, colon).trim() : "";
         if (!norm(prefix).isEmpty()) return findTerm(job, SEARCH_EN, prefix, norm(prefix), true, wantImage, wantDescription);
         return null;
     }
 
-    /** Поиск в Steam по term; editionOnly — засчитывать только издания key (с припиской издания или платформы). */
+    /** Steam search by term; editionOnly — count only editions of key (with an edition or platform suffix). */
     private Found findTerm(ImageImport.Job job, String region, String term, String key, boolean editionOnly,
                            boolean wantImage, boolean wantDescription) throws Exception {
         JsonNode res = api(job, steamUrl + "/api/storesearch/?" + region + "&term=" + enc(term));
         if (res == null) return null;
-        // Точное совпадение названия; если его нет — то же название без «The» в начале и приписки издания
-        // (DX, Remastered, GOTY…): «Banner Saga 3» = «The Banner Saga 3»; старое издание после выхода нового
-        // Steam часто снимает с продажи, и поиск находит только новое
+        // Exact name match; if none — the same name without a leading "The" and an edition suffix
+        // (DX, Remastered, GOTY…): "Banner Saga 3" = "The Banner Saga 3"; Steam often delists an old edition after a new
+        // one comes out, and the search finds only the new one
         JsonNode found = null, edition = null;
         for (JsonNode it : res.path("items")) {
             if (!"app".equals(it.path("type").asText("app"))) continue;
@@ -100,12 +100,12 @@ class SteamSource extends ImportSource {
         String tiny = found.path("tiny_image").asText("");
         JsonNode details = null;
         String description = null;
-        // описание и скриншоты — в одной карточке игры, один запрос
+        // description and screenshots — in one game card, one request
         if (wantDescription || wantImage) details = appDetails(job, appId, wantImage);
         if (wantDescription) description = cleanDescription(details.path("short_description").asText(""));
         List<byte[]> imgs = List.of();
         if (wantImage) {
-            // скриншоты галереи в полном размере; если их нет — шапка страницы игры
+            // full-size gallery screenshots; if there are none — the header of the game page
             List<String> shots = new ArrayList<>();
             for (JsonNode sh : details.path("screenshots")) shots.add(sh.path("path_full").asText(""));
             imgs = downloadAll(shots, job.maxImages);
@@ -117,7 +117,7 @@ class SteamSource extends ImportSource {
         return new Found(imgs, description);
     }
 
-    /** Шапка игры: рядом с маленькой картинкой из поиска; если её там нет — адрес из карточки игры; иначе маленькая картинка. */
+    /** Game header: next to the small search picture; if not there — the address from the game card; otherwise the small picture. */
     private byte[] header(ImageImport.Job job, long appId, String tiny, JsonNode details) throws Exception {
         byte[] img = tiny.contains("/") ? download(tiny.substring(0, tiny.lastIndexOf('/') + 1) + "header.jpg") : null;
         if (img == null) {
@@ -130,9 +130,9 @@ class SteamSource extends ImportSource {
     }
 
     /**
-     * Карточка игры Steam (data из appdetails) на русском, со скриншотами — если нужны; пустой узел, если её нет.
-     * Регион — США, как у поиска: без него Steam берёт регион по адресу, и для игр, которые в России не продаются
-     * (например, Sword Art Online: Fatal Bullet), отдаёт пустую карточку — без скриншотов и описания.
+     * Steam game card (data from appdetails) in Russian, with screenshots if needed; an empty node if there is none.
+     * Region — USA, as in the search: without it Steam takes the region by address, and for games not sold in Russia
+     * (for example, Sword Art Online: Fatal Bullet) returns an empty card — without screenshots and description.
      */
     private JsonNode appDetails(ImageImport.Job job, long appId, boolean screenshots) throws Exception {
         JsonNode d = api(job, steamUrl + "/api/appdetails?filters=basic" + (screenshots ? ",screenshots" : "")

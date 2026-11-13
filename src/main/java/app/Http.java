@@ -11,13 +11,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Запросы к внешним сайтам (импорт, Old-Games.ru, проверка обновлений): один клиент на приложение, заголовок
- * User-Agent «CollectionsApp/<версия>», переходы по перенаправлениям, системный прокси.
+ * Requests to external sites (import, Old-Games.ru, update check): one client per application, User-Agent
+ * "CollectionsApp/<version>", follows redirects, system proxy.
  */
 @Component
 public class Http {
 
-    /** Наибольший размер загружаемой картинки. */
+    /** Largest picture size to download. */
     static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
@@ -28,12 +28,12 @@ public class Http {
         this.userAgent = "CollectionsApp/" + appVersion;
     }
 
-    /** GET с ответом-текстом (UTF-8); headers — пары «имя, значение». */
+    /** GET with a text response (UTF-8); headers — "name, value" pairs. */
     public HttpResponse<String> text(String url, String... headers) throws IOException, InterruptedException {
         return client.send(request(url, headers), HttpResponse.BodyHandlers.ofString());
     }
 
-    /** Картинка по адресу или null: ответ не 200, не PNG/JPEG/GIF или больше MAX_IMAGE_BYTES. */
+    /** Picture at the address or null: response not 200, not PNG/JPEG/GIF or larger than MAX_IMAGE_BYTES. */
     public byte[] image(String url) throws IOException, InterruptedException {
         HttpResponse<byte[]> r = client.send(request(url), HttpResponse.BodyHandlers.ofByteArray());
         byte[] b = r.body();

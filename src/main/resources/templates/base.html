@@ -6,7 +6,7 @@
 <title th:text="#{app.title}">Коллекции</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script th:inline="javascript">
-  // Тексты для скриптов страниц — на языке интерфейса (messages*.properties, ключи js.*)
+  // Texts for page scripts — in the interface language (messages*.properties, js.* keys)
   var T = {
     yes: [[#{js.yes}]], confirm: [[#{js.confirm}]], close: [[#{js.close}]], cancel: [[#{js.cancel}]], del: [[#{js.delete}]],
     openFull: [[#{js.openFull}]], willRemove: [[#{js.willRemove}]], newImage: [[#{js.newImage}]],
@@ -16,19 +16,19 @@
     importQueued: [[#{js.importQueued}]], importRunning: [[#{js.importRunning}]],
     chooseFile: [[#{js.chooseFile}]], noFile: [[#{js.noFile}]]
   };
-  // Слово для числа: forms — «картинка|картинки|картинок» (русский) или «image|images» (английский)
+  // Word for a number: forms — "картинка|картинки|картинок" (Russian) or "image|images" (English)
   function plural(n, forms) {
     var f = forms.split('|');
     if (f.length < 3) return n === 1 ? f[0] : f[1];
     var d = n % 10, h = n % 100;
     return d === 1 && h !== 11 ? f[0] : d >= 2 && d <= 4 && (h < 12 || h > 14) ? f[1] : f[2];
   }
-  // Язык интерфейса: cookie «lang» (читает сервер, I18n) и та же страница заново
+  // Interface language: cookie "lang" (read by the server, I18n) and the same page again
   function setLang(lang) {
     document.cookie = 'lang=' + lang + '; path=/; max-age=31536000; SameSite=Lax';
     location.replace(location.href);
   }
-  // Меню языков (флажки) в шапке: открыть/закрыть; закрывается щелчком мимо и Esc
+  // Language menu (flags) in the header: open/close; closes on a click elsewhere and Esc
   function toggleLangMenu(btn, open) {
     var menu = btn.nextElementSibling;
     if (open === undefined) open = menu.hidden;
@@ -43,8 +43,8 @@
     var btn = document.querySelector('header .lang-btn');
     if (e.key === 'Escape' && btn && !btn.nextElementSibling.hidden) { toggleLangMenu(btn, false); btn.focus(); }
   });
-  // Тема — до отрисовки, чтобы страница не мигала: пара тем — выбранная пользователем («Отображение»; до входа —
-  // запомненная в браузере), тёмная или светлая из пары — из прошлого раза (переключатель в шапке, localStorage)
+  // Theme — before rendering, so the page does not flash: the theme pair chosen by the user ("Display"; before sign-in —
+  // remembered in the browser), dark or light of the pair — from last time (the switch in the header, localStorage)
   (function () {
     var pair = /*[[${themePair}]]*/ null, root = document.documentElement;
     try {
@@ -59,14 +59,14 @@
     try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
   }
   /*
-   * Подтверждение в окне приложения (вместо браузерного confirm): onclick="return appConfirm(event, 'Удалить …?')"
-   * у кнопки или onsubmit="return appConfirm(event, '…')" у формы. Отправка отменяется, а после «Удалить»
-   * форма отправляется заново той же кнопкой (formaction, formnovalidate сохраняются). Esc, щелчок мимо окна,
-   * крестик и «Отмена» — ничего не делать. Кнопки: «Удалить» слева, «Отмена» справа, фокус — на «Отмене».
+   * Confirmation in the application's window (instead of the browser confirm): onclick="return appConfirm(event, 'Delete …?')"
+   * on a button or onsubmit="return appConfirm(event, '…')" on a form. Submission is cancelled, and after "Delete"
+   * the form is submitted again with the same button (formaction, formnovalidate are kept). Esc, a click outside the window,
+   * the cross and "Cancel" — do nothing. Buttons: "Delete" on the left, "Cancel" on the right, focus — on "Cancel".
    */
   function appConfirm(e, message, okText) {
     var btn = e.type === 'click' ? e.currentTarget : null, form = btn ? btn.form : e.currentTarget;
-    if (!btn && form.dataset.confirmed) { delete form.dataset.confirmed; return true; } // уже подтверждено
+    if (!btn && form.dataset.confirmed) { delete form.dataset.confirmed; return true; } // already confirmed
     e.preventDefault();
     var submitter = btn || e.submitter || undefined, dlg = document.getElementById('confirm-dialog');
     if (!dlg) {
@@ -79,7 +79,7 @@
         + '<button type="button" class="btn light" data-cancel>' + T.cancel + '</button></div>';
       document.body.appendChild(dlg);
       dlg.querySelectorAll('[data-cancel]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
-      dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); }); // щелчок мимо окна
+      dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); }); // click outside the window
       dlg.querySelector('[data-ok]').addEventListener('click', function () { dlg.close(); if (dlg.onOk) dlg.onOk(); });
     }
     dlg.querySelector('p').textContent = message;
@@ -93,9 +93,9 @@
     return false;
   }
   /*
-   * Выбор файла с текстами приложения: подписи стандартного поля («Choose File», «No file chosen») браузер пишет
-   * на своём языке, а не на языке интерфейса. Поле остаётся в форме (обязательность проверяет браузер), но скрыто;
-   * вместо него — кнопка «Выбрать файл» и имя выбранного файла. Поля с hidden (картинки в окне объекта) не трогаются.
+   * File choice with the application texts: the browser writes the labels of the standard field ("Choose File", "No file chosen")
+   * in its own language, not the interface language. The field stays in the form (the browser checks "required"), but hidden;
+   * instead — a "Choose file" button and the name of the chosen file. Fields with hidden (pictures in the item window) are left alone.
    */
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('input[type=file]:not([hidden])').forEach(function (input) {
@@ -105,17 +105,17 @@
       name.className = 'muted'; name.textContent = T.noFile;
       input.parentNode.insertBefore(box, input);
       box.append(input, btn, name);
-      input.tabIndex = -1; // с клавиатуры — на кнопку
+      input.tabIndex = -1; // from the keyboard — to the button
       btn.addEventListener('click', function () { input.click(); });
       input.addEventListener('change', function () { name.textContent = input.files.length ? input.files[0].name : T.noFile; });
     });
   });
 </script>
-<!-- Стили — static/app.css; версия в адресе: после обновления браузер возьмёт новый файл, а не из кеша -->
+<!-- Styles — static/app.css; the version in the address: after an update the browser takes the new file, not the cached one -->
 <link rel="stylesheet" th:href="@{/app.css(v=${@environment.getProperty('app.version')})}">
 <script>
-  // Подсказка справки (.tip.help) не выходит за границы блока (форма, окно, main) и экрана:
-  // ширина — не больше блока, сдвиг влево, если не помещается справа; наверх, если не помещается снизу
+  // The help tooltip (.tip.help) does not go beyond the block (form, window, main) and the screen:
+  // width — not more than the block, shifted left if it does not fit on the right; upwards if it does not fit below
   (function () {
     function placeTip(tip) {
       var t = tip.querySelector('.tiptext');
@@ -132,7 +132,7 @@
       if (r.bottom <= innerHeight - 8) return;
       var icon = tip.getBoundingClientRect(), below = innerHeight - 8 - r.top, above = icon.top - 12;
       if (above > below) t.classList.add('above');
-      // Не помещается ни снизу, ни сверху — высота по свободному месту, текст прокручивается
+      // Fits neither below nor above — height by the free space, the text scrolls
       var room = Math.max(above, below);
       if (r.height > room) { t.style.maxHeight = room + 'px'; t.style.overflowY = 'auto'; }
     }
@@ -150,9 +150,9 @@
   <a class="logo" href="/"><svg class="mi logo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5h19"/><rect x="4" y="6" width="3" height="15.5"/><rect x="7" y="4" width="3.2" height="17.5"/><rect x="10.2" y="8" width="2.8" height="13.5"/><path d="M14.25 21.05 16.35 7.3l2.95.45-2.1 13.75z"/></svg><span>Collections App</span></a>
   <div class="right">
     <nav th:if="${currentUser != null}">
-      <!-- Поиск по всем коллекциям -->
+      <!-- Search across all collections -->
       <a class="search" href="/search" th:title="#{search.title}" th:aria-label="#{search.title}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M796-121 533-384q-30 26-70 40.5T378-329q-108 0-183-75t-75-181q0-106 75-181t182-75q106 0 180.5 75T632-585q0 43-14 83t-42 75l264 262-44 44ZM377-389q81 0 138-57.5T572-585q0-81-57-138.5T377-781q-82 0-139.5 57.5T180-585q0 81 57.5 138.5T377-389Z"/></svg></a>
-      <!-- Новая версия приложения (Updates, только администратору): ссылка на страницу релиза -->
+      <!-- New application version (Updates, administrator only): link to the release page -->
       <a class="update" th:if="${update != null}" th:href="${update.url()}" target="_blank" rel="noopener"
          th:title="#{update.available(${update.version()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m740-76 113-113-21-21-77 77v-171h-30v171l-77-77-21 21L740-76ZM480-823 213-669l267 155 266-155-266-154ZM120-310v-340q0-16 7.88-29.79Q135.75-693.57 150-702l300-173q8-5 14.95-6.5 6.95-1.5 15-1.5t15.55 1.5Q503-880 510-875l300 173q14.25 8.43 22.13 22.21Q840-666 840-650v210h-60v-180L481-445 180-619v309l300 173v69L150-258q-14.25-8.43-22.12-22.21Q120-294 120-310ZM596-55.4q-56-55.4-56-134T596-324q56-56 134-56t134 55.87q56 55.86 56 135.13 0 78.43-56 133.72Q808 0 730 0T596-55.4ZM480-478Z"/></svg><span th:text="${update.version()}"></span></a>
       <span class="user" th:title="${currentUser.isAdmin() ? #messages.msg('role.admin') : #messages.msg('role.user')}">
@@ -165,7 +165,7 @@
       <svg class="mi moon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q8 0 17 .5t23 1.5q-36 32-56 79t-20 99q0 90 63 153t153 63q52 0 99-18.5t79-51.5q1 12 1.5 19.5t.5 14.5q0 150-105 255T480-120Zm0-60q109 0 190-67.5T771-406q-25 11-53.67 16.5Q688.67-384 660-384q-114.69 0-195.34-80.66Q384-545.31 384-660q0-24 5-51.5t18-62.5q-98 27-162.5 109.5T180-480q0 125 87.5 212.5T480-180Zm-4-297Z"/></svg>
       <svg class="mi sun" viewBox="0 -960 960 960" aria-hidden="true"><path d="M579-381q41-41 41-99t-41-99q-41-41-99-41t-99 41q-41 41-41 99t41 99q41 41 99 41t99-41Zm-240.5 42.5Q280-397 280-480t58.5-141.5Q397-680 480-680t141.5 58.5Q680-563 680-480t-58.5 141.5Q563-280 480-280t-141.5-58.5ZM200-450H40v-60h160v60Zm720 0H760v-60h160v60ZM450-760v-160h60v160h-60Zm0 720v-160h60v160h-60ZM262-658l-100-97 43-44 96 100-39 41Zm494 496-98-100 41-41 99 98-42 43Zm-99-537 98-99 44 42-99 98-43-41ZM162-205l99-98 42 42-98 99-43-43Zm318-275Z"/></svg>
     </button>
-    <!-- Язык интерфейса: меню из двух флажков (названия языков — каждое на своём языке) -->
+    <!-- Interface language: a menu of two flags (language names — each in its own language) -->
     <div class="lang">
       <button type="button" class="lang-btn" onclick="toggleLangMenu(this)" aria-haspopup="true" aria-expanded="false"
               th:title="#{header.language}" th:aria-label="#{header.language}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M323-111.5Q250-143 196-197t-85-127.5Q80-398 80-482t31-156.5Q142-711 196-765t127-84.5Q396-880 480-880t157 30.5Q710-819 764-765t85 126.5Q880-566 880-482t-31 157.5Q818-251 764-197t-127 85.5Q564-80 480-80t-157-31.5ZM480-138q35-36 58.5-82.5T577-331H384q14 60 37.5 108t58.5 85Zm-85-12q-25-38-43-82t-30-99H172q38 71 88 111.5T395-150Zm171-1q72-23 129.5-69T788-331H639q-13 54-30.5 98T566-151ZM152-391h159q-3-27-3.5-48.5T307-482q0-25 1-44.5t4-43.5H152q-7 24-9.5 43t-2.5 45q0 26 2.5 46.5T152-391Zm221 0h215q4-31 5-50.5t1-40.5q0-20-1-38.5t-5-49.5H373q-4 31-5 49.5t-1 38.5q0 21 1 40.5t5 50.5Zm275 0h160q7-24 9.5-44.5T820-482q0-26-2.5-45t-9.5-43H649q3 35 4 53.5t1 34.5q0 22-1.5 41.5T648-391Zm-10-239h150q-33-69-90.5-115T565-810q25 37 42.5 80T638-630Zm-254 0h194q-11-53-37-102.5T480-820q-32 27-54 71t-42 119Zm-212 0h151q11-54 28-96.5t43-82.5q-75 19-131 64t-91 115Z"/></svg></button>
@@ -181,7 +181,7 @@
     </form>
   </div>
   <script>
-    // Ширина пунктов меню — целое число пикселей: иначе линия-разделитель встаёт между пикселями и выглядит размытой
+    // Menu item width — a whole number of pixels: otherwise the separator line falls between pixels and looks blurry
     (function () {
       var items = document.querySelectorAll('header .logo, header .right a.search, header .right .user, header .right a.update, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
       function fit() {
@@ -194,12 +194,12 @@
   </script>
 </header>
 
-<!-- Справка у подписи поля: значок «i», при наведении — компактная подсказка с текстом text
-     (для подсказки из нескольких абзацев — та же разметка вручную: <span class="tiptext"><span>…</span>…</span>) -->
+<!-- Help at a field label: an "i" icon, on hover — a compact tooltip with text
+     (for a tooltip with several paragraphs — the same markup by hand: <span class="tiptext"><span>…</span>…</span>) -->
 <span th:fragment="info(text)" class="icon tip help" tabindex="0" th:aria-label="#{help}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg><span class="tiptext" th:text="${text}"></span></span>
 
 
-<!-- Шапка страницы «Настройки»: заголовок и разделы (столбцом слева, см. main.settings); active — kinds | account | users -->
+<!-- Header of the "Settings" page: title and sections (a column on the left, see main.settings); active — kinds | account | users -->
 <th:block th:fragment="settingsHead(active)">
   <div class="bar">
     <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
@@ -218,15 +218,15 @@
   </nav>
 </th:block>
 
-<!-- Окно изменения объекта (страницы коллекции и дублей): нужны fields и view в модели.
-     Открывается щелчком по названию объекта в строке (a.edit-item), поля заполняются из data-атрибутов строки.
-     Без поддержки <dialog> название ведёт на отдельную страницу /items/{id}/edit -->
-<!-- Рейтинг — 5 звёзд с шагом в половину (значение 0…10 половинок): контурные звёзды и поверх закрашенные,
-     у закрашенных видна часть ширины (v × 10 %). stars(v) — только показ (таблица объектов) -->
+<!-- Item edit window (collection and duplicates pages): needs fields and view in the model.
+     Opens by clicking the item name in a row (a.edit-item), fields are filled from the row's data attributes.
+     Without <dialog> support the name leads to a separate page /items/{id}/edit -->
+<!-- Rating — 5 stars in half steps (value 0…10 halves): outline stars and filled ones on top,
+     the filled ones show part of the width (v × 10 %). stars(v) — display only (item table) -->
 <span th:fragment="stars(v)" class="stars" th:title="${v == null ? #messages.msg('rating.none') : #messages.msg('rating.of', '' + (v / 2) + (v % 2 == 1 ? #messages.msg('js.decimal') + '5' : ''))}"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on" th:style="${'width:' + (v == null ? 0 : v * 10) + '%'}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
 
-<!-- Поле «Рейтинг» в форме: скрытое rating (0…10) и звёзды; щелчок по левой половине звезды — половина, по правой — целая,
-     щелчок по выбранному значению или крестик — без рейтинга; стрелки клавиатуры — на половину звезды (скрипт ratingScript) -->
+<!-- "Rating" field in a form: hidden rating (0…10) and stars; a click on the left half of a star — half, on the right — whole,
+     a click on the selected value or the cross — no rating; keyboard arrows — by half a star (ratingScript) -->
 <span th:fragment="ratingInput(id, v)" class="rating-input">
   <input type="hidden" name="rating" th:id="${id}" th:value="${v == null ? 0 : v}">
   <span class="stars edit" tabindex="0" role="slider" th:aria-label="#{field.rating}" aria-valuemin="0" aria-valuemax="5"><span class="stars-off"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z"/></svg></span><span class="stars-on"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg></span></span>
@@ -235,18 +235,18 @@
 </span>
 
 <script th:fragment="ratingScript">
-  // Поля «Рейтинг» (ratingInput): показ значения, выбор щелчком и клавиатурой. setRating(поле, 0…10) — для окна объекта
+  // "Rating" fields (ratingInput): showing the value, choosing by click and keyboard. setRating(field, 0…10) — for the item window
   window.setRating = function (box, v) {
     v = Math.max(0, Math.min(10, v | 0));
     box.querySelector('input').value = v;
     box.querySelector('.stars-on').style.width = v * 10 + '%';
     box.querySelector('.stars').setAttribute('aria-valuenow', v / 2);
     box.querySelector('.rating-text').textContent = v ? T.ratingOf.replace('{0}', String(v / 2).replace('.', T.decimal)) : T.ratingNone;
-    box.querySelector('.rating-clear').style.visibility = v ? '' : 'hidden'; // место остаётся — звёзды не прыгают
+    box.querySelector('.rating-clear').style.visibility = v ? '' : 'hidden'; // the space stays — the stars do not jump
   };
   document.querySelectorAll('.rating-input').forEach(function (box) {
     var stars = box.querySelector('.stars'), on = box.querySelector('.stars-on'), input = box.querySelector('input');
-    function at(e) { // сколько половинок под курсором: 1…10
+    function at(e) { // how many halves are under the cursor: 1…10
       var r = stars.getBoundingClientRect();
       return Math.max(1, Math.min(10, Math.ceil((e.clientX - r.left) / r.width * 10)));
     }
@@ -259,7 +259,7 @@
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') v--;
       else if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '0') v = 0;
       else return;
-      e.preventDefault(); e.stopPropagation(); // стрелки не листают картинки в окне объекта
+      e.preventDefault(); e.stopPropagation(); // the arrows do not flip pictures in the item window
       setRating(box, v);
     });
     box.querySelector('.rating-clear').addEventListener('click', function () { setRating(box, 0); });
@@ -269,7 +269,7 @@
 
 <th:block th:if="false">
       <div id="d-image" class="dlg-image" th:fragment="imageViewer">
-        <!-- До 5 картинок: у каждой своё скрытое поле файла image_N и отметка удаления remove=N (номер = порядок) -->
+        <!-- Up to 5 pictures: each has its own hidden file field image_N and a delete mark remove=N (number = order) -->
         <th:block th:each="n : ${#numbers.sequence(0, 4)}">
           <input th:id="${'d-file-' + n}" type="file" th:name="${'image_' + n}" accept="image/png,image/jpeg,image/gif" hidden>
           <input type="hidden" name="remove" th:value="${n}" th:id="${'d-remove-' + n}" disabled>
@@ -290,13 +290,13 @@
         </div>
       </div>
 </th:block>
-<!-- Просмотрщик картинок объекта (окно и страница объекта): до 5 мест, у каждого поле файла image_N и отметка remove=N.
-     imageViewer(keyScope) — обработчики; set("хеш1,хеш2") — показать сохранённые картинки и пустое место для новой -->
+<!-- Item picture viewer (item window and page): up to 5 places, each with a file field image_N and a mark remove=N.
+     imageViewer(keyScope) — handlers; set("hash1,hash2") — show saved pictures and an empty place for a new one -->
 <script th:fragment="imageViewerScript">
   function imageViewer(keyScope) {
-    // Картинки справа (до 5): у каждой — слот { saved: адрес сохранённой, chosen: выбранный файл, removed: удалить }.
-    // Последний слот пустой («Нет картинки») — чтобы добавить ещё одну, пока их меньше 5. Стрелки листают слоты.
-    // Корзина сразу показывает заглушку; на сервере картинки меняются только при сохранении (поля image_N и remove=N)
+    // Pictures on the right (up to 5): each is a slot { saved: address of the saved one, chosen: chosen file, removed: delete }.
+    // The last slot is empty ("No picture") — to add one more while there are fewer than 5. The arrows flip slots.
+    // The bin shows the placeholder at once; on the server pictures change only on saving (fields image_N and remove=N)
     var v = { MAX: 5, slots: [], cur: 0 };
     function $(id) { return document.getElementById(id); }
     function srcOf(s) { return s.chosen || (s.saved && !s.removed ? s.saved : null); }
@@ -309,7 +309,7 @@
       $('d-noimg').hidden = !!src;
       $('d-tools').hidden = !src;
       if (src) document.querySelector('#d-pic img').src = src;
-      // щелчок открывает только сохранённую картинку; у выбранного, ещё не сохранённого файла — ничего
+      // a click opens only a saved picture; for a chosen, not yet saved file — nothing
       if (s.chosen) { $('d-pic').removeAttribute('href'); $('d-pic').removeAttribute('title'); }
       else if (src) { $('d-pic').href = src; $('d-pic').title = T.openFull; }
       ['d-noimg', 'd-replace'].forEach(function (id) { $(id).htmlFor = 'd-file-' + v.cur; });
@@ -324,7 +324,7 @@
     function go(step) { v.cur = (v.cur + step + v.slots.length) % v.slots.length; v.render(); }
     $('d-prev').addEventListener('click', function () { go(-1); });
     $('d-next').addEventListener('click', function () { go(1); });
-    keyScope.addEventListener('keydown', function (e) { // стрелки клавиатуры — если курсор не в поле ввода
+    keyScope.addEventListener('keydown', function (e) { // keyboard arrows — if the cursor is not in an input field
       if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || v.slots.length < 2) return;
       if (e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
       if (e.key === 'ArrowRight') { go(1); e.preventDefault(); }
@@ -332,14 +332,14 @@
     $('d-remove').addEventListener('click', function () {
       var s = v.slots[v.cur];
       $('d-file-' + v.cur).value = ''; s.chosen = null;
-      if (s.saved) { s.removed = true; $('d-remove-' + v.cur).disabled = false; } // сохранённую — удалить при сохранении
+      if (s.saved) { s.removed = true; $('d-remove-' + v.cur).disabled = false; } // a saved one — delete on saving
       v.render();
     });
     for (var i = 0; i < v.MAX; i++) (function (n) {
       $('d-file-' + n).addEventListener('change', function () {
         var s = v.slots[n];
         s.chosen = this.files[0] ? URL.createObjectURL(this.files[0]) : null;
-        if (s.chosen) { s.removed = false; $('d-remove-' + n).disabled = true; } // новый файл заменит картинку
+        if (s.chosen) { s.removed = false; $('d-remove-' + n).disabled = true; } // the new file replaces the picture
         v.addEmptySlot();
         v.render();
       });
@@ -357,10 +357,10 @@
 </script>
 <th:block th:fragment="itemDialog">
 <script th:replace="~{base :: imageViewerScript}"></script>
-  <!-- Окно объекта — единственная форма объекта: изменение (из таблицы коллекции, поиска, по адресу open=<id>) и новый
-       объект. В разметке все поля; скрипт показывает поля типа коллекции объекта в порядке типа, со своими подписями
-       и списком статусов (fields, labels, statuses — в data-item строки или, для нового объекта, в data-kind окна),
-       у скрытых полей — disabled, чтобы они не отправлялись (нет поля в форме — значение не меняется) -->
+  <!-- The item window is the only item form: editing (from the collection table, search, by the address open=<id>) and a new
+       item. The markup has all fields; the script shows the fields of the item's collection type in the type's order, with own labels
+       and the status list (fields, labels, statuses — in the row data-item or, for a new item, in the window data-kind),
+       hidden fields are disabled so they are not sent (no field in the form — the value does not change) -->
   <dialog id="item-dialog" class="modal wide" aria-labelledby="item-dialog-title"
           th:data-kind="${kindJson}" th:data-cid="${c != null ? c.id() : ''}"
           th:data-title-edit="#{item.edit}" th:data-title-new="#{item.new}">
@@ -370,12 +370,12 @@
     </div>
     <form autocomplete="off" method="post" enctype="multipart/form-data">
     <div class="dlg-body">
-      <!-- Картинка объекта: справа от полей (CSS order), в области 800×600, целиком без обрезки.
-           Щелчок по сохранённой картинке — открыть её в полном размере в новой вкладке, по заглушке «Нет картинки» — выбор файла (поле скрыто).
-           Справа от картинки столбиком: заменить, открыть в полном размере, с отступом — удалить -->
+      <!-- Item picture: to the right of the fields (CSS order), in an 800×600 area, whole without cropping.
+           A click on a saved picture opens it full size in a new tab, on the "No picture" placeholder — file choice (the field is hidden).
+           To the right of the picture in a column: replace, open full size, with a gap — delete -->
       <div th:replace="~{base :: imageViewer}"></div>
-    <!-- --rows — сколько строк до «Описания» (оно растягивается до низа окна); «Old-Games.ru» — строкой после него -->
-    <!-- --rows и класс after-desc ставит скрипт по полям объекта -->
+    <!-- --rows — how many rows before "Description" (it stretches to the bottom of the window); "Old-Games.ru" — a row after it -->
+    <!-- --rows and the after-desc class are set by the script from the item's fields -->
     <div class="form">
       <input type="hidden" name="view" th:value="${view}">
       <input type="hidden" name="q" th:if="${q != null}" th:value="${q}">
@@ -395,7 +395,7 @@
       </div>
       <div class="frow" data-field="status">
         <label for="d-status" th:text="#{field.status}">Статус прохождения</label>
-        <!-- значения — список статусов типа коллекции объекта (ставит скрипт окна) -->
+        <!-- values — the status list of the item's collection type (set by the window script) -->
         <select id="d-status" name="status">
           <option value="">—</option>
         </select>
@@ -414,7 +414,7 @@
       </div>
       <div class="frow" data-field="available">
         <label for="d-available" th:text="#{field.available}">Наличие</label>
-        <!-- скрытое 0 + галочка 1: так сервер отличает «снята» от «поля нет в форме» -->
+        <!-- hidden 0 + tick 1: this way the server tells "unticked" from "no field in the form" -->
         <span><input type="hidden" name="available" value="0"><label class="radio"><input id="d-available" type="checkbox" name="available" value="1"> <span th:text="#{available.yesLower}">есть</span></label></span>
       </div>
       <div class="frow" data-field="tags">
@@ -429,7 +429,7 @@
       <textarea autocomplete="off" spellcheck="false" id="d-description" name="description" rows="12" maxlength="5000"></textarea>
       <div class="frow" data-field="oldgames">
         <label for="d-oldgames" class="og-label" th:text="#{field.oldgames}">Old-games.ru ID</label>
-        <!-- Номер игры в каталоге (адрес страницы собирается сам; вставленный адрес превращается в номер); значок «Загрузить» подставляет описание и картинки с неё в окно (сохраняются кнопкой «Сохранить») -->
+        <!-- Game number in the catalogue (the page address is built automatically; a pasted address turns into the number); the "Load" icon puts the description and pictures from it into the window (saved with the "Save" button) -->
         <div class="og-box">
           <div class="og-row">
             <input autocomplete="off" id="d-oldgames" type="text" name="oldgames" maxlength="200" inputmode="numeric" th:placeholder="#{og.placeholder}">
@@ -441,9 +441,9 @@
       </div>
     </div>
     </div>
-    <!-- Нижняя панель окна: слева «Удалить объект» (отправляет форму на /items/{id}/delete, адрес — formaction,
-         ставит скрипт), справа «Сохранить»; отмена — крестик в шапке (или Esc, щелчок мимо окна).
-         «Сохранить» — первой в разметке: Enter в поле нажимает первую кнопку формы; слева «Удалить» ставит order -->
+    <!-- Bottom panel of the window: on the left "Delete item" (submits the form to /items/{id}/delete, the address — formaction,
+         set by the script), on the right "Save"; cancel — the cross in the header (or Esc, a click outside the window).
+         "Save" comes first in the markup: Enter in a field presses the first button of the form; "Delete" is put on the left by order -->
     <div class="dlg-foot">
       <button class="btn" th:text="#{btn.save}">Сохранить</button>
       <button type="submit" class="btn light danger first" id="d-delete" formnovalidate
@@ -453,16 +453,16 @@
   </dialog>
   <script th:replace="~{base :: ratingScript}"></script>
 <script>
-  // Изменение объекта в модальном окне
+  // Editing an item in a modal window
   (function () {
     var dlg = document.getElementById('item-dialog');
     if (!dlg) return;
     var form = dlg.querySelector('form');
     function $(id) { return document.getElementById(id); }
     var iv = imageViewer(dlg);
-    // Поля типа коллекции объекта (k.fields — роли по порядку): видны в этом порядке перед «Описанием», со своими
-    // подписями (k.labels; нет — подпись из разметки); остальные скрыты и отключены (не отправляются — не меняются)
-    // Строка своего поля (c — {key, label, type, options}): поле формы cf_<id>; «да/нет» — скрытое 0 и галочка 1
+    // Fields of the item's collection type (k.fields — roles in order): visible in this order before "Description", with own
+    // labels (k.labels; none — the label from the markup); the rest are hidden and disabled (not sent — not changed)
+    // Row of a custom field (c — {key, label, type, options}): form field cf_<id>; yes/no — a hidden 0 and a tick 1
     function customRow(c) {
       var r = document.createElement('div'), id = 'd-' + c.key, name = 'cf_' + c.key.substring(1), input;
       r.className = 'frow custom'; r.dataset.field = c.key;
@@ -496,12 +496,12 @@
     function showFields(k) {
       var on = (k.fields || '').split(','), labels = k.labels || {}, rows = 1;
       var f = dlg.querySelector('.form'), anchor = f.querySelector('label[for=d-description]');
-      // свои поля — строки по описанию типа (прежние строки другого типа убираются)
+      // custom fields — rows by the type definition (previous rows of another type are removed)
       f.querySelectorAll('.frow.custom').forEach(function (r) { r.remove(); });
       (k.customs || []).forEach(function (c) { f.insertBefore(customRow(c), anchor); });
       on.forEach(function (key) {
         var r = f.querySelector('.frow[data-field="' + key + '"]');
-        if (r && key !== 'oldgames') f.insertBefore(r, anchor); // Old-Games.ru — всегда после «Описания»
+        if (r && key !== 'oldgames') f.insertBefore(r, anchor); // Old-Games.ru — always after "Description"
       });
       dlg.querySelectorAll('.frow').forEach(function (r) {
         var vis = on.indexOf(r.dataset.field) >= 0;
@@ -514,14 +514,14 @@
           label.textContent = labels[r.dataset.field] || label.dataset.def;
         }
       });
-      f.style.setProperty('--rows', rows); // строк до «Описания» (оно растягивается до низа окна)
+      f.style.setProperty('--rows', rows); // rows before "Description" (it stretches to the bottom of the window)
       f.classList.toggle('after-desc', on.indexOf('oldgames') >= 0);
-      // статусы — список типа
+      // statuses — the type list
       var st = $('d-status');
       while (st.options.length > 1) st.remove(1);
       (k.statuses || []).forEach(function (v) { st.add(new Option(v, v)); });
     }
-    // Открыть окно: d — данные объекта (data-item строки или ответ /items/{id}/data); без d.id — новый объект в коллекции cid
+    // Open the window: d — item data (the row data-item or the /items/{id}/data response); without d.id — a new item in collection cid
     function open(d, cid) {
       var isNew = !d.id;
       showFields(d.fields != null ? d : JSON.parse(dlg.dataset.kind || '{}'));
@@ -532,7 +532,7 @@
       ['name', 'platform', 'format', 'status', 'price', 'description', 'purchased', 'tags', 'edition', 'notes'].forEach(function (f) {
         if (form.elements[f]) form.elements[f].value = d[f] == null ? '' : d[f];
       });
-      // Статус не из списка (старое значение) — показываем его отдельным пунктом, чтобы оно не потерялось
+      // A status not in the list (an old value) — shown as a separate option so it is not lost
       var st = $('d-status');
       var v = d.status || '';
       if (!Array.prototype.some.call(st.options, function (o) { return o.value === v; })) {
@@ -540,7 +540,7 @@
       }
       st.value = v;
       setRating(dlg.querySelector('.rating-input'), +d.rating || 0);
-      // свои поля: значения (у списка прежнее значение не из списка — отдельным пунктом)
+      // custom fields: values (a list value not in the list — a separate option)
       var custom = d.custom || {};
       dlg.querySelectorAll('.frow.custom').forEach(function (r) {
         var key = r.dataset.field, v = custom[key] == null ? '' : custom[key], el = $('d-' + key);
@@ -551,7 +551,7 @@
       });
       $('d-available').checked = d.available === '1';
       $('d-oldgames').value = d.oldgames || ''; $('d-og-status').hidden = true; ogSync();
-      // Картинки: сохранённые (адреса по хешу содержимого — из кеша браузера) и пустой слот; выбор файлов и пометки удаления — сброшены
+      // Pictures: saved ones (addresses by content hash — from the browser cache) and an empty slot; file choices and delete marks are reset
       iv.set(d.pics);
       dlg.showModal();
       form.elements.name.focus();
@@ -559,18 +559,18 @@
     function openById(id) {
       fetch('/items/' + id + '/data').then(function (r) { if (r.ok) return r.json(); }).then(function (d) { if (d) open(d); });
     }
-    // Название объекта (таблица коллекции, поиск): данные объекта — JSON в атрибуте data-item строки (WebController.itemData)
+    // Item name (collection table, search): item data — JSON in the row data-item attribute (WebController.itemData)
     document.querySelectorAll('a.edit-item').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
         open(JSON.parse(a.closest('[data-item]').dataset.item));
       });
     });
-    // «Новый объект» — пустое окно
+    // "New item" — an empty window
     document.querySelectorAll('a.new-item').forEach(function (a) {
       a.addEventListener('click', function (e) { e.preventDefault(); open({}, dlg.dataset.cid); });
     });
-    // Прежние адреса страницы объекта ведут сюда с параметром: open=<id> — открыть объект, new=1 — новый объект
+    // Old item page addresses lead here with a parameter: open=<id> — open the item, new=1 — a new item
     var params = new URLSearchParams(location.search);
     if (params.has('open') || params.has('new')) {
       if (/^\d+$/.test(params.get('open') || '')) openById(params.get('open'));
@@ -579,12 +579,12 @@
       history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
     }
     dlg.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
-    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // щелчок мимо окна
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); }); // click outside the window
 
-    // Old-Games.ru: «Загрузить» берёт описание и картинки со страницы игры (сервер, POST /items/{id}/oldgames) и
-    // подставляет их в окно: описание — в поле, картинки — в поля image_N (как выбранные файлы), прежние картинки —
-    // на удаление. На сервере всё меняется только при «Сохранить»
-    // номер игры: введённое число или число из вставленного адреса страницы …/game/11.html
+    // Old-Games.ru: "Load" takes the description and pictures from the game page (server, POST /items/{id}/oldgames) and
+    // puts them into the window: description — into the field, pictures — into the image_N fields (as chosen files), previous pictures —
+    // marked for deletion. On the server everything changes only on "Save"
+    // game number: the typed number or the number from a pasted page address …/game/11.html
     function ogId(v) {
       v = v.trim();
       if (/^\d{1,7}$/.test(v)) return v;
@@ -592,10 +592,10 @@
       return m ? m[1] : null;
     }
     function ogUrl(id) { return 'https://www.old-games.ru/game/' + id + '.html'; }
-    function ogSync() { // вставленный адрес — в номер; «открыть» — только при номере
+    function ogSync() { // a pasted address — into the number; "open" — only with a number
       var input = $('d-oldgames'), id = ogId(input.value);
       if (id && input.value.trim() !== id) input.value = id;
-      $('d-og-open').style.display = id ? '' : 'none'; // атрибут hidden перебивается стилем .icon
+      $('d-og-open').style.display = id ? '' : 'none'; // the hidden attribute is overridden by the .icon style
       if (id) $('d-og-open').href = ogUrl(id);
     }
     function ogStatus(text, ok) { var s = $('d-og-status'); s.hidden = false; s.textContent = text; s.className = 'og-status ' + (ok ? 'ok' : 'error'); }
@@ -613,7 +613,7 @@
             $('d-oldgames').value = ogId(d.url) || id; ogSync();
             if (d.description) form.elements.description.value = d.description;
             if (d.images.length) {
-              // прежние сохранённые картинки — на удаление, загруженные — на места 0…n-1
+              // previous saved pictures — marked for deletion, loaded ones — into places 0…n-1
               iv.slots.forEach(function (s, k) { if (s.saved) $('d-remove-' + k).disabled = false; });
               for (var j = 0; j < iv.MAX; j++) $('d-file-' + j).value = '';
               iv.slots = d.images.map(function (im, k) {
@@ -621,7 +621,7 @@
                 for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
                 var file = new File([bytes], 'old-games-' + (k + 1) + '.' + im.mime.split('/')[1], { type: im.mime });
                 var dt = new DataTransfer(); dt.items.add(file); $('d-file-' + k).files = dt.files;
-                $('d-remove-' + k).disabled = true; // новый файл на этом месте сам заменит прежнюю картинку
+                $('d-remove-' + k).disabled = true; // the new file in this place replaces the previous picture
                 return { chosen: URL.createObjectURL(file) };
               });
               iv.addEmptySlot(); iv.cur = 0; iv.render();

@@ -8,10 +8,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Программа для Windows: приложение открывается в новом окне браузера по умолчанию, а не вкладкой в уже открытом.
- * Браузер по умолчанию — из реестра (UserChoice → ProgId → команда открытия → exe), новое окно — его ключом:
- * у Chrome, Edge, Brave, Opera, Vivaldi, Яндекс Браузера — «--new-window», у Firefox — «-new-window».
- * Не узнали браузер — обычное открытие ссылки (вкладкой).
+ * Windows program: the application opens in a new window of the default browser rather than a tab in an open one.
+ * The default browser comes from the registry (UserChoice → ProgId → open command → exe), the new window from its switch:
+ * Chrome, Edge, Brave, Opera, Vivaldi, Yandex Browser — "--new-window", Firefox — "-new-window".
+ * Unknown browser — the link is opened the usual way (in a tab).
  */
 final class BrowserWindow {
 
@@ -23,7 +23,7 @@ final class BrowserWindow {
 
     private BrowserWindow() {}
 
-    /** Команда открытия url в новом окне браузера по умолчанию или null (браузер не узнан). */
+    /** Command that opens url in a new window of the default browser, or null (browser not recognised). */
     static List<String> command(String url) {
         String progId = progId(reg("HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice", "/v", "ProgId"));
         if (progId == null) return null;
@@ -31,19 +31,19 @@ final class BrowserWindow {
         return exe == null ? null : newWindow(exe, url);
     }
 
-    /** ProgId браузера из ответа «reg query … /v ProgId». */
+    /** Browser ProgId from the output of "reg query … /v ProgId". */
     static String progId(String regOutput) {
         Matcher m = PROG_ID.matcher(regOutput);
         return m.find() ? m.group(1) : null;
     }
 
-    /** Путь к exe из команды открытия («"C:\…\chrome.exe" --single-argument %1»). */
+    /** Path to the exe from the open command (for example {@code "C:\…\chrome.exe" --single-argument %1}). */
     static String exe(String regOutput) {
         Matcher m = COMMAND.matcher(regOutput);
         return m.find() ? (m.group(1) != null ? m.group(1) : m.group(2)) : null;
     }
 
-    /** Запуск exe с ключом нового окна; незнакомый браузер — null. */
+    /** Runs the exe with the new-window switch; unknown browser — null. */
     static List<String> newWindow(String exe, String url) {
         String name = exe.substring(Math.max(exe.lastIndexOf('\\'), exe.lastIndexOf('/')) + 1).toLowerCase(Locale.ROOT);
         if (CHROMIUM.contains(name)) return List.of(exe, "--new-window", url);

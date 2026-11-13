@@ -1,8 +1,8 @@
-/* Стили приложения: подключаются в base :: head; цвета — только через переменные тем.
-   Оформление: тёмные и светлые темы парами, блоки со скруглением и тонкой рамкой, таблицы без полос с тонкими
-   линиями, Inter — текст, JetBrains Mono — числа, заголовки столбцов и мелкие подписи заглавными */
+/* Application styles: included in base :: head; colours only through theme variables.
+   Look: dark and light themes in pairs, rounded blocks with a thin border, tables without stripes with thin
+   lines, Inter — text, JetBrains Mono — numbers, column headers and small capitals labels */
 
-/* Шрифты — свои файлы (static/fonts, латиница и кириллица; лицензия — fonts/OFL.txt) */
+/* Fonts — own files (static/fonts, Latin and Cyrillic; licence — fonts/OFL.txt) */
 @font-face { font-family: Inter; font-weight: 400; font-display: swap; src: url(fonts/Inter-Regular.woff2) format("woff2"); }
 @font-face { font-family: Inter; font-weight: 500; font-display: swap; src: url(fonts/Inter-Medium.woff2) format("woff2"); }
 @font-face { font-family: Inter; font-weight: 600; font-display: swap; src: url(fonts/Inter-SemiBold.woff2) format("woff2"); }
@@ -11,17 +11,17 @@
 @font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url(fonts/JetBrainsMono-Regular.woff2) format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(fonts/JetBrainsMono-Medium.woff2) format("woff2"); }
 
-/* Цвета тем. Пара тем — атрибут data-pair у <html> (выбор — «Настройки» → «Отображение», Repo.THEMES), тёмная тема пары —
-   data-theme="dark" (переключатель в шапке). Без data-pair — первая пара. Имена ролей прежние: --paper — фон блоков,
-   --blue — заливка основных кнопок и активных элементов, --link и --orange — акцент */
+/* Theme colours. The theme pair is the data-pair attribute of <html> (chosen in "Settings" → "Display", Repo.THEMES), the dark theme of the pair —
+   data-theme="dark" (the switch in the header). Without data-pair — the first pair. Role names are the old ones: --paper — block background,
+   --blue — fill of primary buttons and active elements, --link and --orange — accent */
 :root {
   --font: Inter, "Segoe UI", system-ui, sans-serif;
   --mono: "JetBrains Mono", Consolas, ui-monospace, monospace;
   --radius: 16px; --radius-sm: 10px;
-  --overlay: rgba(0,0,0,.35); --overlay-hover: rgba(0,0,0,.55); --on-overlay: #fff;  /* кнопки и надписи поверх картинки */
-  --swatch-text: #222;    /* текст на цветном ярлыке статуса (цвета статусов светлые в обеих темах) */
+  --overlay: rgba(0,0,0,.35); --overlay-hover: rgba(0,0,0,.55); --on-overlay: #fff;  /* buttons and captions over a picture */
+  --swatch-text: #222;    /* text on a coloured status label (status colours are light in both themes) */
 }
-/* Ночь / Бумага */
+/* Night / Paper */
 :root, :root[data-pair="night"] {
   --page: #f3f4f6; --paper: #ffffff; --card2: #f6f7f9; --text: #16181d; --muted: #5f6470; --faint: #8b909b;
   --link: #0d9488; --accent: #0d9488; --blue: #0d9488; --on-blue: #ffffff; --orange: #0d9488; --on-orange: #ffffff;
@@ -51,7 +51,7 @@
   --tip-bg: #202226; --tip-text: #ececee;
   --shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-/* Графит / Мята */
+/* Graphite / Mint */
 :root[data-pair="graphite"] {
   --page: #edf3f1; --paper: #fbfdfc; --card2: #f1f6f4; --text: #132522; --muted: #566a65; --faint: #84958f;
   --link: #0f766e; --accent: #0f766e; --blue: #0f766e; --on-blue: #ffffff; --orange: #0f766e; --on-orange: #ffffff;
@@ -81,7 +81,7 @@
   --tip-bg: #242833; --tip-text: #e8eaf0;
   --shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-/* Уголь / Песок */
+/* Coal / Sand */
 :root[data-pair="coal"] {
   --page: #f5f1ea; --paper: #fffdf9; --card2: #f7f2ea; --text: #2a2219; --muted: #6f6352; --faint: #9a8e7c;
   --link: #c2410c; --accent: #c2410c; --blue: #c2410c; --on-blue: #ffffff; --orange: #c2410c; --on-orange: #ffffff;
@@ -111,7 +111,7 @@
   --tip-bg: #212121; --tip-text: #efeeec;
   --shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-/* Полночь / Небо */
+/* Midnight / Sky */
 :root[data-pair="midnight"] {
   --page: #eef3f9; --paper: #ffffff; --card2: #f2f6fb; --text: #14213a; --muted: #5a6884; --faint: #8794ad;
   --link: #2563eb; --accent: #2563eb; --blue: #2563eb; --on-blue: #ffffff; --orange: #2563eb; --on-orange: #ffffff;
@@ -141,7 +141,7 @@
   --tip-bg: #18233c; --tip-text: #e6ecf7;
   --shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-/* Сумерки / Сирень */
+/* Dusk / Lilac */
 :root[data-pair="dusk"] {
   --page: #f4f2f9; --paper: #ffffff; --card2: #f5f3fa; --text: #1e1a2e; --muted: #635c7a; --faint: #8f88a6;
   --link: #6d28d9; --accent: #6d28d9; --blue: #6d28d9; --on-blue: #ffffff; --orange: #6d28d9; --on-orange: #ffffff;
@@ -171,7 +171,7 @@
   --tip-bg: #221e30; --tip-text: #ece9f5;
   --shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-/* Лес / Минимал */
+/* Forest / Minimal */
 :root[data-pair="forest"] {
   --page: #ffffff; --paper: #ffffff; --card2: #f5f5f5; --text: #111111; --muted: #5c5c5c; --faint: #8a8a8a;
   --link: #115e59; --accent: #115e59; --blue: #111111; --on-blue: #ffffff; --orange: #115e59; --on-orange: #ffffff;
@@ -201,7 +201,7 @@
   --tip-bg: #1b2520; --tip-text: #e7efea;
   --shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-/* Превью пар тем на странице «Отображение»: у каждой половины — фон, блок и акцент своей темы */
+/* Theme pair previews on the "Display" page: each half has the background, block and accent of its theme */
 .theme-card[data-pair="night"] .pv.dark { --pv-page: #111214; --pv-card: #18191c; --pv-line: #34363c; --pv-text: #ececee; --pv-accent: #14a08a; }
 .theme-card[data-pair="night"] .pv.light { --pv-page: #f3f4f6; --pv-card: #ffffff; --pv-line: #d6d9de; --pv-text: #16181d; --pv-accent: #0d9488; }
 .theme-card[data-pair="graphite"] .pv.dark { --pv-page: #15171c; --pv-card: #1c1f26; --pv-line: #383d4a; --pv-text: #e8eaf0; --pv-accent: #169e88; }
@@ -216,8 +216,8 @@
 .theme-card[data-pair="forest"] .pv.light { --pv-page: #ffffff; --pv-card: #ffffff; --pv-line: #d4d4d4; --pv-text: #111111; --pv-accent: #111111; }
 
 
-/* Шрифт: Inter 14px везде (поля, списки и кнопки наследуют); заголовки жирные с плотной разрядкой;
-   числа, заголовки столбцов и мелкие подписи заглавными — моноширинный (--mono) */
+/* Font: Inter 14px everywhere (fields, lists and buttons inherit); headings bold with tight letter spacing;
+   numbers, column headers and small capitals labels — monospace (--mono) */
 * { box-sizing: border-box; }
 input, select, button, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 body { font-family: var(--font); font-size: 14px; line-height: 1.45; margin: 0; background: var(--page); color: var(--text);
@@ -225,40 +225,40 @@ body { font-family: var(--font); font-size: 14px; line-height: 1.45; margin: 0; 
 a { color: var(--link); text-decoration: none; transition: color .15s; }
 a:hover { text-decoration: underline; }
 h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: var(--heading); }
-/* Подзаголовок раздела — мелкие заглавные моноширинным с разрядкой, цвет акцента */
+/* Section subtitle — small monospace capitals with letter spacing, accent colour */
 h3.section { margin: 28px 0 12px; font: 500 11px var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--accent); }
 main { max-width: 1500px; margin: 0 auto; min-height: calc(100vh - 57px); padding: 24px 32px 48px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 input[type=checkbox], input[type=radio] { accent-color: var(--blue); width: 16px; height: 16px; }
 .mono, .num { font-family: var(--mono); }
 
-/* Иконки Material Symbols (встроенный SVG, цвет — как у текста) */
+/* Material Symbols icons (inline SVG, colour — as the text) */
 .mi { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; vertical-align: middle; }
 
-/* Верхнее меню */
-/* Шапка той же ширины, что и белая область страницы (main, до 1500px по центру): кнопки справа заканчиваются
-   ровно на её правой границе, и вертикальная линия идёт из шапки вниз без излома */
+/* Top menu */
+/* The header is as wide as the white page area (main, up to 1500px centred): the buttons on the right end
+   exactly at its right edge, and the vertical line goes down from the header without a break */
 header { display: flex; align-items: center; justify-content: space-between; height: 57px;
          padding: 0 max(16px, calc((100% - 1500px) / 2 + 16px));
          background: var(--page); border-bottom: 1px solid var(--bar-border); color: var(--text); position: sticky; top: 0; z-index: 10; }
 header a { color: inherit; text-decoration: none; }
 header a:hover { text-decoration: none; }
-/* Логотип — ячейка с линиями слева (по левой границе белой области) и справа, как у кнопок справа */
+/* Logo — a cell with lines on the left (at the left edge of the white area) and on the right, like the buttons on the right */
 header .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -.02em; height: 100%; padding: 0 16px; }
 header .logo .mi { color: var(--accent); }
-/* Логотип — книги на полке (контурная иконка, рисуется линией, а не заливкой) */
+/* Logo — books on a shelf (an outline icon, drawn with a line, not a fill) */
 header .logo .logo-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
 header .right, header nav { display: flex; align-items: center; gap: 2px; height: 100%; }
-/* Пункты шапки — кнопки со скруглением, при наведении — подложка */
+/* Header items — rounded buttons, a backdrop on hover */
 header .user, header a.update, header a.search, header a.settings, header .theme, header .lang-btn, header .logout { display: inline-flex; align-items: center; gap: 6px; height: 36px;
          padding: 0 12px; border: none; border-radius: var(--radius-sm); background: none; color: var(--muted); font-weight: 600; cursor: pointer;
          transition: background .15s, color .15s; }
 header .user { cursor: default; }
 header .mi { width: 18px; height: 18px; }
 header .user { color: var(--text); }
-header a.update { color: var(--accent); }  /* новая версия приложения — администратору */
+header a.update { color: var(--accent); }  /* new application version — for the administrator */
 header a.settings:hover, header a.update:hover, header a.search:hover, header .theme:hover, header .lang-btn:hover, header .logout:hover { background: var(--bar-hover); color: var(--text); }
-/* Язык интерфейса: кнопка-глобус и меню из двух флажков под ней (у правого края кнопки) */
+/* Interface language: a globe button and a menu of two flags under it (at the right edge of the button) */
 header .lang { position: relative; display: flex; align-items: center; height: 100%; }
 header .lang-menu { position: absolute; top: calc(100% - 6px); right: 0; z-index: 20; min-width: 170px; padding: 6px; margin-top: 1px;
                     background: var(--paper); border: 1px solid var(--bar-border); border-radius: var(--radius-sm); box-shadow: var(--shadow); }
@@ -267,11 +267,11 @@ header .lang-menu button { display: flex; align-items: center; gap: 10px; width:
                            background: none; color: var(--text); text-align: left; cursor: pointer; }
 header .lang-menu button:hover { background: var(--card2); }
 header .lang-menu button.active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-.lang-flag { width: 21px; height: 14px; flex-shrink: 0; box-shadow: 0 0 0 1px var(--border); }  /* рамка: белая полоса видна на белом */
+.lang-flag { width: 21px; height: 14px; flex-shrink: 0; box-shadow: 0 0 0 1px var(--border); }  /* border: a white stripe is visible on white */
 header .theme .sun, :root[data-theme="dark"] header .theme .moon { display: none; }
 :root[data-theme="dark"] header .theme .sun { display: inline; }
 
-/* Кнопки: основная (синяя), вторичная (серая), удаление (красная) */
+/* Buttons: primary (accent), secondary (grey), delete (red) */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 16px;
        border-radius: var(--radius-sm); border: 1px solid transparent; background: var(--blue); color: var(--on-blue); font-weight: 600;
        text-decoration: none; cursor: pointer; white-space: nowrap; transition: filter .15s, background .15s, border-color .15s, color .15s; }
@@ -281,7 +281,7 @@ header .theme .sun, :root[data-theme="dark"] header .theme .moon { display: none
 .btn.gray, .btn.light { background: transparent; color: var(--text); border-color: var(--btn2-border); }
 .btn.gray:hover, .btn.light:hover { filter: none; background: var(--card2); }
 .btn.red { background: var(--red); color: var(--on-red); }
-/* Удаление — серая кнопка с красным текстом (не так бросается в глаза, как синяя «Сохранить») */
+/* Delete — a grey button with red text (less eye-catching than the primary "Save") */
 .btn.danger { color: var(--red); }
 .btn.back { width: 36px; padding: 0; background: none; border: none; color: var(--muted); }
 .btn.back:hover { color: var(--text); background: var(--card2); filter: none; }
@@ -290,7 +290,7 @@ header .theme .sun, :root[data-theme="dark"] header .theme .moon { display: none
 .btn.disabled { opacity: .45; cursor: default; pointer-events: none; }
 form.inline { display: inline; }
 
-/* Иконки действий в строках */
+/* Action icons in rows */
 .icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
         border: none; border-radius: 8px; background: none; color: var(--icon); cursor: pointer; vertical-align: middle;
         transition: background .15s, color .15s; }
@@ -299,15 +299,15 @@ form.inline { display: inline; }
 .icon.disabled { opacity: .45; cursor: not-allowed; }
 .icon.big { width: 36px; height: 36px; }
 .icon.big .mi { width: 22px; height: 22px; }
-.icon.add { color: var(--accent); }  /* создание: «+» и папка с плюсом */
+.icon.add { color: var(--accent); }  /* creating: "+" and a folder with a plus */
 .icon.add .mi { width: 26px; height: 26px; }
 .icon.disabled:hover { color: var(--icon); background: none; }
 
-/* Панели, подписи, сообщения */
+/* Panels, labels, messages */
 .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .bar .spacer { flex: 1; }
 .muted { color: var(--muted); }
-/* выбор файла (скрипт в head): стандартное поле скрыто, но остаётся в форме — подсказка «выберите файл» встаёт у кнопки */
+/* file choice (script in head): the standard field is hidden but stays in the form — the "choose a file" hint appears at the button */
 .file-pick { position: relative; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; }
 .file-pick input[type=file] { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; }
 .file-pick .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -318,19 +318,19 @@ form.inline { display: inline; }
 .error { background: var(--error-bg); color: var(--error-text); }
 .ok { background: var(--ok-bg); color: var(--ok-text); }
 
-/* Вход */
+/* Sign-in */
 main.auth { min-height: 0; max-width: 520px; margin: 60px auto 0; border: none; background: none; }
 main.auth h2 { margin-bottom: 12px; }
 main.auth .form { grid-template-columns: 160px 1fr; }
 
-/* Вкладки «Настроек»: активная — синяя */
-/* Настройки: разделы столбцом слева, содержимое раздела справа (main.settings) */
+/* "Settings" tabs: the active one — accent colour */
+/* Settings: sections in a column on the left, section content on the right (main.settings) */
 main.settings { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 24px; align-content: start; }
-main.settings > .bar:first-child { grid-column: 1 / -1; }  /* заголовок «Настройки» — на всю ширину */
+main.settings > .bar:first-child { grid-column: 1 / -1; }  /* the "Settings" title — across the whole width */
 main.settings > nav.tabs { grid-column: 1; grid-row: 2 / span 50; align-self: start; }
 main.settings > :not(:first-child):not(nav.tabs) { grid-column: 2; }
-main.settings > nav.tabs + * { margin-top: 0; }  /* содержимое раздела — вровень с верхом списка разделов */
-/* Разделы — список в блоке; активный — цвет акцента с мягкой подложкой и тонкой каймой */
+main.settings > nav.tabs + * { margin-top: 0; }  /* section content — level with the top of the section list */
+/* Sections — a list in a block; the active one — accent colour with a soft backdrop and a thin border */
 nav.tabs { display: flex; flex-direction: column; gap: 2px; padding: 8px; background: var(--paper); border: 1px solid var(--border); border-radius: var(--radius); }
 nav.tabs a { padding: 9px 12px; color: var(--muted); font-weight: 600; border-radius: var(--radius-sm); transition: background .15s, color .15s; }
 nav.tabs a:hover { color: var(--text); text-decoration: none; background: var(--card2); }
@@ -338,7 +338,7 @@ nav.tabs a.active { color: var(--accent); background: linear-gradient(90deg, var
                     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent); }
 table.users { max-width: 900px; }
 
-/* Главная: карточки коллекций в 2 колонки, 10 на странице */
+/* Home page: collection cards in 2 columns */
 .list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .list .row { display: flex; align-items: center; gap: 18px; height: 104px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius);
              background: var(--paper); text-decoration: none; color: inherit; min-width: 0; transition: border-color .15s, background .15s, transform .15s; }
@@ -346,13 +346,13 @@ table.users { max-width: 900px; }
 .list .row > div { min-width: 0; }
 .list .name { color: var(--text); font-size: 16px; margin-bottom: 4px; }
 .list .name, .list .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.list .stats { margin-top: 4px; }  /* счётчики коллекции: всего · в наличии · стоимость */
+.list .stats { margin-top: 4px; }  /* collection counters: total · available · value */
 .list .thumb { width: 76px; height: 76px; }
 .thumb { width: 48px; height: 48px; flex-shrink: 0; object-fit: cover; background: var(--placeholder); display: block; border-radius: 10px; }
 
-/* Номера страниц: квадратные ячейки, текущая — оранжевая */
-/* Блок с названием коллекции и кнопками — тонкая рамка и фон, как у форм */
-/* Шапка коллекции — блок с мягким свечением цвета акцента в левом верхнем углу */
+/* Page numbers: rounded cells, the current one — accent colour */
+/* Block with the collection name and buttons — thin border and background, like forms */
+/* Collection header — a block with a soft glow of the accent colour in the top left corner */
 .collhead { border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 22px; position: relative; overflow: hidden;
             background: radial-gradient(600px 220px at 0 0, var(--glow), transparent 70%), var(--form-bg); }
 .collhead .coll-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin-left: auto; }
@@ -366,9 +366,9 @@ table.users { max-width: 900px; }
 .pages b { background: var(--blue); border-color: var(--blue); color: var(--on-blue); font-weight: 500; }
 .pages .muted { padding: 0 4px; }
 
-/* Таблицы: синяя шапка, строки через одну серые */
-/* Таблица — блок со скруглением и тонкой рамкой; без полос через строку, строки разделены тонкими линиями;
-   заголовки столбцов — мелкие заглавные моноширинным с разрядкой */
+/* Tables */
+/* A table is a rounded block with a thin border; no stripes, rows are separated by thin lines;
+   column headers — small monospace capitals with letter spacing */
 table.items { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper);
               border: 1px solid var(--border); border-radius: var(--radius); }
 table.items th, table.items td { padding: 6px 10px; text-align: left; }
@@ -378,74 +378,74 @@ table.items thead tr:first-child th { background: var(--paper); color: var(--fai
 table.items thead tr:first-child th:first-child { border-top-left-radius: var(--radius); }
 table.items thead tr:first-child th:last-child { border-top-right-radius: var(--radius); }
 table.items tbody tr:last-child td { border-bottom: none; }
-/* Названия столбцов (содержимое ячеек — как было): в таблицах настроек — по левому краю; в таблице объектов
-   (data-cols) «Название» — по левому краю, остальные — по центру */
+/* Column titles (cell content — as before): in settings tables — left-aligned; in the item table
+   (data-cols) "Name" — left-aligned, the rest — centred */
 table.items thead tr:first-child th { text-align: left; }
-table.items[data-cols] thead tr:first-child th { text-align: center; padding-left: 16px; }  /* отступы поровну — текст ровно по центру */
+table.items[data-cols] thead tr:first-child th { text-align: center; padding-left: 16px; }  /* equal paddings — the text exactly centred */
 table.items[data-cols] thead tr:first-child th.pic-col { padding-left: 2px; }
 table.items[data-cols] thead tr:first-child th.c-name { text-align: left; padding-left: 10px; }
-/* Галочки строк (массовые действия): узкий первый столбец; выбранная строка подсвечена */
+/* Row ticks (bulk actions): a narrow first column; the selected row is highlighted */
 table.items th.sel, table.items td.sel { width: 28px; text-align: center; padding-left: 2px; padding-right: 2px; }
 table.items[data-cols] thead tr:first-child th.sel { padding: 12px 2px 10px; }
 table.items tbody tr.picked td { box-shadow: inset 0 0 0 9999px var(--accent-soft); }
-/* Панель массовых действий — над таблицей, пока выбран хотя бы один объект */
+/* Bulk actions panel — above the table while at least one item is selected */
 .bulk { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px; padding: 10px 14px;
         border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: var(--radius-sm);
         background: linear-gradient(90deg, var(--accent-soft), transparent 70%), var(--form-bg); }
 .bulk[hidden], .bulk select[hidden] { display: none; }
 table.items th a.sort { color: inherit; display: block; }
 table.items th a.sort:hover { color: var(--text); text-decoration: none; }
-/* Шапка таблицы (заголовки и фильтры) остаётся наверху при прокрутке */
+/* The table header (titles and filters) stays on top when scrolling */
 table.items thead { position: sticky; top: 0; z-index: 2; }
 table.items tr.filters th { background: var(--paper); padding: 6px 10px 8px; font-weight: normal; border-bottom: 1px solid var(--border); }
 table.items tr.filters input, table.items tr.filters select { width: 100%; min-width: 0; }
 table.items tr.filters select { min-width: 8em; }
 table.items.fixed tr.filters select { min-width: 0; }
-/* Фильтр цены «от — до»: два поля без стрелок */
+/* Price filter "from — to": two fields without arrows */
 table.items tr.filters .range { display: flex; gap: 4px; }
 table.items tr.filters .range input { min-width: 4.5em; appearance: textfield; -moz-appearance: textfield; }
 table.items.fixed tr.filters .range input { min-width: 0; }
 table.items tr.filters .range input::-webkit-inner-spin-button, table.items tr.filters .range input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 table.items tr.filters .active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 table.items tr.head th.actions { padding: 3px 6px; font-weight: normal; }
-/* «Сбросить фильтры» — иконка в строке фильтров; когда фильтры заданы — оранжевая (как активный фильтр) */
+/* "Reset filters" — an icon in the filter row; when filters are set — accent colour (like an active filter) */
 table.items tr.filters th.actions { padding: 2px 6px; }
-/* Иконки после «На странице»: сброс ширины столбцов и фильтров — в одном стиле (серые, при наведении синие;
-   сброс фильтров без заданных фильтров — бледный) */
+/* Icons in the toolbar: resetting column widths and filters — in one style (grey, accent on hover;
+   resetting filters without set filters — faint) */
 .pager-tools { display: inline-flex; align-items: center; gap: 2px; }
 table.items td.empty { text-align: center; padding: 16px; }
 table.items td { height: 42px; line-height: 1.4; border-bottom: 1px solid var(--line); transition: background .12s; }
-/* Цвет строки по статусу (CSS-переменная --row-bg): бледная заливка (полосы зебры не перебивает)
-   при наведении строка чуть темнеет */
+/* Row colour by status (CSS variable --row-bg): a pale fill
+   the row gets a bit darker on hover */
 table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 40%, var(--paper)); }
 :root[data-theme="dark"] table.items tbody tr[style] td { background: color-mix(in srgb, var(--row-bg) 18%, var(--paper)); }
 table.items tbody tr:hover td { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--text) 4%, transparent); }
 table.items[data-cols] td.title { color: var(--link); font-weight: 600; }
 table.items td.title a.edit-item, table.items td.title a.edit-item:hover, table.items td.title a.edit-item:focus, table.items td.title a.edit-item:active { color: inherit; text-decoration: none; }
-/* Режим «Дубли»: первая строка каждой группы одинаковых названий — с линией сверху */
+/* "Duplicates" mode: the first row of each group of equal names — with a line above */
 table.items tbody tr.gstart td { border-top: 2px solid var(--input-border); }
-/* Название забирает всё свободное место, остальные столбцы — по содержимому */
+/* The name takes all free space, other columns — by content */
 table.items th, table.items td { width: 1%; white-space: nowrap; }
 table.items .title { width: auto; white-space: normal; }
 table.items .num { text-align: right; font-family: var(--mono); font-size: 13px; }
 table.items .actions { text-align: right; }
-/* Вертикальных линий между столбцами нет — только горизонтальные */
-/* Ручка — невидимая полоса у правого края заголовка (курсор ↔) */
+/* No vertical lines between columns — only horizontal ones */
+/* Handle — an invisible strip at the right edge of a header (cursor ↔) */
 table.items .grip { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; }
 body.resizing { cursor: col-resize; user-select: none; }
-/* После ручной настройки ширины — фиксированная раскладка, длинный текст обрезается */
+/* After manual width adjustment — a fixed layout, long text is cut */
 table.items.fixed { table-layout: fixed; }
 table.items.fixed td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.items.fixed td.actions { overflow: visible; }
-/* Цена: иконка глаза, сама цена — в подсказке */
+/* Price: an eye icon, the price itself — in the tooltip */
 table.items th.eye, table.items td.eye { text-align: center; }
-/* Наличие: галочка — есть, крестик (бледный) — нет */
+/* Available: a tick — yes, a (faint) cross — no */
 table.items th.flag, table.items td.flag { text-align: center; }
 table.items td.date { text-align: center; }
-/* Теги: небольшие ярлыки в строке */
+/* Tags: small labels in a row */
 .tag { display: inline-block; padding: 0 8px; margin: 1px 4px 1px 0; border: 1px solid var(--input-border); border-radius: 6px;
        color: var(--muted); font-size: 12px; line-height: 20px; }
-/* Рейтинг: контурные звёзды и поверх закрашенные (видна часть ширины) */
+/* Rating: outline stars and filled ones on top (part of the width is visible) */
 .stars { position: relative; display: inline-block; white-space: nowrap; line-height: 0; vertical-align: middle; }
 .stars .mi { width: 14px; height: 14px; }
 .stars-off { display: inline-block; color: var(--icon); opacity: .6; }
@@ -459,7 +459,7 @@ table.items th.rating, table.items td.rating { text-align: center; white-space: 
 table.items td.flag .avail { display: inline-flex; vertical-align: middle; }
 table.items td.flag .avail.yes { color: var(--green); }
 table.items td.flag .avail.no { color: var(--muted); opacity: .6; }
-/* Колонка «есть картинка»: узкая, иконка по центру */
+/* "Has a picture" column: narrow, the icon centred */
 table.items th.pic-col, table.items td.pic-col { width: 78px; text-align: center; padding-left: 4px; padding-right: 4px; }
 table.items thead tr:first-child th.pic-col { padding: 6px 2px; }
 table.items th.pic-col .mi { width: 15px; height: 15px; }
@@ -469,15 +469,15 @@ table.items td.pic-col .pic-n { line-height: 1; }
 table.items td.pic-col .mi { width: 16px; height: 16px; }
 table.items.fixed td.eye { overflow: visible; }
 .tip { position: relative; cursor: default; }
-.tip.none > svg { opacity: .45; }  /* бледная только иконка: подсказка остаётся непрозрачной */
+.tip.none > svg { opacity: .45; }  /* only the icon is faint: the tooltip stays opaque */
 .tip .tiptext { display: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
                 background: var(--tip-bg); color: var(--tip-text); padding: 4px 10px; white-space: nowrap; z-index: 3; line-height: 20px;
                 font-weight: normal; font-size: 13px; border-radius: 8px; box-shadow: var(--shadow); }
 .tip:hover .tiptext, .tip:focus .tiptext { display: block; }
-:root[data-theme="dark"] .tip .tiptext { border: 1px solid var(--input-border); }  /* тёмная подсказка отделена рамкой */
-.tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* подсказка справа от иконки */
-/* Справка: значок «i» у подписи поля и компактная подсказка под ним (с переносами, абзацами — <span>);
-   сдвиг влево и наверх, чтобы не выходила за границы блока и экрана, — скрипт placeTip в base :: head */
+:root[data-theme="dark"] .tip .tiptext { border: 1px solid var(--input-border); }  /* a dark tooltip is separated by a border */
+.tip.right .tiptext { right: auto; left: calc(100% + 6px); }  /* tooltip to the right of the icon */
+/* Help: an "i" icon at a field label and a compact tooltip under it (with line breaks, paragraphs — <span>);
+   shifted left and up so it does not go beyond the block and the screen — the placeTip script in base :: head */
 .tip.help { display: inline-flex; vertical-align: middle; margin-left: 4px; color: var(--icon); cursor: help; width: 18px; height: 18px; }
 .tip.help > svg.mi { width: 16px; height: 16px; }
 .tip.help:hover, .tip.help:focus { color: var(--accent); background: none; }
@@ -485,27 +485,27 @@ table.items.fixed td.eye { overflow: visible; }
                      white-space: normal; line-height: 1.45; padding: 8px 12px; text-align: left; }
 .tip.help .tiptext.above { top: auto; bottom: calc(100% + 4px); }
 .tip.help:hover .tiptext, .tip.help:focus .tiptext { display: flex; flex-direction: column; gap: 4px; }
-/* Описание под полем — для длинных пояснений, которым тесно в подсказке «i» (источники и Excel на «Импорте»); абзацы — <span> */
+/* Description under a field — for long explanations too big for an "i" tooltip (sources and Excel on "Import"); paragraphs — <span> */
 .form .note { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-width: 640px; line-height: 1.4; }
-.icon.small { width: 20px; height: 20px; }   /* иконка в строке текста (стоимость коллекции) */
+.icon.small { width: 20px; height: 20px; }   /* icon in a line of text (collection value) */
 .icon.small .mi { width: 16px; height: 16px; }
 .icon.small:hover { background: none; }
 .meta-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.meta-line > span { white-space: nowrap; }  /* строка «Тип · Объектов · стоимость» на одной линии */
+.meta-line > span { white-space: nowrap; }  /* the "Type · Items · value" line on one line */
 
-/* Формы: подпись слева (жирная, сине-серая), поле справа */
+/* Forms: label on the left (bold), field on the right */
 .form { background: var(--form-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 26px; max-width: 900px;
         display: grid; grid-template-columns: 200px 1fr; gap: 12px 18px; align-items: center; }
 .form > label { font-weight: 600; color: var(--label); }
-.form > label.at-field { align-self: start; padding-top: 6px; }  /* подпись у верхнего края высокого поля (список) */
-/* короткая подпись: колонка по её ширине; отступ подпись → поле равен отступу поле → кнопка (.inline) */
+.form > label.at-field { align-self: start; padding-top: 6px; }  /* label at the top edge of a tall field (list) */
+/* short label: the column by its width; the label → field gap equals the field → button gap (.inline) */
 .form.compact { --gap: 75px; grid-template-columns: auto 1fr; column-gap: var(--gap); }
 .form.compact .inline { column-gap: var(--gap); }
 .form .full { grid-column: 1 / -1; }
-.form .full.split { display: flex; justify-content: space-between; align-items: center; }  /* кнопки по краям формы */
-.form .full.end { display: flex; justify-content: flex-end; }  /* кнопка у правого края формы */
-.form .inline { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }  /* поле и кнопка в одну строку */
-/* Поля — со скруглением; при фокусе рамка цвета акцента и мягкое кольцо */
+.form .full.split { display: flex; justify-content: space-between; align-items: center; }  /* buttons at the edges of the form */
+.form .full.end { display: flex; justify-content: flex-end; }  /* button at the right edge of the form */
+.form .inline { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }  /* field and button in one row */
+/* Fields — rounded; on focus a border of the accent colour and a soft ring */
 input[type=text], input[type=number], input[type=password], input[type=search], input[type=date], select {
     height: 36px; padding: 0 10px; border: 1px solid var(--input-border); border-radius: 9px; background: var(--input-bg);
     transition: border-color .15s, box-shadow .15s; }
@@ -518,7 +518,7 @@ input[readonly]:focus { box-shadow: none; border-color: var(--input-border); }
 .form select.narrow { width: auto; }
 .form input.narrow { width: 120px; }
 .form input[name=name] { max-width: none; }
-/* Описание объекта — многострочное поле во всю ширину колонки полей */
+/* Item description — a multi-line field across the whole field column */
 textarea { padding: 8px 10px; border: 1px solid var(--input-border); border-radius: 9px; background: var(--input-bg); line-height: 1.45;
            transition: border-color .15s, box-shadow .15s; }
 textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -530,37 +530,37 @@ table.status-colors th { text-align: left; font-weight: normal; color: var(--mut
 table.status-colors td { padding: 0 8px 6px 0; }
 table.status-colors input[type=text] { width: 260px; }
 .form input[type=color] { width: 44px; height: 32px; padding: 3px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); cursor: pointer; }
-/* Модальное окно (изменение объекта): синяя полоса заголовка, внутри — обычная форма */
-/* Окно — блок со скруглением и тенью; шапка — жирный заголовок на фоне окна с линией снизу */
+/* Modal window (item editing): a title bar, inside — a normal form */
+/* Window — a rounded block with a shadow; header — a bold title on the window background with a line below */
 dialog.modal { padding: 0; border: 1px solid var(--border); border-radius: calc(var(--radius) + 2px); background: var(--form-bg); color: var(--text);
                width: 640px; max-width: calc(100vw - 32px); box-shadow: var(--shadow); }
 dialog.modal::backdrop { background: rgba(0,0,0,.5); backdrop-filter: blur(3px); }
 dialog.modal .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px 10px 24px;
                            border-bottom: 1px solid var(--border); font-weight: 800; font-size: 17px; letter-spacing: -.01em; }
-/* Подписи — по ширине самой длинной, небольшой отступ до поля */
+/* Labels — by the width of the longest one, a small gap to the field */
 dialog.modal .form { border: none; border-radius: 0; max-width: none; grid-template-columns: auto 1fr; column-gap: 14px; }
 .swatch { display: inline-block; padding: 1px 9px; margin: 1px 4px 1px 0; border-radius: 7px; border: 1px solid var(--input-border); color: var(--text); line-height: 20px; font-size: 13px; }
-.swatch[style*="background"] { color: var(--swatch-text); }  /* на цвете статуса (светлом в обеих темах) — тёмный текст */
+.swatch[style*="background"] { color: var(--swatch-text); }  /* on a status colour (light in both themes) — dark text */
 .preview { max-width: 160px; max-height: 160px; display: block; margin-bottom: 6px; }
-/* Окно объекта с картинкой: поля слева, картинка 800×600 справа (вписана целиком) */
-/* Ширина окна задаётся от картинки (поля 480px + картинка + кнопки и отступы), а не по содержимому:
-   если чему-то не хватит места, ужмётся картинка, а окно не будет прокручиваться вбок */
+/* Item window with a picture: fields on the left, an 800×600 picture on the right (fitted whole) */
+/* The window width comes from the picture (fields 480px + picture + buttons and gaps), not from the content:
+   if something lacks space, the picture shrinks, and the window does not scroll sideways */
 dialog.modal.wide { width: min(calc(100vw - 32px), calc(var(--pic-w) + 560px)); overflow-x: hidden; }
-/* Ширина области картинки (4:3): до 800px, но так, чтобы окно помещалось на экране без прокрутки */
+/* Width of the picture area (4:3): up to 800px, but so that the window fits on the screen without scrolling */
 dialog.modal { --pic-w: min(800px, calc(100vw - 600px), calc((100vh - 190px) * 4 / 3)); }
 dialog.modal .dlg-foot { display: flex; justify-content: space-between; gap: 8px; padding: 14px 24px;
                          border-top: 1px solid var(--border); }
-/* Кнопка, стоящая в разметке после «Сохранить» (чтобы Enter сохранял, а не удалял), но показанная слева */
+/* A button that comes after "Save" in the markup (so Enter saves rather than deletes), but is shown on the left */
 .dlg-foot .first, .form .full.split > .first { order: -1; }
 .form .full.split > .btn.danger { display: inline-flex; align-items: center; gap: 4px; }
-/* Окно подтверждения (appConfirm): значок предупреждения и вопрос, внизу «Отмена» и красная «Удалить» */
+/* Confirmation window (appConfirm): a warning icon and the question, at the bottom "Cancel" and a red "Delete" */
 dialog.modal.confirm { width: 420px; }
-/* Поле «Old-Games.ru»: адрес, «Загрузить», «Открыть»; под ними — итог загрузки */
+/* "Old-Games.ru" field: address, "Load", "Open"; under them — the loading result */
 .og-row { display: flex; gap: 6px; align-items: center; }
 .og-row input { flex: 1; min-width: 0; max-width: none !important; }
-.og-load:disabled { opacity: .4; cursor: wait; }  /* идёт загрузка */
+.og-load:disabled { opacity: .4; cursor: wait; }  /* loading in progress */
 .og-status { margin-top: 4px; }
-.form > label.og-label { align-self: start; padding-top: 6px; }  /* подпись — на уровне поля, а не по центру вместе с итогом */
+.form > label.og-label { align-self: start; padding-top: 6px; }  /* label at the level of the field, not centred together with the result */
 .og-status.ok { color: var(--ok-text); }
 .og-status.error { color: var(--red); }
 dialog.modal .confirm-body { display: flex; align-items: center; gap: 12px; padding: 20px 24px; }
@@ -569,14 +569,14 @@ dialog.modal .confirm-icon { color: var(--red); flex-shrink: 0; }
 dialog.modal .confirm-icon .mi { width: 28px; height: 28px; }
 dialog.modal.confirm .dlg-foot { justify-content: flex-end; gap: 8px; }
 .pic { display: block; cursor: pointer; }
-a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не сохранённый файл */
-/* Кнопки картинки — столбиком справа от неё: заменить, открыть, ниже с отступом — удалить */
+a.pic:not([href]) { cursor: default; }  /* a chosen, not yet saved file */
+/* Picture buttons — in a column to the right of it: replace, open, lower with a gap — delete */
 .img-tools { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .img-tools label.icon { cursor: pointer; }
 .img-tools .spacer { flex: none; height: 24px; }
 .dlg-image > .viewer { grid-column: 1; grid-row: 1; position: relative; }
-/* Перелистывание картинок: полупрозрачные круглые кнопки у левого и правого края картинки (нажимается вся полоса края),
-   счётчик внизу справа */
+/* Flipping pictures: semi-transparent round buttons at the left and right edge of the picture (the whole edge strip is clickable),
+   a counter at the bottom right */
 .viewer .nav { position: absolute; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center;
                             border: none; padding: 0; background: none; color: var(--on-overlay); cursor: pointer; }
 .viewer .nav .mi { width: 44px; height: 44px; padding: 6px; border-radius: 50%; background: var(--overlay); }
@@ -587,7 +587,7 @@ a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не со�
                                 color: var(--on-overlay); font: 500 12px var(--mono); pointer-events: none; }
 .dlg-image > .img-tools { grid-column: 2; grid-row: 1; }
 .dlg-image [hidden] { display: none !important; }
-/* Заглушка «Нет картинки»: рамка 800×600 с иконкой */
+/* "No picture" placeholder: an 800×600 frame with an icon */
 .no-image { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
                          width: 100%; aspect-ratio: 4 / 3; cursor: pointer; color: var(--muted);
                          background: var(--card2); border: 2px dashed var(--input-border); border-radius: var(--radius); transition: border-color .15s, color .15s; }
@@ -597,17 +597,17 @@ a.pic:not([href]) { cursor: default; }  /* выбранный, ещё не со�
 .no-image:hover .mi { opacity: 1; }
 dialog.modal .dlg-body { display: flex; align-items: stretch; }
 dialog.modal .dlg-body > .form { flex: 1; }
-/* Поля — во всю высоту окна: строки полей по содержимому (их число — --rows), строка «Описание» занимает остальное */
+/* Fields — the full window height: field rows by content (their number — --rows), the "Description" row takes the rest */
 dialog.modal.wide .dlg-body > .form { flex: 0 0 480px; grid-template-rows: repeat(var(--rows), min-content) 1fr; align-items: center; }
 dialog.modal.wide .dlg-body > .form.after-desc { grid-template-rows: repeat(var(--rows), min-content) 1fr min-content; }
 dialog.modal.wide .form > label[for=d-description] { align-self: start; padding-top: 6px; }
 dialog.modal.wide #d-description { height: 100%; min-height: 160px; resize: none; }
 dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; grid-template-columns: minmax(0, var(--pic-w)) auto;
                         justify-content: center; align-items: start; gap: 8px; flex: 1 1 auto; min-width: 0; }
-/* Строка поля в окне объекта (подпись + поле — ячейки сетки формы); поля не своего типа скрыты */
+/* Field row in the item window (label + field — cells of the form grid); fields not of its type are hidden */
 .frow { display: contents; }
 .frow[hidden] { display: none; }
-/* Новый объект: «Удалить» скрыта, «Сохранить» остаётся справа */
+/* New item: "Delete" is hidden, "Save" stays on the right */
 .dlg-foot > .btn:not(.first) { margin-left: auto; }
 #d-delete[hidden] { display: none; }
 .dlg-image img { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto;
@@ -616,24 +616,24 @@ dialog.modal .dlg-image { order: 2; padding: 16px 24px 16px 0; display: grid; gr
   dialog.modal .dlg-body { flex-direction: column; align-items: stretch; }
   dialog.modal.wide .dlg-body > .form { flex: none; grid-template-rows: none; }
   dialog.modal.wide #d-description { height: auto; resize: vertical; }
-  dialog.modal .dlg-image { order: 2; padding: 0 16px 16px 24px; grid-template-columns: minmax(0, 1fr) auto; }  /* сначала поля, под ними картинка */
-  dialog.modal.wide { width: calc(100vw - 32px); }  /* узкий экран: окно во всю ширину, картинка под полями */
+  dialog.modal .dlg-image { order: 2; padding: 0 16px 16px 24px; grid-template-columns: minmax(0, 1fr) auto; }  /* fields first, the picture under them */
+  dialog.modal.wide { width: calc(100vw - 32px); }  /* narrow screen: the window across the whole width, the picture under the fields */
   dialog.modal .dlg-image img, .no-image { width: 100%; }
 }
-/* Экспорт: список коллекций с галочками в столбик */
+/* Export: a list of collections with ticks in a column */
 .export-list { display: grid; gap: 6px; max-height: 420px; overflow: auto; }
 .export-list .all { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-/* Импорт: прогресс */
+/* Import: progress */
 .import-box { border: 1px solid var(--border); border-radius: var(--radius); background: var(--form-bg); padding: 16px 18px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 900px; }
 .import-box progress { width: 100%; height: 16px; accent-color: var(--blue); }
 .import-box form { margin: 0; }
 .import-box[hidden], .form[hidden] { display: none; }
-/* Поиск по всем коллекциям */
+/* Search across all collections */
 .search-form { display: flex; gap: 8px; max-width: 900px; margin-bottom: 16px; }
 .search-form input { flex: 1; min-width: 0; }
 table.items.found { max-width: 1200px; }
-/* Статистика: плитки итогов, полосы (рейтинг, покупки по годам) */
-/* Плитки итогов: крупное число и подпись под ним */
+/* Statistics: total tiles, bars (rating, purchases by year) */
+/* Total tiles: a large number and a label under it */
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
 .tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 14px; border: 1px solid var(--border);
         border-radius: 14px; background: var(--form-bg); text-align: center; }
@@ -645,10 +645,10 @@ table.items.stats td a { display: block; }
 .bars { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; max-width: 560px; }
 .bar-track { height: 10px; background: var(--card2); border-radius: 5px; overflow: hidden; }
 .bar-fill { display: block; height: 100%; background: var(--blue); border-radius: 5px; }
-.bar-value { white-space: nowrap; }  /* атрибут hidden иначе перебивается display: grid */
+.bar-value { white-space: nowrap; }  /* otherwise the hidden attribute is overridden by display: grid */
 
 @media (max-width: 420px) {
-  header .logo span { display: none; }  /* узкий телефон: в шапке только значок логотипа, иначе кнопки не помещаются */
+  header .logo span { display: none; }  /* narrow phone: only the logo icon in the header, otherwise the buttons do not fit */
 }
 @media (max-width: 700px) {
   main.settings { grid-template-columns: 1fr; }
@@ -661,25 +661,25 @@ table.items.stats td a { display: block; }
   .form, .form.compact { grid-template-columns: 1fr; }
   .list { grid-template-columns: 1fr; }
   header .user span, header a.settings span, header a.update span { display: none; }
-  /* Таблица объектов на телефоне: название, статус, цена и корзина; платформа, формат и иконка картинки — в окне объекта */
+  /* Item table on a phone: name, status, price and bin; platform, format and picture icon — in the item window */
   table.items .c-platform, table.items .c-format, table.items .c-edition, table.items .c-purchased, table.items .c-tags,
   table.items .c-rating, table.items .c-available, table.items .pic-col { display: none; }
   table.items .grip, #reset-widths { display: none; }
   table.items tr.filters select, table.items tr.filters .range input { min-width: 0; }
   table.items tr.filters .range { flex-direction: column; gap: 2px; }
   table.items td.title { overflow-wrap: anywhere; }
-  .collhead { flex-wrap: wrap; align-items: flex-start; }  /* на телефоне стрелка «назад» — по строке названия */
-  .collhead > .back { margin-top: -3px; }   /* (21px строка названия − 26px кнопка) / 2 */
+  .collhead { flex-wrap: wrap; align-items: flex-start; }  /* on a phone the "back" arrow aligns with the name line */
+  .collhead > .back { margin-top: -3px; }   /* (21px name line − 26px button) / 2 */
   .collhead > div { flex: 1 1 200px; min-width: 0; }
-  /* на телефоне иконки — отдельной строкой, начинаются ровно под названием (после стрелки 26px и промежутка 12px;
-     если у коллекции есть картинка — ещё 56px + 12px) */
-  .collhead > .coll-actions { margin-top: 0; margin-left: 36px; }  /* 38px минус внутренний отступ иконки */
+  /* on a phone the icons are on a separate line, starting right under the name (after the 26px arrow and a 12px gap;
+     if the collection has a picture — another 56px + 12px) */
+  .collhead > .coll-actions { margin-top: 0; margin-left: 36px; }  /* 38px minus the inner padding of the icon */
   .collhead:has(> .thumb) > .coll-actions { margin-left: 104px; }
   .meta-line { column-gap: 12px; }
-  .meta-line .sep { display: none; }  /* точки-разделители повисали в конце строк */
+  .meta-line .sep { display: none; }  /* separator dots used to hang at line ends */
 }
 
-/* Форма типа коллекции: поля (галочка, подпись, своя подпись, стрелки порядка) и статусы с цветом строки */
+/* Collection type form: fields (tick, label, own label, order arrows) and statuses with a row colour */
 table.kind-fields { border-collapse: collapse; }
 table.kind-fields th { text-align: left; font-weight: normal; color: var(--muted); padding: 0 8px 4px 0; }
 table.kind-fields td { padding: 0 8px 4px 0; vertical-align: middle; }
@@ -700,11 +700,11 @@ table.kind-fields td.custom-cell textarea { width: 220px; resize: vertical; }
 table.kind-fields tr.custom td { padding-top: 4px; }
 #add-field { margin-top: 4px; }
 @media (max-width: 700px) { table.kind-fields td.custom-cell textarea { width: 100%; } }
-/* Статистика: статусы коллекции — ссылки-ярлыки со своим цветом */
+/* Statistics: collection statuses — label links with their own colour */
 table.stats td.statuses a.swatch { text-decoration: none; }
 table.stats td.statuses a.swatch b { margin-left: 2px; }
 
-/* Выбор темы («Отображение»): карточки пар — превью тёмной и светлой половины (фон, блок, полоска акцента) и названия */
+/* Theme choice ("Display"): pair cards — previews of the dark and light half (background, block, accent strip) and names */
 .theme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .theme-card { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 0; border: 1px solid var(--border);
               border-radius: 14px; overflow: hidden; cursor: pointer; background: var(--paper); transition: border-color .15s, box-shadow .15s; }
@@ -717,14 +717,14 @@ table.stats td.statuses a.swatch b { margin-left: 2px; }
 .theme-card .pv i:nth-child(2) { border-radius: 7px; background: var(--pv-card); border: 1px solid var(--pv-line); }
 .theme-card .pv i:nth-child(3) { display: none; }
 .theme-card .tc-name { grid-column: 1 / -1; padding: 8px 12px; font-weight: 600; border-top: 1px solid var(--border); }
-/* Статус в таблице — ярлык: моноширинный, на подложке; цвет строки по статусу — как и раньше, заливкой строки */
+/* Status in the table — a label: monospace, on a backdrop; the row colour by status — as before, a row fill */
 .chip { display: inline-block; padding: 1px 8px; border-radius: 7px; background: var(--card2); border: 1px solid var(--border);
         color: var(--text); font: 500 12px var(--mono); line-height: 20px; white-space: nowrap; }
 table.items tbody tr[style] .chip { background: color-mix(in srgb, var(--row-bg) 55%, var(--paper)); border-color: color-mix(in srgb, var(--row-bg) 70%, var(--border)); }
 @media (max-width: 700px) {
-  table.items.stats { display: block; overflow-x: auto; }  /* статистика по коллекциям — прокрутка вбок, а не обрезка */
+  table.items.stats { display: block; overflow-x: auto; }  /* collection statistics — scroll sideways rather than cut */
 }
-/* Статистика: стоимость коллекции — моноширинным */
+/* Statistics: collection value — in monospace */
 table.items.stats td.num { font-family: var(--mono); white-space: nowrap; text-align: left; }
-/* Вход: «Запомнить меня» и значок подсказки в одну строку */
+/* Sign-in: "Remember me" and the tooltip icon in one line */
 .remember { display: flex; align-items: center; gap: 6px; }

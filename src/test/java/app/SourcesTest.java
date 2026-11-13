@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.Test;
 
-/** Разбор ответов сервисов импорта и выбор подходящего результата (без сети). */
+/** Parsing import service responses and choosing the matching result (no network). */
 class SourcesTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -43,7 +43,7 @@ class SourcesTest {
         assertThat(DiscogsSource.bestMedia(results, "Pink Floyd", "The Wall", "CD", 10).path("id").asInt()).isEqualTo(2);
         assertThat(DiscogsSource.bestMedia(results, "Pink Floyd", "The Wall", "Vinyl", 10).path("id").asInt()).isEqualTo(1);
         assertThat(DiscogsSource.bestMedia(results, "Pink Floyd", "The Wall", "Cassette", 10)).isNull();
-        // без главной версии — по названию: подходят все издания с этим названием
+        // without a master version — by name: all releases with this name match
         assertThat(DiscogsSource.bestMedia(results, "Pink Floyd", "The Wall", "CD", 0).path("id").asInt()).isEqualTo(4);
     }
 

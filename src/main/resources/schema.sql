@@ -1,8 +1,8 @@
--- Схема базы. Выполняется при каждом старте; создаёт таблицы, если их нет.
--- База прежних версий (до 1.18, поля объектов — столбцами и отдельными таблицами) не переносится:
--- при запуске она откладывается в резервный файл (DataReset), данные загружаются заново из Excel.
+-- Database schema. Runs on every start; creates tables if they do not exist.
+-- A database of previous versions (before 1.18, item fields as columns and separate tables) is not carried over:
+-- at start it is moved aside into a backup file (DataReset), data is loaded again from Excel.
 
--- Пользователи. password_hash — см. Passwords (PBKDF2); role — admin (администратор) или user
+-- Users. password_hash — see Passwords (PBKDF2); role — admin (administrator) or user
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'user'
 );
 
--- Типы коллекций пользователя («Настройки» → «Типы коллекций»). profile — профиль (Repo.PROFILES: games, music,
--- books, other): какие источники импорта подходят и какие особые возможности есть. Начальные типы создаёт Repo.createUser
+-- Collection types of the user ("Settings" → "Collection types"). profile — profile (Repo.PROFILES: games, music,
+-- books, other): which import sources fit and which special features there are. Initial types are created by Repo.createUser
 CREATE TABLE IF NOT EXISTS kinds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS kinds (
     UNIQUE (user_id, name)
 );
 
--- Поля объектов типа по порядку (pos). role — встроенная роль из Repo.FIELDS (platform, status, price…): по ней
--- работают особые возможности (суммы цен, цвета строк по статусу, импорт по платформе…); type — вид поля
--- (Repo.TYPES: text, number, money, date, bool, rating, select, tags, longtext, link); label — своя подпись
--- (NULL — подпись роли на языке интерфейса). Снятое с типа поле удаляется вместе со значениями объектов
+-- Item fields of the type in order (pos). role — built-in role from Repo.FIELDS (platform, status, price…): special
+-- features work by it (price sums, row colours by status, import by platform…); type — field kind
+-- (Repo.TYPES: text, number, money, date, bool, rating, select, tags, longtext, link); label — own label
+-- (NULL — the role label in the interface language). A field removed from the type is deleted together with item values
 CREATE TABLE IF NOT EXISTS kind_fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     kind_id INTEGER NOT NULL REFERENCES kinds(id) ON DELETE CASCADE,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS kind_fields (
     UNIQUE (kind_id, role)
 );
 
--- Значения поля-списка по порядку (например, статусы прохождения) и цвет строки объекта с этим значением (#rrggbb или NULL)
+-- List field values in order (for example, play statuses) and the colour of an item's row with this value (#rrggbb or NULL)
 CREATE TABLE IF NOT EXISTS field_options (
     field_id INTEGER NOT NULL REFERENCES kind_fields(id) ON DELETE CASCADE,
     pos INTEGER NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS field_options (
     PRIMARY KEY (field_id, pos)
 );
 
--- Коллекции: тип — kinds.id этого же пользователя (тип, который используется, не удаляется)
+-- Collections: type — kinds.id of the same user (a type in use is not deleted)
 CREATE TABLE IF NOT EXISTS collections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -58,9 +58,9 @@ CREATE TABLE IF NOT EXISTS items (
 );
 CREATE INDEX IF NOT EXISTS items_collection ON items (collection_id);
 
--- Значения полей объектов: поле — kind_fields.id типа коллекции объекта. value без объявленного типа: числа
--- (цена, рейтинг 1…10, наличие 1) хранятся числами и сортируются как числа, остальное — текстом.
--- Пустое значение — строки нет (наличие «Нет» — тоже)
+-- Item field values: field — kind_fields.id of the item's collection type. value without a declared type: numbers
+-- (price, rating 1…10, available 1) are stored as numbers and sorted as numbers, the rest — as text.
+-- An empty value — no row (available "No" too)
 CREATE TABLE IF NOT EXISTS item_values (
     item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     field_id INTEGER NOT NULL REFERENCES kind_fields(id) ON DELETE CASCADE,
@@ -69,22 +69,22 @@ CREATE TABLE IF NOT EXISTS item_values (
 );
 CREATE INDEX IF NOT EXISTS item_values_field ON item_values (field_id);
 
--- Описание объекта — есть у всех объектов, независимо от типа
+-- Item description — every item has it, regardless of type
 CREATE TABLE IF NOT EXISTS item_descriptions (
     item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
     text TEXT NOT NULL
 );
 
--- Картинки — файлы в DATA_DIR/images/ab/cd/<sha256>.<ext>, одинаковая картинка хранится один раз (ImageFiles).
--- pictures — справочник файлов (size — для будущей статистики и ограничений); строка и файл удаляются,
--- когда на картинку не осталось ссылок
+-- Pictures — files in DATA_DIR/images/ab/cd/<sha256>.<ext>, an identical picture is stored once (ImageFiles).
+-- pictures — the file register (size — for future statistics and limits); the row and file are deleted
+-- when no references to the picture are left
 CREATE TABLE IF NOT EXISTS pictures (
-    hash TEXT PRIMARY KEY, -- SHA-256 содержимого, 64 hex
+    hash TEXT PRIMARY KEY, -- SHA-256 of the content, 64 hex
     mime TEXT NOT NULL,
     size INTEGER NOT NULL
 );
 
--- Картинки объекта: pos = 0..4 по порядку без пропусков (0 — главная)
+-- Item pictures: pos = 0..4 in order without gaps (0 — the main one)
 CREATE TABLE IF NOT EXISTS item_pictures (
     item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     pos INTEGER NOT NULL,
@@ -93,15 +93,15 @@ CREATE TABLE IF NOT EXISTS item_pictures (
 );
 CREATE INDEX IF NOT EXISTS item_pictures_hash ON item_pictures (hash);
 
--- Обложка коллекции
+-- Collection cover
 CREATE TABLE IF NOT EXISTS collection_pictures (
     collection_id INTEGER PRIMARY KEY REFERENCES collections(id) ON DELETE CASCADE,
     hash TEXT NOT NULL REFERENCES pictures(hash)
 );
 CREATE INDEX IF NOT EXISTS collection_pictures_hash ON collection_pictures (hash);
 
--- Запомненный вид таблицы объектов коллекции у пользователя: сортировка, страница, фильтры
--- (строка параметров адреса, как в ссылках страницы); подставляется, если коллекция открыта без параметров
+-- Remembered view of a collection's item table for the user: sorting, page, filters
+-- (an address query string, as in the page links); used when the collection is opened without parameters
 CREATE TABLE IF NOT EXISTS collection_views (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
@@ -109,37 +109,37 @@ CREATE TABLE IF NOT EXISTS collection_views (
     PRIMARY KEY (user_id, collection_id)
 );
 
--- Настройки пользователя (вкладка «Отображение»); нет строки — значения по умолчанию.
--- show_prices: 1 — цены видны в таблице объектов и стоимость коллекции рядом с количеством, 0 — только в подсказке у иконки глаза
+-- User settings ("Display" tab); no row — defaults.
+-- show_prices: 1 — prices are visible in the item table and the collection value next to the count, 0 — only in the eye icon tooltip
 CREATE TABLE IF NOT EXISTS user_settings (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     show_prices INTEGER NOT NULL DEFAULT 0
 );
 
--- Сколько показывать на странице (вкладка «Отображение»): коллекций на главной и объектов в таблице коллекции;
--- нет строки или NULL — по умолчанию (Repo.PageSizes)
+-- How many to show per page ("Display" tab): collections on the home page and items in the collection table;
+-- no row or NULL — default (Repo.PageSizes)
 CREATE TABLE IF NOT EXISTS user_page_sizes (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     collections INTEGER,
     items INTEGER
 );
 
--- Тема оформления пользователя (вкладка «Отображение»): пара тёмной и светлой темы (Repo.THEMES); нет строки — первая пара.
--- Тёмная или светлая из пары — переключатель в шапке, запоминается в браузере
+-- Theme of the user ("Display" tab): a pair of dark and light themes (Repo.THEMES); no row — the first pair.
+-- Dark or light of the pair — the switch in the header, remembered in the browser
 CREATE TABLE IF NOT EXISTS user_theme (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     pair TEXT NOT NULL
 );
 
--- «Запомнить меня на этом компьютере» (Remember): SHA-256 ключа входа из cookie браузера, срок (мс). Сам ключ и пароль
--- здесь не хранятся. Смена пароля удаляет ключи пользователя, выход — ключ этого компьютера
+-- "Remember me" (Remember): SHA-256 of the sign-in key from the browser cookie, expiry (ms). The key itself and the password
+-- are not stored here. A password change deletes the user's keys, signing out — the key of this computer
 CREATE TABLE IF NOT EXISTS remember_tokens (
     hash TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires INTEGER NOT NULL
 );
 
--- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
+-- Personal tokens of import services ("Import" tab), currently only service = 'discogs'
 CREATE TABLE IF NOT EXISTS user_tokens (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     service TEXT NOT NULL,
@@ -147,8 +147,8 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     PRIMARY KEY (user_id, service)
 );
 
--- Разовые обновления данных: имя выполненного обновления (чтобы не повторять его при каждом старте).
--- Обновления — в конце этого файла: UPDATE … WHERE NOT EXISTS (… name = 'имя') и INSERT OR IGNORE INTO data_updates
+-- One-off data updates: name of a completed update (so it is not repeated on every start).
+-- Updates are at the end of this file: UPDATE … WHERE NOT EXISTS (… name = 'name') and INSERT OR IGNORE INTO data_updates
 CREATE TABLE IF NOT EXISTS data_updates (
     name TEXT PRIMARY KEY
 );

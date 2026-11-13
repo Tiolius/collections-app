@@ -7,12 +7,12 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Источник импорта картинок и описаний («Настройки» → «Импорт»): ищет объект по названию (и полям объекта)
- * и возвращает картинки и описание. Запросы — через ImportFetch (паузы и повторы общие для всех источников).
+ * Source for importing pictures and descriptions ("Settings" → "Import"): finds the item by name (and item fields)
+ * and returns pictures and description. Requests go through ImportFetch (pauses and retries shared by all sources).
  */
 abstract class ImportSource {
 
-    /** Найденное: картинки (по порядку, без повторов) и описание (null — нет). */
+    /** What was found: pictures (in order, no duplicates) and description (null — none). */
     record Found(List<byte[]> images, String description) {}
 
     protected final ImportFetch fetch;
@@ -21,32 +21,32 @@ abstract class ImportSource {
         this.fetch = fetch;
     }
 
-    /** Ключ источника (ImageImport.STEAM…) — в форме, в задании и для паузы между запросами. */
+    /** Source key (ImageImport.STEAM…) — in the form, in the job and for the pause between requests. */
     abstract String key();
 
-    /** Есть ли у источника обложки коробок: тогда есть выбор первой картинки — скриншот или обложка. */
+    /** Whether the source has box covers: then the first picture can be chosen — a screenshot or the cover. */
     boolean covers() {
         return false;
     }
 
-    /** Пауза между запросами к источнику, мс. */
+    /** Pause between requests to the source, ms. */
     abstract long intervalMs(ImageImport.Job job);
 
-    /** Заголовки запросов (имя, значение, …). */
+    /** Request headers (name, value, …). */
     String[] headers(ImageImport.Job job) {
         return new String[0];
     }
 
-    /** Ответ сервиса не 200 и не 404: здесь источник может остановить импорт (ImportFetch.Fatal). */
+    /** Service response neither 200 nor 404: here the source may stop the import (ImportFetch.Fatal). */
     void checkStatus(ImageImport.Job job, int code) throws ImportFetch.Fatal {}
 
-    /** Можно ли скачивать картинку с этого адреса: только адреса картинок источника (и заглушки, если адрес подменён). */
+    /** Whether a picture may be downloaded from this address: only the source's picture addresses (and stubs if the address is replaced). */
     abstract boolean imageUrl(URI u, String url);
 
-    /** Объект в источнике: картинки (если нужны) и описание (если нужно); null — не найден. */
+    /** The item in the source: pictures (if needed) and description (if needed); null — not found. */
     abstract Found find(ImageImport.Job job, Entry item, boolean wantImage, boolean wantDescription) throws Exception;
 
-    // ---------- общее для источников ----------
+    // ---------- shared by sources ----------
 
     protected JsonNode api(ImageImport.Job job, String url) throws Exception {
         return fetch.api(this, job, url);
@@ -64,7 +64,7 @@ abstract class ImportSource {
         return fetch.downloadAll(this, urls, max);
     }
 
-    /** https-адрес на хосте host или его поддомене (suffix начинается с точки: «.steamstatic.com»). */
+    /** An https address on host host or its subdomain (suffix starts with a dot: ".steamstatic.com"). */
     static boolean https(URI u, String... hosts) {
         if (!"https".equals(u.getScheme()) || u.getHost() == null) return false;
         for (String h : hosts)
@@ -72,7 +72,7 @@ abstract class ImportSource {
         return false;
     }
 
-    /** Адрес начинается с одного из адресов сервиса (заглушки при проверке). */
+    /** The address starts with one of the service addresses (stubs in tests). */
     static boolean under(String url, String... bases) {
         for (String b : bases)
             if (url.startsWith(b + "/")) return true;
@@ -80,8 +80,8 @@ abstract class ImportSource {
     }
 
     /**
-     * Порядок картинок игры: режим «скриншот» — скриншоты (если их нет — обложка),
-     * иначе — обложка, за ней скриншоты.
+     * Order of game pictures: "screenshot" mode — screenshots (if none — the cover),
+     * otherwise — the cover, then screenshots.
      */
     static List<String> coverAndShots(ImageImport.Job job, String cover, List<String> shots) {
         List<String> urls = new ArrayList<>();

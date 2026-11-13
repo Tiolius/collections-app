@@ -7,8 +7,8 @@
   <h2 th:text="${setup ? #messages.msg('login.setupTitle') : #messages.msg('login.title')}"></h2>
   <p class="muted" th:if="${setup}" th:text="#{login.setupText}"></p>
   <p class="error" th:if="${error != null}" th:text="${error}"></p>
-  <!-- Подсказки браузера в полях входа отключены: autocomplete="off" для имени,
-       "new-password" для пароля (на "off" у паролей браузеры не реагируют) -->
+  <!-- Browser suggestions in the login fields are off: autocomplete="off" for the name,
+       "new-password" for the password (browsers ignore "off" on password fields) -->
   <form class="form" method="post" autocomplete="off" th:action="${setup ? '/setup' : '/login'}">
     <label for="f-name" th:text="#{user.name}">Имя пользователя</label>
     <input id="f-name" type="text" name="name" required autofocus autocomplete="off" autocapitalize="off" spellcheck="false" th:value="${name}">
@@ -21,7 +21,7 @@
       <input id="f-pw2" type="password" name="password2" autocomplete="new-password">
     </th:block>
 
-    <!-- «Запомнить меня»: ключ входа в cookie на 90 дней (Remember), пароль не сохраняется -->
+    <!-- "Remember me": a sign-in key in a cookie for 90 days (Remember), the password is not saved -->
     <th:block th:unless="${setup}">
       <span></span>
       <div class="remember"><label class="radio"><input id="f-remember" type="checkbox" name="remember" value="true" autocomplete="off">

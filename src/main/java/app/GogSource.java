@@ -14,14 +14,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** GOG (без ключа): старые игры для ПК, которых нет в Steam; картинки — скриншоты и обложка коробки, описание по-русски. */
+/** GOG (no key): old PC games that are not on Steam; pictures — screenshots and the box cover, description in Russian. */
 @Component
 class GogSource extends ImportSource {
 
-    /** GOG ограничений не публикует; раз в секунду — чтобы не нагружать. */
+    /** GOG publishes no limits; once a second so as not to load it. */
     @Value("${gog.api-interval-ms:1000}")
     private long intervalMs;
-    /** Каталог (поиск) и API (карточка игры с описанием). */
+    /** Catalogue (search) and API (game card with a description). */
     @Value("${gog.catalog-url:https://catalog.gog.com}")
     private String catalogUrl;
     @Value("${gog.api-url:https://api.gog.com}")
@@ -52,9 +52,9 @@ class GogSource extends ImportSource {
     }
 
     /**
-     * Игра GOG с таким же названием: картинки и описание; null — не найдена.
-     * Поиск — в английском каталоге, затем в русском (у переведённых игр там русские названия);
-     * как у Steam — ещё раз без знаков препинания.
+     * A GOG game with the same name: pictures and description; null — not found.
+     * Search in the English catalogue, then in the Russian one (translated games have Russian names there);
+     * as with Steam — once more without punctuation.
      */
     @Override
     Found find(ImageImport.Job job, Entry item, boolean wantImage, boolean wantDescription) throws Exception {
@@ -72,8 +72,8 @@ class GogSource extends ImportSource {
     }
 
     /**
-     * Подходящий результат поиска: точное совпадение названия (поле field), иначе без «The» и приписки издания;
-     * из нескольких — первый (результаты уже упорядочены по релевантности).
+     * A matching search result: exact name match (field field), otherwise without "The" and an edition suffix;
+     * of several — the first (results are already ordered by relevance).
      */
     static JsonNode bestMatch(JsonNode results, String field, String key) {
         JsonNode loose = null;
@@ -86,9 +86,9 @@ class GogSource extends ImportSource {
     }
 
     /**
-     * Картинки и описание найденной игры. Картинки — из результата поиска: скриншоты в полном размере
-     * (в адресе убирается «_{formatter}»), обложка коробки (coverVertical). Описание — из карточки игры по-русски,
-     * если перевод есть (иначе GOG отдаёт английское); только если оно нужно.
+     * Pictures and description of the found game. Pictures come from the search result: full-size screenshots
+     * ("_{formatter}" removed from the address), the box cover (coverVertical). Description — from the game card in Russian
+     * if there is a translation (otherwise GOG returns English); only if it is needed.
      */
     private Found found(ImageImport.Job job, JsonNode p, boolean wantImage, boolean wantDescription) throws Exception {
         String description = null;

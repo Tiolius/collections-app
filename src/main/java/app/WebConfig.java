@@ -9,9 +9,9 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Без входа доступны только страница входа (и создание первого администратора); остальное — переход на /login.
- * Сессия действует, пока пароль пользователя не менялся: смена пароля завершает его остальные сессии.
- * Нет сессии, но компьютер запомнен при входе (Remember) — вход без пароля.
+ * Without signing in only the login page (and creating the first administrator) is available; anything else goes to /login.
+ * A session is valid while the user's password is unchanged: a password change ends their other sessions.
+ * No session, but the computer was remembered at sign-in (Remember) — signed in without a password.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
@@ -33,9 +33,9 @@ public class WebConfig implements WebMvcConfigurer {
                 if (session != null && session.getAttribute("uid") instanceof Long uid) {
                     Repo.User u = repo.user(uid);
                     if (u != null && u.passwordHash().equals(session.getAttribute(WebController.SESSION_PW))) return true;
-                    session.invalidate(); // пользователь удалён или пароль сменён в другой сессии
+                    session.invalidate(); // user deleted or password changed in another session
                 }
-                // Компьютер запомнен при входе («Запомнить меня») — новая сессия без ввода пароля
+                // Computer remembered at sign-in ("Remember me") — a new session without entering the password
                 Long uid = remember.user(req);
                 Repo.User u = uid == null ? null : repo.user(uid);
                 if (u != null) {

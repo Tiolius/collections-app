@@ -6,14 +6,14 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Сравнение названий при импорте и очистка текстов из сервисов. */
+/** Comparing names on import and cleaning texts from services. */
 final class Names {
 
     private Names() {}
 
     /**
-     * Название для сравнения: без регистра, знаков ™®©, пунктуации и лишних пробелов; «&» = «and»;
-     * римские числа — арабскими («Gothic II» = «Gothic 2», «Final Fantasy IX» = «Final Fantasy 9»).
+     * Name for comparison: case-insensitive, without ™®© signs, punctuation and extra spaces; "&" = "and";
+     * Roman numerals as Arabic ("Gothic II" = "Gothic 2", "Final Fantasy IX" = "Final Fantasy 9").
      */
     static String norm(String s) {
         String t = s.toLowerCase(Locale.ROOT).replaceAll("[™®©]", "").replace("&", " and ")
@@ -26,7 +26,7 @@ final class Names {
         return b.toString();
     }
 
-    /** Римское число до 39 (i…xxxix). */
+    /** Roman numeral up to 39 (i…xxxix). */
     static int roman(String w) {
         int n = 0;
         for (int i = 0; i < w.length(); i++) {
@@ -37,17 +37,17 @@ final class Names {
         return n;
     }
 
-    /** Название без знаков препинания (для повторного поиска: «F.E.A.R.» → «FEAR»). */
+    /** Name without punctuation (for a repeated search: "F.E.A.R." → "FEAR"). */
     static String plain(String name) {
         return name.replace(".", "").replaceAll("[^\\p{L}\\p{N}']+", " ").trim();
     }
 
-    /** Приписки изданий и платформы в конце названия (после norm; «Complete+» → «complete»): та же игра с ними и без них. */
+    /** Edition and platform suffixes at the end of a name (after norm; "Complete+" → "complete"): the same game with and without them. */
     private static final Pattern EDITION = Pattern.compile(
             " (dx|hd|pc|complete|redux|remaster(ed)?|hd remaster(ed)?|goty|((definitive|complete|enhanced|deluxe|gold|platinum|ultimate|special"
             + "|anniversary|standard|digital deluxe|game of the year|goty) edition)|director s cut|directors cut)$");
 
-    /** Название без приписок изданий в конце: «atelier ryza … dx» → «atelier ryza …» (можно несколько подряд). */
+    /** Name without edition suffixes at the end: "atelier ryza … dx" → "atelier ryza …" (several in a row allowed). */
     static String editionBase(String normName) {
         String s = normName, prev;
         do {
@@ -57,13 +57,13 @@ final class Names {
         return s.isEmpty() ? normName : s;
     }
 
-    /** Название для запасного сравнения: без «The» в начале и приписок изданий в конце. */
+    /** Name for the fallback comparison: without a leading "The" and edition suffixes at the end. */
     static String looseKey(String normName) {
         String s = editionBase(normName);
         return s.startsWith("the ") && s.length() > 4 ? s.substring(4) : s;
     }
 
-    /** «Группа - Альбом» → [группа, альбом] по первому « - » (или « – », « — »); иначе null. */
+    /** "Group - Album" → [group, album] by the first " - " (or " – ", " — "); otherwise null. */
     static String[] artistAlbum(String s) {
         Matcher m = Pattern.compile("\\s+[-–—]\\s+").matcher(s);
         if (!m.find()) return null;
@@ -71,7 +71,7 @@ final class Names {
         return a.isEmpty() || b.isEmpty() ? null : new String[] {a, b};
     }
 
-    /** Та же группа: без учёта регистра, пунктуации, «The» в начале и номера Discogs вида «Name (2)» или «Name*». */
+    /** Same artist: ignoring case, punctuation, a leading "The" and Discogs numbers like "Name (2)" or "Name*". */
     static boolean sameArtist(String a, String b) {
         return artistKey(a).equals(artistKey(b));
     }
@@ -80,19 +80,19 @@ final class Names {
         return norm(s.replaceAll("\\s*\\(\\d+\\)$", "").replaceAll("\\*$", "")).replaceAll("^the ", "");
     }
 
-    /** Описание из сервиса: без HTML-тегов и сущностей, не длиннее допустимого; пустое — null. */
+    /** Description from a service: without HTML tags and entities, not longer than allowed; empty — null. */
     static String cleanDescription(String html) {
         String t = htmlText(html.replaceAll("(?i)<br\\s*/?>", "\n")).trim();
         return limit(t);
     }
 
-    /** Текст не длиннее допустимого описания; пустой — null. */
+    /** Text not longer than an allowed description; empty — null. */
     static String limit(String t) {
         if (t.length() > Repo.MAX_DESCRIPTION) t = t.substring(0, Repo.MAX_DESCRIPTION).trim();
         return t.isEmpty() ? null : t;
     }
 
-    /** Текст из HTML: без тегов, сущности (&amp;quot; &amp;#39; &amp;#x27; …) — знаками. */
+    /** Text from HTML: without tags, entities (&amp;quot; &amp;#39; &amp;#x27; …) as characters. */
     static String htmlText(String html) {
         String t = html.replaceAll("<[^>]+>", "")
                 .replace("&quot;", "\"").replace("&apos;", "'").replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">");

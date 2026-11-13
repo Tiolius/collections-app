@@ -44,17 +44,17 @@ import javax.swing.RootPaneContainer;
 import javax.swing.SwingUtilities;
 
 /**
- * Программа для Windows без окна консоли: значок у часов (трей) с меню «Открыть», «Папка данных», «Выход»,
- * двойной щелчок по значку — приложение в браузере по умолчанию. Ошибки запуска — окном с сообщением.
- * Меню и окна — свои, в цветах и шрифте приложения (DesktopTheme), без системной рамки.
- * Тексты — messages*.properties (ключи desktop.*) на языке Windows: русский или английский.
+ * Windows program without a console window: a tray icon with the menu "Open", "Data folder", "Exit",
+ * double-clicking the icon opens the application in the default browser. Startup errors — in a message window.
+ * Menu and windows are our own, in the application's colours and font (DesktopTheme), without the system frame.
+ * Texts — messages*.properties (desktop.* keys) in the Windows language: Russian or English.
  */
 final class DesktopApp {
 
     private static final ResourceBundle TEXT = ResourceBundle.getBundle("messages",
             "ru".equals(Locale.getDefault().getLanguage()) ? I18n.RU : Locale.ENGLISH);
 
-    /** Блокировка папки данных этим запуском: ссылка нужна, иначе файл закроется при сборке мусора и блокировка снимется. */
+    /** Lock of the data folder by this run: the reference is needed, otherwise the file is closed on garbage collection and the lock is released. */
     private static FileLock dataLock;
 
     private DesktopApp() {}
@@ -64,8 +64,8 @@ final class DesktopApp {
     }
 
     /**
-     * Захватывает папку данных за этим запуском: false — программа уже запущена (или ещё запускается) другим exe.
-     * Блокировка снимается сама при выходе из программы.
+     * Takes the data folder for this run: false — the program is already running (or still starting) from another exe.
+     * The lock is released by itself when the program exits.
      */
     static boolean lock(Path dataDir) {
         java.nio.channels.FileChannel ch;
@@ -73,32 +73,32 @@ final class DesktopApp {
             ch = java.nio.channels.FileChannel.open(dataDir.resolve(".lock"),
                     java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
         } catch (IOException e) {
-            return true; // не удалось проверить — запускаемся, занятый порт покажет ошибку
+            return true; // could not check — start, a busy port will show an error
         }
         FileLock lock = null;
         try {
-            // блокируется байт далеко за концом файла: в Windows заблокированное нельзя читать другим процессам,
-            // а начало файла (порт программы, savePort) повторный запуск должен прочитать
-            lock = ch.tryLock(LOCK_AT, 1, false); // null — захвачена другим процессом
+            // a byte far beyond the end of the file is locked: on Windows locked bytes cannot be read by other processes,
+            // and a second run must read the start of the file (the program port, savePort)
+            lock = ch.tryLock(LOCK_AT, 1, false); // null — taken by another process
         } catch (java.nio.channels.OverlappingFileLockException | IOException e) {
-            // уже захвачена в этом же процессе (или не проверить) — как занятая
+            // already taken in this same process (or cannot check) — treated as taken
         }
         if (lock == null) {
             try {
-                ch.close(); // открытый файл в Windows не даёт удалить папку
+                ch.close(); // on Windows an open file prevents deleting the folder
             } catch (IOException ignored) {
-                // закрыть не удалось — не мешает
+                // could not close — does not matter
             }
             return false;
         }
-        dataLock = lock; // файл держится открытым до конца работы программы
+        dataLock = lock; // the file stays open until the program exits
         return true;
     }
 
-    /** Пара тем пользователя (после запуска — из базы); до запуска — первая пара. */
+    /** The user's theme pair (after start — from the database); before start — the first pair. */
     private static volatile java.util.function.Supplier<String> pair = () -> "night";
 
-    /** Тема окон — при каждом открытии: пара из «Отображения», тёмная или светлая — как у приложений Windows сейчас. */
+    /** Window theme — on every opening: the pair from "Display", dark or light — as Windows apps are now. */
     private static DesktopTheme theme() {
         String p;
         try {
@@ -109,15 +109,15 @@ final class DesktopApp {
         return DesktopTheme.of(p, DesktopTheme.windowsDark());
     }
 
-    /** Откуда брать пару тем: окна программы в тех же цветах, что и приложение. */
+    /** Where to take the theme pair from: program windows in the same colours as the application. */
     static void setPair(java.util.function.Supplier<String> source) {
         pair = source;
     }
 
-    /** Где блокировка в файле .lock: за пределами записанного в нём порта. */
+    /** Position of the lock in the .lock file: beyond the port written in it. */
     private static final long LOCK_AT = 1L << 30;
 
-    /** Записывает порт этого запуска в .lock: повторный запуск exe откроет браузер по нему. */
+    /** Writes the port of this run to .lock: a second run of the exe opens the browser on it. */
     static void savePort(int port) {
         if (dataLock == null) return;
         try {
@@ -126,11 +126,11 @@ final class DesktopApp {
             ch.write(java.nio.ByteBuffer.wrap(String.valueOf(port).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), 0);
             ch.force(false);
         } catch (IOException e) {
-            // не записался — повторный запуск откроет порт по умолчанию
+            // not written — a second run opens the default port
         }
     }
 
-    /** Порт уже запущенной программы из .lock; не записан (ещё запускается) — -1. */
+    /** Port of the already running program from .lock; not written yet (still starting) — -1. */
     static int savedPort(Path dataDir) {
         try {
             return Integer.parseInt(java.nio.file.Files.readString(dataDir.resolve(".lock"),
@@ -140,7 +140,7 @@ final class DesktopApp {
         }
     }
 
-    /** Снимает блокировку папки данных (для тестов: в Windows занятый файл не удалить). */
+    /** Releases the data folder lock (for tests: on Windows a file in use cannot be deleted). */
     static void unlock() throws IOException {
         if (dataLock == null) return;
         dataLock.release();
@@ -148,7 +148,7 @@ final class DesktopApp {
         dataLock = null;
     }
 
-    /** Значок у часов; exit — остановка приложения. Трея нет (не Windows) — приложение просто работает без значка. */
+    /** Tray icon; exit — stops the application. No tray (not Windows) — the application just works without the icon. */
     static void show(Runnable open, File dataDir, Runnable exit) {
         EventQueue.invokeLater(() -> {
             if (!SystemTray.isSupported() || !tray(open, dataDir, exit))
@@ -156,7 +156,7 @@ final class DesktopApp {
         });
     }
 
-    /** Значок у часов: двойной щелчок — открыть; правая кнопка — своё меню в цветах приложения (системное не оформить). */
+    /** Tray icon: double-click — open; right click — our own menu in the application's colours (the system one cannot be styled). */
     private static boolean tray(Runnable open, File dataDir, Runnable exit) {
         TrayIcon icon = new TrayIcon(icon(), "Collections App");
         icon.setImageAutoSize(true);
@@ -178,7 +178,7 @@ final class DesktopApp {
         }
     }
 
-    /** Меню значка: окно без рамки у указателя (над панелью задач), закрывается при щелчке мимо. */
+    /** Icon menu: a frameless window at the pointer (above the taskbar), closes on a click elsewhere. */
     private static void menu(int x, int y, Runnable open, File dataDir, Runnable exit) {
         DesktopTheme th = theme();
         JDialog d = new JDialog();
@@ -240,7 +240,7 @@ final class DesktopApp {
         }
     }
 
-    /** Сообщение об ошибке окном в цветах приложения (ждёт, пока его закроют). */
+    /** Error message in a window in the application's colours (waits until it is closed). */
     static void error(String message) {
         Runnable show = () -> {
             DesktopTheme th = theme();
@@ -257,7 +257,7 @@ final class DesktopApp {
             text.setWrapStyleWord(true);
             text.setFont(th.font());
             text.setForeground(th.text());
-            text.setSize(new Dimension(420, Short.MAX_VALUE)); // ширина для переноса строк — до расчёта высоты окна
+            text.setSize(new Dimension(420, Short.MAX_VALUE)); // width for wrapping lines — before computing the window height
             text.setPreferredSize(new Dimension(420, text.getPreferredSize().height));
             body.add(text, BorderLayout.CENTER);
             JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
@@ -279,16 +279,16 @@ final class DesktopApp {
         }
     }
 
-    /** Окно без системной рамки: прозрачный фон (если Windows умеет) — скруглённые углы рисует панель. */
+    /** Window without the system frame: transparent background (if Windows supports it) — the panel draws rounded corners. */
     private static void frame(Window w, JComponent content) {
         if (w.getGraphicsConfiguration().getDevice().isWindowTranslucencySupported(
                 GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT))
             w.setBackground(new Color(0, 0, 0, 0));
-        else w.setBackground(theme().paper()); // углы без прозрачности — цветом блока
+        else w.setBackground(theme().paper()); // corners without transparency — in the block colour
         if (w instanceof RootPaneContainer r) r.setContentPane(content);
     }
 
-    /** Блок окна: заголовок (значок, название, крестик; за него окно перетаскивается) и содержимое с отступами. */
+    /** Window block: header (icon, title, close cross; the window is dragged by it) and content with padding. */
     private static JPanel panel(DesktopTheme th, Window w, JComponent body, Runnable close) {
         JPanel p = new Rounded(th, 18, th.paper());
         p.setLayout(new BorderLayout());
@@ -322,13 +322,13 @@ final class DesktopApp {
         return p;
     }
 
-    /** Кнопка как .btn приложения: основная — заливка акцентом, вторая — рамка; высота 36, скругление 10. */
+    /** Button like the application's .btn: primary — accent fill, secondary — border; height 36, radius 10. */
     private static JButton button(DesktopTheme th, String text, boolean primary, Runnable action) {
         JButton b = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = smooth(g);
                 boolean hover = getModel().isRollover();
-                if (getClientProperty("flat") != null) { // крестик закрытия: рисуется линиями (в шрифте нет знака ✕)
+                if (getClientProperty("flat") != null) { // close cross: drawn with lines (the font has no ✕ sign)
                     if (hover) { g2.setColor(th.card2()); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20); }
                     g2.setColor(hover ? th.text() : th.muted());
                     g2.setStroke(new java.awt.BasicStroke(1.6f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
@@ -369,7 +369,7 @@ final class DesktopApp {
         return g2;
     }
 
-    /** Панель-блок: фон, тонкая рамка, скругление radius (как у блоков приложения). */
+    /** Block panel: background, thin border, radius (like the application's blocks). */
     private static final class Rounded extends JPanel {
         private final DesktopTheme th;
         private final int radius;
@@ -392,7 +392,7 @@ final class DesktopApp {
         }
     }
 
-    /** Значок ошибки: красный круг с «!» (как значок предупреждения в окне подтверждения приложения). */
+    /** Error badge: a red circle with "!" (like the warning icon in the application's confirmation window). */
     private static final class Badge extends JComponent {
         private final DesktopTheme th;
 

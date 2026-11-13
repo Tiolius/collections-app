@@ -15,18 +15,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Запросы импорта к сервисам: пауза между запросами к каждому источнику (лимиты — на адрес, а не на пользователя),
- * при ограничении (429/403/5xx) — пауза и повтор; скачивание картинок только с адресов источника.
+ * Import requests to services: a pause between requests to each source (limits are per address, not per user),
+ * when limited (429/403/5xx) — a pause and a retry; pictures are downloaded only from the source's addresses.
  */
 @Component
 public class ImportFetch {
 
-    /** Пауза, если сервис ограничил запросы, мс, и сколько раз подряд её делать. */
+    /** Pause when the service limited requests, ms, and how many times in a row to make it. */
     @Value("${import.throttle-pause-ms:60000}")
     private long throttlePauseMs;
     static final int THROTTLE_RETRIES = 5;
 
-    /** Ошибка, после которой продолжать бессмысленно (например, Discogs отклонил токен). */
+    /** An error after which continuing makes no sense (for example, Discogs rejected the token). */
     static class Fatal extends Exception {
         Fatal(String message) {
             super(message);
@@ -35,7 +35,7 @@ public class ImportFetch {
 
     private final Http http;
     private final ObjectMapper json = new ObjectMapper();
-    /** Время последнего запроса к каждому источнику. */
+    /** Time of the last request to each source. */
     private final Map<String, Long> lastCall = new ConcurrentHashMap<>();
 
     public ImportFetch(Http http) {
@@ -46,13 +46,13 @@ public class ImportFetch {
         return json;
     }
 
-    /** Ответ сервиса в JSON с паузами и повторами (см. page); null — 404. */
+    /** Service response as JSON with pauses and retries (see page); null — 404. */
     JsonNode api(ImportSource src, ImageImport.Job job, String url) throws Exception {
         String body = page(src, job, url);
         return body == null ? null : json.readTree(body);
     }
 
-    /** Страница или ответ сервиса текстом: не чаще интервала источника; при ограничении — пауза и повтор. null — 404. */
+    /** A page or service response as text: not more often than the source interval; when limited — pause and retry. null — 404. */
     String page(ImportSource src, ImageImport.Job job, String url) throws Exception {
         long interval = src.intervalMs(job);
         String[] headers = src.headers(job);
@@ -80,7 +80,7 @@ public class ImportFetch {
         }
     }
 
-    /** Картинка по адресу источника или null (чужой адрес, нет такой, не картинка или слишком большая). */
+    /** Picture at a source address or null (foreign address, missing, not a picture or too large). */
     byte[] download(ImportSource src, String url) throws Exception {
         if (url == null || url.isEmpty()) return null;
         URI u = URI.create(url);
@@ -88,7 +88,7 @@ public class ImportFetch {
         return http.image(url);
     }
 
-    /** Скачивает картинки по адресам по порядку, пока не наберётся max; неудачные и повторы (по содержимому) пропускаются. */
+    /** Downloads pictures from the addresses in order until max are collected; failures and duplicates (by content) are skipped. */
     List<byte[]> downloadAll(ImportSource src, List<String> urls, int max) throws Exception {
         List<byte[]> res = new ArrayList<>();
         for (String u : urls) {

@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/** Сравнение названий при импорте: от него зависит, найдётся ли объект в сервисе. */
+/** Comparing names on import: it decides whether the item is found in the service. */
 class NamesTest {
 
     @Test
@@ -31,7 +31,7 @@ class NamesTest {
         assertThat(Names.looseKey("the banner saga 3")).isEqualTo(Names.looseKey("banner saga 3"));
         assertThat(Names.looseKey(Names.norm("Mafia: Definitive Edition"))).isEqualTo("mafia");
         assertThat(Names.looseKey(Names.norm("Disgaea 4 Complete+"))).isEqualTo("disgaea 4");
-        // только приписка — не стирается в пустую строку
+        // only a suffix — not erased to an empty string
         assertThat(Names.editionBase("hd")).isEqualTo("hd");
     }
 

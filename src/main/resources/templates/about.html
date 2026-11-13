@@ -18,7 +18,7 @@
     <label for="f-date" th:text="#{about.date}">Дата обновления</label>
     <input autocomplete="off" id="f-date" type="text" readonly th:value="${appBuildDate}">
 
-    <!-- Обновления: последний релиз на GitHub (Updates) -->
+    <!-- Updates: the latest release on GitHub (Updates) -->
     <label th:text="#{about.updates}">Обновления</label>
     <div th:switch="${updateState}">
       <a th:case="'available'" th:href="${latestRelease.url()}" target="_blank" rel="noopener" th:text="#{update.download(${latestRelease.version()})}"></a>
@@ -28,7 +28,7 @@
       <span th:case="*" class="muted" th:text="#{update.unknown}"></span>
     </div>
 
-    <!-- Год — из даты обновления (дд.мм.гггг) -->
+    <!-- Year — from the update date (dd.mm.yyyy) -->
     <div class="full muted" th:text="${'© ' + #strings.substring(appBuildDate, appBuildDate.length() - 4) + ' ' + appAuthor + '. Collections App'}"></div>
   </form>
 </main>

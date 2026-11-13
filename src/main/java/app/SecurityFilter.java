@@ -12,16 +12,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Заголовки безопасности для всех ответов и защита от подделки запросов:
- * изменения (POST) принимаются только со страниц самого приложения.
+ * Security headers for all responses and protection against request forgery:
+ * changes (POST) are accepted only from the application's own pages.
  */
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
 
-    // Скрипты и стили только свои (небольшие встроенные — inline), без чужих сайтов и встраивания в чужие страницы
+    // Only our own scripts and styles (small inline ones), no other sites and no embedding into other pages
     private static final String CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
             + "img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
-    // Картинка коллекции: никаких скриптов, даже если открыть её отдельно
+    // Collection picture: no scripts at all, even when opened on its own
     private static final String CSP_IMAGE = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
     @Override
@@ -39,12 +39,12 @@ public class SecurityFilter extends OncePerRequestFilter {
         chain.doFilter(req, res);
     }
 
-    /** Запрос отправлен со страницы этого же сайта (по заголовкам браузера Sec-Fetch-Site или Origin). */
+    /** The request was sent from a page of this same site (by the browser headers Sec-Fetch-Site or Origin). */
     private static boolean sameOrigin(HttpServletRequest req) {
         String site = req.getHeader("Sec-Fetch-Site");
         if (site != null) return site.equals("same-origin") || site.equals("none");
         String origin = req.getHeader("Origin");
-        if (origin == null) return true; // не браузер или очень старый браузер
+        if (origin == null) return true; // not a browser or a very old browser
         try {
             URI u = URI.create(origin);
             String host = u.getHost() + (u.getPort() == -1 ? "" : ":" + u.getPort());

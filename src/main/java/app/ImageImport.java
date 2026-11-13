@@ -10,17 +10,17 @@ import java.util.concurrent.Executors;
 import org.springframework.stereotype.Component;
 
 /**
- * Импорт картинок и описаний объектов («Настройки» → «Импорт») из сервисов игр, музыки и книг.
- * Каждый сервис — свой класс (ImportSource: SteamSource, GogSource, NintendoSource, LaunchboxSource,
- * DiscogsSource, FantlabSource), запросы с паузами и повторами — ImportFetch.
- * Импорт идёт в фоне, по одному на всё приложение (лимиты сервисов — на адрес, а не на пользователя).
+ * Import of item pictures and descriptions ("Settings" → "Import") from game, music and book services.
+ * Each service is its own class (ImportSource: SteamSource, GogSource, NintendoSource, LaunchboxSource,
+ * DiscogsSource, FantlabSource), requests with pauses and retries — ImportFetch.
+ * Import runs in the background, one for the whole application (service limits are per address, not per user).
  */
 @Component
 public class ImageImport {
 
     public static final String STEAM = "steam", GOG = "gog", DISCOGS = "discogs", FANTLAB = "fantlab",
             NINTENDO = "nintendo", LAUNCHBOX = "launchbox";
-    /** Источники: ключ → название для страницы. */
+    /** Sources: key → name for the page. */
     public static final Map<String, String> SOURCES = new LinkedHashMap<>();
     static {
         SOURCES.put(STEAM, "Steam");
@@ -31,27 +31,27 @@ public class ImageImport {
         SOURCES.put(FANTLAB, "FantLab");
     }
 
-    /** Столько ошибок сети подряд — сервис недоступен, импорт останавливается. */
+    /** This many network errors in a row — the service is unavailable, the import stops. */
     static final int MAX_ERRORS_IN_ROW = 10;
 
-    /** Состояние импорта пользователя (читается страницей через /import/status). */
+    /** The user's import state (read by the page via /import/status). */
     public static class Job {
         public final long collectionId;
         public final String collectionName;
         public final String source;
         public final boolean images, descriptions;
-        /** GOG, Nintendo eShop, LaunchBox: первая картинка — скриншот, а не обложка коробки. */
+        /** GOG, Nintendo eShop, LaunchBox: the first picture is a screenshot, not the box cover. */
         public final boolean screenshot;
-        /** Сколько картинок загружать на объект (1…ImageFiles.MAX_IMAGES), если у источника они есть. */
+        /** How many pictures to load per item (1…ImageFiles.MAX_IMAGES), if the source has them. */
         public final int maxImages;
         public volatile String state = "queued"; // queued | running | done | cancelled | failed
-        public volatile int total, processed, found, loaded, described, notFound, errors; // found — найдено в источнике; loaded — картинок, described — описаний
+        public volatile int total, processed, found, loaded, described, notFound, errors; // found — found in the source; loaded — pictures, described — descriptions
         public volatile String current = "";
-        public volatile String message = "";      // пауза из-за ограничений сервиса, причина остановки
+        public volatile String message = "";      // pause due to service limits, reason for stopping
         volatile boolean cancel;
-        /** Личный токен Discogs пользователя (пусто — без токена); на страницу не попадает. */
+        /** The user's personal Discogs token (empty — no token); not sent to the page. */
         final String discogsToken;
-        /** Язык сообщений (message) — язык интерфейса при запуске импорта. */
+        /** Language of messages (message) — the interface language when the import was started. */
         final java.util.Locale locale = org.springframework.context.i18n.LocaleContextHolder.getLocale();
 
         Job(long collectionId, String collectionName, String source, boolean images, boolean descriptions,
@@ -76,7 +76,7 @@ public class ImageImport {
     }
 
     private final Repo repo;
-    /** Источники по ключу. */
+    /** Sources by key. */
     private final Map<String, ImportSource> sources = new LinkedHashMap<>();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "image-import");
@@ -90,21 +90,21 @@ public class ImageImport {
         for (ImportSource s : sources) this.sources.put(s.key(), s);
     }
 
-    /** Текущий или последний импорт пользователя (или null). */
+    /** The user's current or last import (or null). */
     public Job job(long uid) {
         return jobs.get(uid);
     }
 
-    /** Идёт ли импорт у кого-нибудь (восстановление из копии в это время не запускается). */
+    /** Whether anyone is importing (restoring from a backup is not started meanwhile). */
     public boolean anyActive() {
         return jobs.values().stream().anyMatch(Job::active);
     }
 
     /**
-     * Запускает импорт; false — у пользователя уже идёт импорт. Права на коллекцию и источник проверяет вызывающий код.
-     * onlyMissing — не трогать уже заполненное: картинку загружать только тем, у кого её нет, описание — так же.
-     * discogsToken — личный токен Discogs пользователя (null — нет): без него Discogs отдаёт результаты и Notes,
-     * но без обложек (и только 25 запросов в минуту).
+     * Starts an import; false — the user already has one running. Rights to the collection and source are checked by the caller.
+     * onlyMissing — do not touch what is filled in: load a picture only for items without one, description likewise.
+     * discogsToken — the user's personal Discogs token (null — none): without it Discogs returns results and Notes,
+     * but no covers (and only 25 requests a minute).
      */
     public synchronized boolean start(long uid, Entry collection, boolean onlyMissing, String source,
                                       boolean images, boolean descriptions, boolean screenshot, int maxImages,
@@ -112,7 +112,7 @@ public class ImageImport {
         Job old = jobs.get(uid);
         if (old != null && old.active()) return false;
         boolean hasToken = discogsToken != null && !discogsToken.isBlank();
-        // Без токена обложек у Discogs нет — только описания
+        // Without a token Discogs has no covers — descriptions only
         boolean img = images && (!source.equals(DISCOGS) || hasToken);
         Job job = new Job(collection.id(), collection.name(), source, img, descriptions,
                 screenshot && sources.get(source).covers(), maxImages, discogsToken);

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Запуск приложения: сборка, остановка уже запущенного (если есть), запуск новой версии.
-# Если сборка не удалась — работающее приложение не трогаем.
+# Starts the application: build, stop the running one (if any), start the new version.
+# If the build fails, the running application is left alone.
 cd "$(dirname "$0")"
 mkdir -p data
 docker compose build || { echo "Сборка не удалась, приложение не перезапущено"; exit 1; }

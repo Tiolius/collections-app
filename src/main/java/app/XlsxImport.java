@@ -18,19 +18,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Загрузка коллекций из файла Excel («Настройки» → «Импорт» → «Загрузка из Excel»): каждый лист — коллекция с названием
- * листа. Если коллекция с таким названием уже есть (без учёта регистра), данные пишутся в неё: объекты с тем же названием
- * обновляются (только заполненными ячейками), остальные добавляются; тип у неё не меняется. Столбцы узнаются по заголовкам — тем же, что пишет выгрузка в Excel (по-русски или по-английски),
- * обязателен «Название»; прочие столбцы и поля, которых нет у типа коллекции, пропускаются. Непонятные значения
- * (статус не из списка, рейтинг вне 0,5…5, дата не дата) не загружаются, объект — загружается.
- * Всё в одной транзакции: при ошибке не создаётся ничего.
+ * Loading collections from an Excel file ("Settings" → "Import" → "Load from Excel"): each sheet is a collection named after
+ * the sheet. If a collection with this name already exists (ignoring case), data goes into it: items with the same name
+ * are updated (only with filled cells), the rest are added; its type does not change. Columns are recognised by headers — the same that Excel export writes (in Russian or English),
+ * "Название" is required; other columns and fields the collection type does not have are skipped. Values that make no sense
+ * (a status not in the list, a rating outside 0.5…5, a date that is not a date) are not loaded, the item is.
+ * All in one transaction: on an error nothing is created.
  */
 @Component
 public class XlsxImport {
 
     /**
-     * Итог: сколько коллекций создано и дополнено, объектов добавлено и обновлено, первая коллекция (для ссылки),
-     * пропущенные столбцы (заголовки).
+     * Result: how many collections were created and extended, items added and updated, the first collection (for a link),
+     * skipped columns (headers).
      */
     public record Result(int created, int updated, int added, int changed, long firstCollection, List<String> skipped) {
         public int collections() {
@@ -38,7 +38,7 @@ public class XlsxImport {
         }
     }
 
-    /** Столбец «Описание» — не поле типа: описание есть у всех объектов. */
+    /** The "Описание" column is not a type field: every item has a description. */
     static final String NAME = "name", DESCRIPTION = "description";
 
     private final Repo repo;
@@ -50,8 +50,8 @@ public class XlsxImport {
     }
 
     /**
-     * Загружает листы файла как новые коллекции пользователя. kind — тип для всех коллекций; пусто — для каждого листа
-     * подбирается тип, у которого больше всего полей из столбцов листа (при равенстве — с меньшим числом лишних полей).
+     * Loads the file's sheets as new collections of the user. kind — the type for all collections; empty — for each sheet
+     * the type with the most fields from the sheet's columns is chosen (on a tie — the one with fewer extra fields).
      */
     public Result load(long uid, InputStream in, String kind) throws IOException {
         List<Xlsx.Sheet> sheets;
@@ -66,8 +66,8 @@ public class XlsxImport {
             throw Fail.badRequest("coll.kindRequired");
         if (kinds.isEmpty()) throw Fail.badRequest("coll.kindRequired");
         Map<String, String> labels = labels(kinds);
-        // листы со столбцом «Название» и хотя бы одной строкой под заголовком
-        List<Object[]> todo = new ArrayList<>(); // [лист, номер строки заголовков, столбцы: номер → поле]
+        // sheets with a "Название" column and at least one row under the header
+        List<Object[]> todo = new ArrayList<>(); // [sheet, header row number, columns: number → field]
         for (Xlsx.Sheet sh : sheets) {
             List<List<Object>> rows = sh.rows();
             for (int r = 0; r < rows.size() && r < 20; r++) {
@@ -89,14 +89,14 @@ public class XlsxImport {
                 @SuppressWarnings("unchecked")
                 Map<Integer, String> cols = (Map<Integer, String>) t[2];
                 String name = sh.name().isBlank() ? "Excel" : sh.name().trim();
-                // своя коллекция с тем же названием — данные в неё, с её типом
+                // own collection with the same name — data goes into it, with its type
                 Entry existing = repo.collections(uid).stream().filter(c -> same(c.name(), name)).findFirst().orElse(null);
                 String k = existing != null && kinds.stream().anyMatch(x -> x.name().equals(existing.kind())) ? existing.kind()
                         : chosen.isEmpty() ? bestKind(kinds, cols.values()) : chosen;
                 Kind target = kinds.stream().filter(x -> x.name().equals(k)).findFirst().orElseThrow();
                 Set<String> fields = target.fields();
                 List<Object> header = sh.rows().get(headerRow);
-                // свои поля типа — по названию поля (как в выгрузке): номер столбца → поле
+                // custom fields of the type — by field name (as in the export): column number → field
                 Map<Integer, Kind.Field> customCols = new HashMap<>();
                 for (int c = 0; c < header.size(); c++) {
                     String h = text(header.get(c));
@@ -121,8 +121,8 @@ public class XlsxImport {
                     created++;
                 }
                 if (first == 0) first = cid;
-                // объекты коллекции по названию; несколько с одним названием — по порядку: n-я строка файла
-                // с этим названием обновляет n-й объект (повторная загрузка того же файла не создаёт дублей)
+                // collection items by name; several with one name — in order: the n-th row of the file
+                // with this name updates the n-th item (loading the same file again creates no duplicates)
                 Map<String, java.util.ArrayDeque<Entry>> byName = new HashMap<>();
                 if (existing != null)
                     for (Entry it : repo.items(cid, "name", false, Map.of()))
@@ -143,7 +143,7 @@ public class XlsxImport {
                         repo.saveItem(uid, itemId, k, form, Map.of(), Set.of());
                         added++;
                     }
-                    // свои поля: пустые ячейки не меняют значение, неверные значения пропускаются
+                    // custom fields: empty cells do not change the value, invalid values are skipped
                     for (Map.Entry<Integer, Kind.Field> cc : customCols.entrySet()) {
                         Object cell = cc.getKey() < row.size() ? row.get(cc.getKey()) : null;
                         String v = cc.getValue().type().equals("bool") ? bool(cell) : text(cell);
@@ -151,7 +151,7 @@ public class XlsxImport {
                         try {
                             repo.setCustom(itemId, cc.getValue().id(), v);
                         } catch (org.springframework.web.server.ResponseStatusException e) {
-                            // неверное значение — пропускается
+                            // invalid value — skipped
                         }
                     }
                 }
@@ -160,7 +160,7 @@ public class XlsxImport {
         });
     }
 
-    /** Одно и то же название коллекции или объекта: без пробелов по краям и без учёта регистра. */
+    /** The same collection or item name: without spaces at the edges and ignoring case. */
     static boolean same(String a, String b) {
         return nameKey(a).equals(nameKey(b));
     }
@@ -170,8 +170,8 @@ public class XlsxImport {
     }
 
     /**
-     * Форма для обновления объекта: пустые и неверные ячейки не меняют значение. Платформу, формат, статус и цену
-     * saveItem пишет всегда (пустое — очищает), поэтому для них берутся прежние значения; название — прежнее.
+     * Form for updating an item: empty and invalid cells do not change the value. Platform, format, status and price
+     * are always written by saveItem (empty clears), so the previous values are taken for them; name — the previous one.
      */
     private static Repo.ItemForm keepOld(Repo.ItemForm f, Entry old) {
         return new Repo.ItemForm(old.name(), f.platform() != null ? f.platform() : old.platform(),
@@ -181,8 +181,8 @@ public class XlsxImport {
     }
 
     /**
-     * Заголовки столбцов (без регистра и лишних пробелов) → поле: свои подписи полей в типах пользователя
-     * (так их выгружает экспорт), стандартные подписи на обоих языках и ключи полей.
+     * Column headers (ignoring case and extra spaces) → field: the user's own field labels in types
+     * (that is how the export writes them), standard labels in both languages and field keys.
      */
     private static Map<String, String> labels(List<Kind> kinds) {
         Map<String, String> res = new HashMap<>();
@@ -197,7 +197,7 @@ public class XlsxImport {
             Repo.FIELDS.forEach((f, label) -> res.put(key(I18n.t(loc, label)), f));
         }
         Repo.FIELDS.keySet().forEach(f -> res.put(f, f));
-        // стандартные подписи — главнее своих: свою подпись «Цена» у одного типа не спутать со столбцом другого поля
+        // standard labels take priority over own ones: an own "Цена" label of one type must not be confused with a column of another field
         res.put(NAME, NAME);
         res.put(DESCRIPTION, DESCRIPTION);
         return res;
@@ -207,7 +207,7 @@ public class XlsxImport {
         return header.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
-    /** Столбцы строки заголовков: номер → поле (повтор заголовка — берётся первый столбец). */
+    /** Columns of the header row: number → field (a repeated header — the first column is taken). */
     private static Map<Integer, String> columns(List<Object> header, Map<String, String> labels) {
         Map<Integer, String> res = new LinkedHashMap<>();
         for (int c = 0; c < header.size(); c++) {
@@ -218,7 +218,7 @@ public class XlsxImport {
         return res;
     }
 
-    /** Тип, у которого больше всего полей из столбцов; при равенстве — меньше лишних полей; затем — по алфавиту. */
+    /** The type with the most fields from the columns; on a tie — fewer extra fields; then — alphabetically. */
     static String bestKind(List<Kind> kinds, java.util.Collection<String> columns) {
         Kind best = null;
         int bestHit = -1, bestExtra = Integer.MAX_VALUE;
@@ -235,7 +235,7 @@ public class XlsxImport {
         return best.name();
     }
 
-    /** Поля объекта из строки; без названия — null (строка пропускается). Нет столбца — null: поле не заполняется. */
+    /** Item fields from a row; no name — null (the row is skipped). No column — null: the field is not filled in. */
     private static Repo.ItemForm form(List<Object> row, Map<Integer, String> cols) {
         Map<String, Object> v = new HashMap<>();
         cols.forEach((c, f) -> v.put(f, c < row.size() ? row.get(c) : null));
@@ -249,7 +249,7 @@ public class XlsxImport {
                 cut(text(v.get("notes")), Repo.MAX_NOTES), cut(text(v.get(DESCRIPTION)), Repo.MAX_DESCRIPTION));
     }
 
-    /** Текст ячейки без пробелов по краям; число — без «.0» (12 → «12»); пусто — null. */
+    /** Cell text without spaces at the edges; a number — without ".0" (12 → "12"); empty — null. */
     static String text(Object v) {
         if (v == null) return null;
         String s = v instanceof Double d ? BigDecimal.valueOf(d).stripTrailingZeros().toPlainString() : v.toString();
@@ -261,7 +261,7 @@ public class XlsxImport {
         return s == null || s.length() <= max ? s : s.substring(0, max).trim();
     }
 
-    /** «Да / нет» из ячейки: «Есть», «Да», «Yes», «1», «true» — «1»; «Нет», «No», «0», «false» — «0»; пусто и другое — null. */
+    /** Yes/no from a cell: "Есть", "Да", "Yes", "1", "true" — "1"; "Нет", "No", "0", "false" — "0"; empty and anything else — null. */
     static String bool(Object v) {
         String s = text(v);
         if (s == null) return null;
@@ -271,12 +271,12 @@ public class XlsxImport {
         return null;
     }
 
-    /** Статус как есть; проверяется по списку статусов типа коллекции при загрузке (statusOf). */
+    /** Status as is; checked against the status list of the collection type on loading (statusOf). */
     static String status(Object v) {
         return text(v);
     }
 
-    /** Форма со статусом из списка типа (без учёта регистра — как в списке); статуса нет в списке — не загружается. */
+    /** Form with a status from the type list (ignoring case — as in the list); a status not in the list is not loaded. */
     static Repo.ItemForm statusOf(Repo.ItemForm f, Kind kind) {
         if (f.status() == null) return f;
         String st = kind == null ? null
@@ -285,7 +285,7 @@ public class XlsxImport {
                 f.purchased(), f.tags(), f.edition(), f.notes(), f.description());
     }
 
-    /** Рейтинг в звёздах (0,5…5, как в выгрузке) → 1…10 половинок; другое — не загружается. */
+    /** Rating in stars (0.5…5, as in the export) → 1…10 halves; anything else is not loaded. */
     static Integer rating(Object v) {
         Double d = number(v);
         if (d == null) return null;
@@ -293,7 +293,7 @@ public class XlsxImport {
         return r >= 1 && r <= 10 ? (int) r : null;
     }
 
-    /** Цена — целое число рублей, не меньше 0 («1 500 ₽» тоже); другое — не загружается. */
+    /** Price — a whole number of roubles, not less than 0 ("1 500 ₽" too); anything else is not loaded. */
     static Integer price(Object v) {
         Double d = v instanceof String s ? number(s.replaceAll("[\\s\\u00a0₽]|руб\\.?", "")) : number(v);
         return d == null || d < 0 || d > Integer.MAX_VALUE ? null : (int) Math.round(d);
@@ -310,7 +310,7 @@ public class XlsxImport {
         }
     }
 
-    /** Наличие: «Есть», «Yes», «да», «1», «+» — есть; другое — нет (как в окне объекта: «0», «1»); пусто — null (не менять). */
+    /** Available: "Есть", "Yes", "да", "1", "+" — yes; anything else — no (as in the item window: "0", "1"); empty — null (do not change). */
     static List<String> available(Object v) {
         String s = text(v);
         if (s == null) return null;
@@ -318,10 +318,10 @@ public class XlsxImport {
         return yes ? List.of("0", "1") : List.of("0");
     }
 
-    /** Дата покупки: ГГГГ-ММ-ДД, ДД.ММ.ГГГГ или дата Excel (число дней); пусто или не дата — null (не менять). */
+    /** Purchase date: YYYY-MM-DD, DD.MM.YYYY or an Excel date (number of days); empty or not a date — null (do not change). */
     static String date(Object v) {
         if (v instanceof Double d) {
-            // даты Excel — дни от 30.12.1899
+            // Excel dates — days since 30.12.1899
             return d >= 1 && d < 2958466 ? LocalDate.of(1899, 12, 30).plusDays(d.longValue()).toString() : null;
         }
         String s = text(v);
@@ -330,12 +330,12 @@ public class XlsxImport {
             try {
                 return LocalDate.parse(s.length() > 10 && f == DateTimeFormatter.ISO_LOCAL_DATE ? s.substring(0, 10) : s, f).toString();
             } catch (java.time.format.DateTimeParseException e) {
-                // следующий формат
+                // next format
             }
         return null;
     }
 
-    /** Номер или адрес игры Old-Games.ru; другое — не загружается. */
+    /** Old-Games.ru game number or address; anything else is not loaded. */
     static String oldGames(Object v) {
         String s = text(v);
         return s != null && OldGames.normalize(s) != null ? s : null;

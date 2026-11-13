@@ -13,27 +13,27 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Описание и картинки игры с одной страницы Old-Games.ru по ссылке, которую вставил пользователь (поле «Old-Games.ru»
- * в окне объекта). Поиска нет (его robots.txt сайта закрывает для программ), API у сайта нет — разбираются страницы:
- * игра (/game/N.html, обзор в div#reviewtext), обложки (/game/covers/N.html, первая — лицевая сторона коробки)
- * и скриншоты (/game/screenshots/N.html). Правила сайта требуют ссылку на источник — она дописывается к описанию.
+ * Description and pictures of a game from one Old-Games.ru page by the link the user pasted (the "Old-Games.ru" field
+ * in the item window). There is no search (the site's robots.txt closes it to programs) and no API — pages are parsed:
+ * game (/game/N.html, review in div#reviewtext), covers (/game/covers/N.html, the first is the front of the box)
+ * and screenshots (/game/screenshots/N.html). The site's rules require a link to the source — it is appended to the description.
  */
 @Component
 public class OldGames {
 
-    /** Номер игры в каталоге (так его вводят в поле) или адрес страницы игры: https://www.old-games.ru/game/<номер>.html. */
+    /** Game number in the catalogue (as typed into the field) or game page address: https://www.old-games.ru/game/<number>.html. */
     private static final Pattern GAME_ID = Pattern.compile("^\\d{1,7}$");
     private static final Pattern GAME_URL = Pattern.compile("^(?:https?://)?(?:www\\.)?old-games\\.ru/game/(\\d{1,7})\\.html(?:[?#].*)?$",
             Pattern.CASE_INSENSITIVE);
-    /** Сколько знаков обзора брать в описание (обрезка по абзацу; весь обзор бывает в десятки тысяч знаков). */
+    /** How many characters of the review go into the description (cut at a paragraph; a full review can be tens of thousands). */
     static final int DESCRIPTION_LIMIT = 2000;
 
-    /** Загруженное: описание (со ссылкой на источник) и картинки по порядку. */
+    /** Loaded: description (with a link to the source) and pictures in order. */
     public record Result(String url, String description, List<byte[]> images) {}
 
     @Value("${oldgames.site-url:https://www.old-games.ru}")
     private String site;
-    /** Пауза между запросами к сайту, мс (на одну игру — 3 страницы и до 5 картинок). */
+    /** Pause between requests to the site, ms (3 pages and up to 5 pictures per game). */
     @Value("${oldgames.interval-ms:400}")
     private long intervalMs;
     private final Http http;
@@ -43,7 +43,7 @@ public class OldGames {
     }
     private long lastCall;
 
-    /** Номер игры: введённый номер или номер из адреса страницы; null — ни то ни другое. */
+    /** Game number: the typed number or the number from the page address; null — neither. */
     public static String gameId(String value) {
         if (value == null) return null;
         String v = value.trim();
@@ -52,15 +52,15 @@ public class OldGames {
         return m.matches() ? m.group(1) : null;
     }
 
-    /** Адрес страницы игры (https://www.old-games.ru/game/N.html) по номеру или адресу; null — не номер и не адрес. */
+    /** Game page address (https://www.old-games.ru/game/N.html) by number or address; null — neither a number nor an address. */
     public static String normalize(String url) {
         String id = gameId(url);
         return id == null ? null : "https://www.old-games.ru/game/" + id + ".html";
     }
 
     /**
-     * Загружает описание и до max картинок (лицевая обложка, затем скриншоты) со страницы игры.
-     * Не адрес страницы игры — IllegalArgumentException; страницы нет — null.
+     * Loads the description and up to max pictures (front cover, then screenshots) from the game page.
+     * Not a game page address — IllegalArgumentException; no such page — null.
      */
     public synchronized Result load(String url, int max) throws Exception {
         String id = gameId(url);
@@ -74,10 +74,10 @@ public class OldGames {
         List<String> urls = new ArrayList<>();
         String covers = get(site + "/game/covers/" + id + ".html");
         if (covers != null) {
-            // у каждой обложки две ссылки: просмотр (…/covers/largecover/файл) и «Скачать» (…/covers/файл) — берём вторую
+            // each cover has two links: view (…/covers/largecover/file) and "Download" (…/covers/file) — take the second
             Matcher m = Pattern.compile("href=\"(/games/[^\"]+/covers/(?!largecover/)[^\"/]+\\.(?:jpe?g|png|gif))\"",
                     Pattern.CASE_INSENSITIVE).matcher(covers);
-            if (m.find()) urls.add(site + m.group(1)); // первая — лицевая сторона коробки
+            if (m.find()) urls.add(site + m.group(1)); // the first is the front of the box
         }
         String shots = get(site + "/game/screenshots/" + id + ".html");
         if (shots != null) {
@@ -96,11 +96,11 @@ public class OldGames {
         return new Result(source, description, images);
     }
 
-    /** Начало обзора из div#reviewtext: текст без разметки, по абзацам, не длиннее DESCRIPTION_LIMIT. */
+    /** Start of the review from div#reviewtext: text without markup, by paragraphs, not longer than DESCRIPTION_LIMIT. */
     static String review(String page) {
         int start = page.indexOf("<div id=\"reviewtext\">");
         if (start < 0) return null;
-        // конец блока — по вложенности div
+        // end of the block — by div nesting
         Matcher m = Pattern.compile("<(/?)div\\b", Pattern.CASE_INSENSITIVE).matcher(page);
         int depth = 0, end = page.length();
         m.region(start, page.length());
@@ -113,11 +113,11 @@ public class OldGames {
         }
         String t = page.substring(start, end).replaceAll("(?i)<br\\s*/?>", "\n").replaceAll("(?i)</p>", "\n\n")
                 .replaceAll("<[^>]+>", "");
-        t = Names.cleanDescription(t.replace("<", "&lt;")); // сущности; «<» в тексте не путать с тегами
+        t = Names.cleanDescription(t.replace("<", "&lt;")); // entities; "<" in the text must not be taken for a tag
         if (t == null) return null;
         t = t.replaceAll("[ \\t\\u00a0]+", " ").replaceAll(" *\\n *", "\n").replaceAll("\\n{3,}", "\n\n").trim();
         if (t.length() <= DESCRIPTION_LIMIT) return t;
-        // по абзацам, пока помещается (но хотя бы первый абзац, обрезанный по слову)
+        // by paragraphs while it fits (but at least the first paragraph, cut at a word)
         StringBuilder b = new StringBuilder();
         for (String p : t.split("\n+")) {
             if (p.isBlank()) continue;
@@ -138,7 +138,7 @@ public class OldGames {
         lastCall = System.currentTimeMillis();
     }
 
-    /** Страница сайта (UTF-8) или null, если её нет. */
+    /** A site page (UTF-8) or null if there is none. */
     private String get(String url) throws Exception {
         pause();
         HttpResponse<String> r = http.text(url);
@@ -147,7 +147,7 @@ public class OldGames {
         return r.body();
     }
 
-    /** Картинка с сайта или null (нет такой, не картинка или больше 10 МБ). */
+    /** A picture from the site or null (missing, not a picture or larger than 10 MB). */
     private byte[] image(String url) throws Exception {
         if (!url.startsWith(site + "/games/")) return null;
         pause();

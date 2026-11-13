@@ -15,10 +15,10 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
 /**
- * «Запомнить меня на этом компьютере» (галочка при входе): браузер получает cookie со случайным ключом входа на 90 дней,
- * в базе — только его SHA-256 (remember_tokens). Пароль нигде не сохраняется. Без сессии, но с действующим ключом —
- * вход сам (WebConfig). Ключ перестаёт действовать при выходе на этом компьютере (Remember.forget), смене пароля
- * (Repo.setPassword удаляет все ключи пользователя) и удалении пользователя.
+ * "Remember me" (a tick at sign-in): the browser gets a cookie with a random sign-in key for 90 days,
+ * the database keeps only its SHA-256 (remember_tokens). The password is not saved anywhere. No session but a valid key —
+ * signed in automatically (WebConfig). The key stops working on sign-out on this computer (Remember.forget), a password
+ * change (Repo.setPassword deletes all of the user's keys) and when the user is deleted.
  */
 @Component
 public class Remember {
@@ -35,7 +35,7 @@ public class Remember {
         this.secure = secure;
     }
 
-    /** Новый ключ входа пользователя для этого браузера. */
+    /** A new sign-in key of the user for this browser. */
     public void issue(long uid, HttpServletResponse res) {
         byte[] raw = new byte[32];
         RANDOM.nextBytes(raw);
@@ -44,13 +44,13 @@ public class Remember {
         res.addHeader("Set-Cookie", cookie(token, TTL).toString());
     }
 
-    /** Пользователь по ключу входа из cookie (действующему) или null. */
+    /** User by the sign-in key from the cookie (a valid one) or null. */
     public Long user(HttpServletRequest req) {
         String token = token(req);
         return token == null ? null : repo.rememberTokenUser(hash(token), System.currentTimeMillis());
     }
 
-    /** Забыть этот компьютер: ключ удаляется из базы, cookie — из браузера. */
+    /** Forget this computer: the key is deleted from the database, the cookie from the browser. */
     public void forget(HttpServletRequest req, HttpServletResponse res) {
         String token = token(req);
         if (token == null) return;
@@ -59,7 +59,7 @@ public class Remember {
     }
 
     private ResponseCookie cookie(String value, Duration age) {
-        // недоступна скриптам и не отправляется с чужих сайтов — как cookie сессии
+        // not available to scripts and not sent from other sites — like the session cookie
         return ResponseCookie.from(COOKIE, value).path("/").httpOnly(true).sameSite("Lax").secure(secure).maxAge(age).build();
     }
 

@@ -13,8 +13,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Основа тестов с базой: приложение без веб-сервера на временной папке данных (одна на все такие тесты — контекст
- * Spring общий); у каждого теста свой пользователь (newUser), язык — русский.
+ * Base for tests with a database: the application without a web server on a temporary data folder (one for all such tests —
+ * the Spring context is shared); each test has its own user (newUser), language — Russian.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 abstract class DbTest {
@@ -44,19 +44,19 @@ abstract class DbTest {
         LocaleContextHolder.setLocale(Locale.forLanguageTag("ru"));
     }
 
-    /** Новый пользователь (с начальными типами коллекций). */
+    /** A new user (with the initial collection types). */
     long newUser() {
         return repo.createUser("user" + USERS.incrementAndGet(), "Kwq7-zmlpt-Rvx9", "user");
     }
 
-    /** Новая коллекция пользователя с типом kind. */
+    /** A new collection of the user with type kind. */
     long newCollection(long uid, String name, String kind) {
         long cid = repo.createCollection(uid);
         repo.saveCollection(uid, cid, name, kind, null, false);
         return cid;
     }
 
-    /** Новый объект с названием и полями из формы (null — поля нет). */
+    /** A new item with a name and fields from the form (null — no such field). */
     long newItem(long uid, long cid, Repo.ItemForm form) {
         long id = repo.createItem(cid);
         repo.saveItem(uid, id, repo.collection(uid, cid).kind(), form, java.util.Map.of(), java.util.Set.of());

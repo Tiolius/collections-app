@@ -12,9 +12,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Цвета и шрифт окон программы для Windows — те же, что у приложения: переменные темы читаются из static/app.css
- * (блок пары тем и режима), шрифт — Inter. Пара — выбранная пользователем в «Отображении», тёмная или светлая —
- * как у приложений Windows («Параметры» → «Персонализация» → «Цвета»).
+ * Colours and font of the Windows program windows are the same as in the application: theme variables are read from static/app.css
+ * (the block of the theme pair and mode), the font is Inter. The pair is the one the user chose in "Display"; dark or light —
+ * as Windows apps ("Settings" → "Personalization" → "Colors").
  */
 record DesktopTheme(Color page, Color paper, Color card2, Color text, Color muted, Color border,
                     Color accent, Color onAccent, Color btnBorder, Color red, Font font, Font bold) {
@@ -22,7 +22,7 @@ record DesktopTheme(Color page, Color paper, Color card2, Color text, Color mute
     private static final Pattern BLOCK = Pattern.compile("([^{}]+)\\{([^{}]*)}");
     private static final Pattern VAR = Pattern.compile("--([a-z0-9-]+):\\s*(#[0-9a-fA-F]{6})\\b");
 
-    /** Тема пары pair (ключ Repo.THEMES; неизвестная — первая пара), тёмная или светлая. */
+    /** Theme of pair (a Repo.THEMES key; unknown — the first pair), dark or light. */
     static DesktopTheme of(String pair, boolean dark) {
         Map<String, Color> v = vars(pair, dark);
         if (v.isEmpty()) v = vars("night", dark);
@@ -31,7 +31,7 @@ record DesktopTheme(Color page, Color paper, Color card2, Color text, Color mute
                 v.get("blue"), v.get("on-blue"), v.get("btn2-border"), v.get("red"), regular, semi);
     }
 
-    /** Переменные-цвета (#rrggbb) блока пары и режима из app.css: имя без «--» → цвет. */
+    /** Colour variables (#rrggbb) of the pair and mode block from app.css: name without "--" → colour. */
     static Map<String, Color> vars(String pair, boolean dark) {
         Map<String, Color> res = new HashMap<>();
         Matcher b = BLOCK.matcher(css());
@@ -45,9 +45,9 @@ record DesktopTheme(Color page, Color paper, Color card2, Color text, Color mute
         return res;
     }
 
-    /** Тёмный режим приложений в Windows (реестр AppsUseLightTheme = 0); не Windows — светлый (или свойство desktop.dark). */
+    /** Dark mode of Windows apps (registry AppsUseLightTheme = 0); not Windows — light (or the desktop.dark property). */
     static boolean windowsDark() {
-        String forced = System.getProperty("desktop.dark"); // для проверки окон не на Windows
+        String forced = System.getProperty("desktop.dark"); // for checking the windows outside Windows
         if (forced != null) return Boolean.parseBoolean(forced);
         if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) return false;
         try {

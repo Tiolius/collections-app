@@ -28,13 +28,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Хранилище картинок по содержимому: одинаковая картинка лежит на диске один раз, сколько бы объектов,
- * коллекций и пользователей на неё ни ссылалось.
- * - Файл: DATA_DIR/images/ab/cd/<sha256>.<ext> (ab, cd — первые символы хеша: не больше 256 папок на уровне).
- * - pictures (hash, mime, size) — справочник файлов; item_pictures (item_id, pos) и collection_pictures (collection_id) —
- *   ссылки на него. Файл и строка pictures удаляются, когда на хеш не осталось ссылок (release).
- * Изменения идут под одной блокировкой: файл, на который только что сослались, не удалится параллельной очисткой.
- * При запуске лишние файлы (без строки pictures) и строки pictures без ссылок удаляются.
+ * Content-addressed picture storage: an identical picture is stored on disk once, however many items,
+ * collections and users refer to it.
+ * - File: DATA_DIR/images/ab/cd/<sha256>.<ext> (ab, cd — the first characters of the hash: at most 256 folders per level).
+ * - pictures (hash, mime, size) — the file register; item_pictures (item_id, pos) and collection_pictures (collection_id) —
+ *   references to it. The file and the pictures row are deleted when no references to the hash are left (release).
+ * Changes go under one lock: a file that was just referenced is not deleted by a concurrent cleanup.
+ * At start, extra files (without a pictures row) and pictures rows without references are deleted.
  */
 @Component
 public class ImageFiles implements ApplicationRunner {
@@ -43,14 +43,14 @@ public class ImageFiles implements ApplicationRunner {
     private static final Map<String, String> EXT = Map.of(
             "image/png", "png", "image/jpeg", "jpg", "image/gif", "gif");
 
-    /** Сколько картинок может быть у объекта. */
+    /** How many pictures an item can have. */
     public static final int MAX_IMAGES = 5;
 
-    /** Картинка: хеш содержимого и тип. */
+    /** Picture: content hash and type. */
     public record Pic(String hash, String mime) {}
 
     private final Path dir;
-    /** Уменьшенные копии (thumb): DATA_DIR/thumbs/ab/cd/<sha256>.<jpg|png> — создаются при первом запросе, в копию не входят. */
+    /** Smaller copies (thumb): DATA_DIR/thumbs/ab/cd/<sha256>.<jpg|png> — created on first request, not included in backups. */
     private final Path thumbs;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -62,31 +62,31 @@ public class ImageFiles implements ApplicationRunner {
         this.tx = tx;
     }
 
-    // ---------- чтение ----------
+    // ---------- reading ----------
 
-    /** Картинки объекта по порядку. */
+    /** Item pictures in order. */
     public List<Pic> item(long itemId) {
         return jdbc.query("SELECT p.hash, p.mime FROM item_pictures ip JOIN pictures p ON p.hash = ip.hash "
                 + "WHERE ip.item_id = ? ORDER BY ip.pos", (rs, n) -> new Pic(rs.getString(1), rs.getString(2)), itemId);
     }
 
-    /** Папка картинок (DATA_DIR/images). */
+    /** Pictures folder (DATA_DIR/images). */
     public Path dir() {
         return dir;
     }
 
-    /** Файлы всех картинок из справочника pictures (для резервной копии; вызывать под блокировкой). */
+    /** Files of all pictures from the pictures register (for the backup; call under the lock). */
     public List<Path> allFiles() {
         return jdbc.query("SELECT hash, mime FROM pictures", (rs, n) -> file(rs.getString(1), rs.getString(2)));
     }
 
-    /** Наибольшая сторона уменьшенной копии: с запасом для экранов с двойной плотностью (обложка на главной — 76px). */
+    /** Largest side of the smaller copy: with a margin for double-density screens (the cover on the home page is 76px). */
     public static final int THUMB = 200;
 
     /**
-     * Уменьшенная копия картинки (не больше THUMB по большей стороне): из папки thumbs, а если её нет — создаётся.
-     * null — уменьшать нечего (картинка и так маленькая) или ImageIO не смог её прочитать — тогда отдаётся сама картинка.
-     * Копия с прозрачностью — PNG, без — JPEG.
+     * Smaller copy of a picture (at most THUMB on the larger side): from the thumbs folder, and if it is not there — created.
+     * null — nothing to shrink (the picture is small already) or ImageIO could not read it — then the picture itself is served.
+     * A copy with transparency — PNG, without — JPEG.
      */
     public Thumb thumb(Pic pic) {
         try {
@@ -109,16 +109,16 @@ public class ImageFiles implements ApplicationRunner {
             Files.write(tmp, out.toByteArray());
             Files.move(tmp, t, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             return new Thumb(out.toByteArray(), alpha ? "image/png" : "image/jpeg");
-        } catch (Exception e) { // не картинка для ImageIO (например, CMYK JPEG) — отдаётся сама картинка
+        } catch (Exception e) { // not a picture for ImageIO (for example, CMYK JPEG) — the picture itself is served
             log.debug("Не удалось уменьшить картинку {}: {}", pic.hash(), e.toString());
             return null;
         }
     }
 
-    /** Уменьшенная копия: содержимое и тип. */
+    /** Smaller copy: content and type. */
     public record Thumb(byte[] bytes, String mime) {}
 
-    /** Уменьшение по шагам вдвое (плавнее, чем сразу в несколько раз), последний шаг — до max по большей стороне. */
+    /** Shrinking in steps by half (smoother than several times at once), the last step — to max on the larger side. */
     private static java.awt.image.BufferedImage scale(java.awt.image.BufferedImage img, int max, boolean alpha) {
         int type = alpha ? java.awt.image.BufferedImage.TYPE_INT_ARGB : java.awt.image.BufferedImage.TYPE_INT_RGB;
         double k = (double) max / Math.max(img.getWidth(), img.getHeight());
@@ -144,7 +144,7 @@ public class ImageFiles implements ApplicationRunner {
         return thumbs.resolve(hash.substring(0, 2)).resolve(hash.substring(2, 4)).resolve(hash + "." + ext);
     }
 
-    /** Содержимое картинки или null, если файла нет. */
+    /** Picture content or null if there is no file. */
     public byte[] read(Pic pic) {
         try {
             Path f = file(pic.hash(), pic.mime());
@@ -154,11 +154,11 @@ public class ImageFiles implements ApplicationRunner {
         }
     }
 
-    // ---------- изменение ----------
+    // ---------- changes ----------
 
     /**
-     * Заменяет все картинки объекта (до MAX_IMAGES, по порядку; пустой список — удаляет все).
-     * Не картинки (не PNG, JPEG, GIF) пропускаются.
+     * Replaces all pictures of the item (up to MAX_IMAGES, in order; an empty list deletes all).
+     * Non-pictures (not PNG, JPEG, GIF) are skipped.
      */
     public synchronized void setItem(long itemId, List<byte[]> images) {
         Set<String> old = new HashSet<>(hashes("SELECT hash FROM item_pictures WHERE item_id = ?", itemId));
@@ -177,7 +177,7 @@ public class ImageFiles implements ApplicationRunner {
         release(old);
     }
 
-    /** Ставит картинку коллекции (null — убирает). Не картинка — ничего не меняется. */
+    /** Sets the collection picture (null removes it). Not a picture — nothing changes. */
     public synchronized void setCollection(long collectionId, byte[] image) {
         List<String> old = hashes("SELECT hash FROM collection_pictures WHERE collection_id = ?", collectionId);
         if (image == null) {
@@ -192,13 +192,13 @@ public class ImageFiles implements ApplicationRunner {
         release(old);
     }
 
-    /** Сколько объектов обрабатывать за раз при очистке коллекции (одна транзакция на порцию). */
+    /** How many items to process at a time when clearing a collection (one transaction per batch). */
     private static final int CLEAR_BATCH = 50;
 
     /**
-     * Убирает картинки всех объектов коллекции (обложка остаётся) порциями по CLEAR_BATCH объектов:
-     * каждая порция — одна транзакция и под блокировкой, между порциями другие пользователи могут сохранять.
-     * progress получает, сколько картинок уже убрано. Возвращает, сколько убрано.
+     * Removes pictures of all items of the collection (the cover stays) in batches of CLEAR_BATCH items:
+     * each batch is one transaction under the lock, between batches other users can save.
+     * progress receives how many pictures are already removed. Returns how many were removed.
      */
     public int clearCollectionItems(long collectionId, java.util.function.IntConsumer progress) {
         List<Long> items = jdbc.queryForList("SELECT DISTINCT item_id FROM item_pictures "
@@ -211,7 +211,7 @@ public class ImageFiles implements ApplicationRunner {
         return done;
     }
 
-    /** Убирает все картинки объектов из списка; возвращает, сколько картинок убрано. */
+    /** Removes all pictures of the items in the list; returns how many pictures were removed. */
     private synchronized int clearItems(List<Long> ids) {
         String in = "(" + String.join(",", java.util.Collections.nCopies(ids.size(), "?")) + ")";
         Object[] args = ids.toArray();
@@ -221,12 +221,12 @@ public class ImageFiles implements ApplicationRunner {
         return old.size();
     }
 
-    /** Хеши картинок объекта — запомнить до его удаления, после удаления передать в release. */
+    /** Hashes of the item pictures — remember them before deleting it, pass them to release after deleting. */
     public List<String> itemHashes(long itemId) {
         return hashes("SELECT hash FROM item_pictures WHERE item_id = ?", itemId);
     }
 
-    /** Хеши обложки коллекции и картинок всех её объектов. */
+    /** Hashes of the collection cover and the pictures of all its items. */
     public List<String> collectionHashes(long collectionId) {
         List<String> res = new ArrayList<>(hashes("SELECT hash FROM collection_pictures WHERE collection_id = ?", collectionId));
         res.addAll(hashes("SELECT hash FROM item_pictures WHERE item_id IN (SELECT id FROM items WHERE collection_id = ?)",
@@ -235,9 +235,9 @@ public class ImageFiles implements ApplicationRunner {
     }
 
     /**
-     * Удаляет файлы (и строки pictures) тех хешей, на которые больше никто не ссылается.
-     * Строки — одной транзакцией (по одной SQLite записывала бы на диск каждую — тысячи картинок шли бы минуты),
-     * файлы — после неё.
+     * Deletes files (and pictures rows) of hashes nobody refers to any more.
+     * Rows — in one transaction (one by one SQLite would write each to disk — thousands of pictures would take minutes),
+     * files — after it.
      */
     public synchronized void release(Collection<String> hashes) {
         if (hashes.isEmpty()) return;
@@ -256,14 +256,14 @@ public class ImageFiles implements ApplicationRunner {
             try {
                 Files.deleteIfExists(f);
                 String h = f.getFileName().toString().replaceFirst("\\..*", "");
-                for (String ext : List.of("jpg", "png")) Files.deleteIfExists(thumbFile(h, ext)); // и уменьшенные копии
+                for (String ext : List.of("jpg", "png")) Files.deleteIfExists(thumbFile(h, ext)); // and the smaller copies
             } catch (IOException e) {
                 log.warn("Не удалось удалить картинку {}: {}", f.getFileName(), e.toString());
             }
         }
     }
 
-    // ---------- файлы ----------
+    // ---------- files ----------
 
     private List<String> hashes(String sql, long id) {
         return jdbc.queryForList(sql, String.class, id);
@@ -282,8 +282,8 @@ public class ImageFiles implements ApplicationRunner {
     }
 
     /**
-     * Кладёт картинку в хранилище (если такой ещё нет) и записывает её в pictures; возвращает хеш
-     * или null, если это не картинка. Вызывать под блокировкой.
+     * Puts a picture into the storage (if it is not there yet) and records it in pictures; returns the hash
+     * or null if it is not a picture. Call under the lock.
      */
     private String store(byte[] bytes) {
         String mime = bytes == null ? null : Repo.imageType(bytes);
@@ -293,7 +293,7 @@ public class ImageFiles implements ApplicationRunner {
         try {
             if (!Files.exists(f)) {
                 Files.createDirectories(f.getParent());
-                // сначала во временный файл, потом переименование: недописанный файл не останется под нужным именем
+                // first to a temporary file, then rename: a half-written file never stays under the real name
                 Path tmp = Files.createTempFile(f.getParent(), h + "-", ".tmp");
                 Files.write(tmp, bytes);
                 Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -305,11 +305,11 @@ public class ImageFiles implements ApplicationRunner {
         return h;
     }
 
-    // ---------- запуск ----------
+    // ---------- start ----------
 
     @Override
     public synchronized void run(ApplicationArguments args) {
-        // строки pictures без ссылок и файлы без строки pictures (и недописанные .tmp) — удаляются
+        // pictures rows without references and files without a pictures row (and half-written .tmp) are deleted
         release(jdbc.queryForList("SELECT hash FROM pictures WHERE hash NOT IN (SELECT hash FROM item_pictures) "
                 + "AND hash NOT IN (SELECT hash FROM collection_pictures)", String.class));
         Set<Path> keep = new HashSet<>();
@@ -320,7 +320,7 @@ public class ImageFiles implements ApplicationRunner {
         }
         int removed = 0;
         try (Stream<Path> all = Files.walk(dir)) {
-            // сначала вложенное, потом папки — чтобы опустевшие папки тоже удалились
+            // nested items first, then folders — so emptied folders are deleted too
             for (Path f : all.sorted(Comparator.reverseOrder()).toList()) {
                 if (f.equals(dir)) continue;
                 if (Files.isDirectory(f)) {
@@ -339,7 +339,7 @@ public class ImageFiles implements ApplicationRunner {
         cleanThumbs();
     }
 
-    /** Уменьшенные копии картинок, которых больше нет в pictures (и недописанные .tmp), удаляются. */
+    /** Smaller copies of pictures no longer in pictures (and half-written .tmp) are deleted. */
     private void cleanThumbs() {
         if (!Files.isDirectory(thumbs)) return;
         Set<String> keep = new HashSet<>(jdbc.queryForList("SELECT hash FROM pictures", String.class));

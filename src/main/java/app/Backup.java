@@ -26,19 +26,19 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.stereotype.Component;
 
 /**
- * Резервная копия всех данных приложения (вкладка «Резервная копия», только администратор): zip с базой app.db
- * и папкой images. Восстановление заменяет все данные без перезапуска: картинки распаковываются в images
- * (одинаковое содержимое — одинаковое имя, существующие файлы не трогаются), база заменяется через SQLite backup API
- * («restore from» драйвера), затем заново выполняется schema.sql (разовые обновления старой копии) и ImageFiles.run —
- * перенос прежних хранилищ и удаление картинок, на которые больше никто не ссылается.
- * Всё — под блокировкой ImageFiles: пока идёт копирование или восстановление, картинки никто не меняет.
+ * Backup of all application data ("Backup" tab, administrator only): a zip with the app.db database
+ * and the images folder. Restoring replaces all data without a restart: pictures are unpacked into images
+ * (same content — same name, existing files are left alone), the database is replaced via the SQLite backup API
+ * (the driver's "restore from"), then schema.sql runs again (one-off updates of an old backup) and ImageFiles.run —
+ * moving old storages and deleting pictures nobody refers to any more.
+ * All under the ImageFiles lock: while copying or restoring, nobody changes pictures.
  */
 @Component
 public class Backup {
 
     private static final Logger log = LoggerFactory.getLogger(Backup.class);
 
-    /** Имя базы в архиве и картинки: images/ab/cd/<sha256>.<ext> — другие пути в архиве не принимаются. */
+    /** Name of the database in the archive and pictures: images/ab/cd/<sha256>.<ext> — other paths in the archive are rejected. */
     static final String DB_ENTRY = "app.db";
     private static final Pattern IMAGE_ENTRY = Pattern.compile("images/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\\.(png|jpg|gif)");
 
@@ -54,7 +54,7 @@ public class Backup {
         this.files = files;
     }
 
-    /** Пишет zip-архив копии в out: сначала снимок базы (VACUUM INTO), затем все картинки, на которые есть ссылки. */
+    /** Writes the backup zip to out: first a database snapshot (VACUUM INTO), then all pictures that are referenced. */
     public void write(OutputStream out) throws IOException {
         Path snapshot = dataDir.resolve("backup-" + System.nanoTime() + ".db");
         synchronized (files) {
@@ -65,7 +65,7 @@ public class Backup {
                 zip.putNextEntry(new ZipEntry(DB_ENTRY));
                 Files.copy(snapshot, zip);
                 zip.closeEntry();
-                zip.setLevel(Deflater.NO_COMPRESSION); // картинки уже сжаты
+                zip.setLevel(Deflater.NO_COMPRESSION); // pictures are already compressed
                 for (Path f : files.allFiles()) {
                     if (!Files.exists(f)) continue;
                     zip.putNextEntry(new ZipEntry("images/" + files.dir().relativize(f).toString().replace('\\', '/')));
@@ -80,7 +80,7 @@ public class Backup {
         }
     }
 
-    /** Копию нельзя восстановить: не архив копии, нет базы и т. п. Текст — для пользователя. */
+    /** The backup cannot be restored: not a backup archive, no database etc. The text is for the user. */
     public static class BadBackup extends Exception {
         BadBackup(String message) {
             super(message);
@@ -88,15 +88,15 @@ public class Backup {
     }
 
     /**
-     * Восстанавливает данные из архива копии (поток in — загруженный файл). Сначала архив сохраняется и проверяется
-     * целиком, данные меняются только если он годится; при ошибке проверки — BadBackup, данные не тронуты.
+     * Restores data from a backup archive (stream in — the uploaded file). First the archive is saved and checked
+     * as a whole, data changes only if it is fine; if the check fails — BadBackup, data untouched.
      */
     public void restore(InputStream in) throws IOException, BadBackup {
         Path work = Files.createTempDirectory(dataDir, "restore-");
         try {
             Path zipFile = work.resolve("upload.zip");
             Files.copy(in, zipFile);
-            // 1. проверка: только база и картинки с правильными путями, база — SQLite с пользователями
+            // 1. check: only the database and pictures with correct paths, the database is SQLite with users
             Path db = work.resolve(DB_ENTRY);
             int images = 0;
             try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(zipFile))) {
@@ -111,13 +111,13 @@ public class Backup {
             }
             if (!Files.exists(db)) throw new BadBackup(I18n.t("backup.noDb"));
             checkDb(db);
-            // 2. замена данных
+            // 2. replacing data
             synchronized (files) {
                 try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(zipFile))) {
                     for (ZipEntry e; (e = zip.getNextEntry()) != null; ) {
                         if (!IMAGE_ENTRY.matcher(e.getName()).matches()) continue;
                         Path f = files.dir().resolve(e.getName().substring("images/".length()));
-                        if (Files.exists(f)) continue; // то же имя — то же содержимое
+                        if (Files.exists(f)) continue; // same name — same content
                         Files.createDirectories(f.getParent());
                         Path tmp = Files.createTempFile(f.getParent(), "restore-", ".tmp");
                         Files.copy(zip, tmp, StandardCopyOption.REPLACE_EXISTING);
@@ -125,7 +125,7 @@ public class Backup {
                     }
                 }
                 jdbc.execute("restore from " + quote(db));
-                // старая копия: таблицы и разовые обновления текущей версии, перенос прежних хранилищ картинок
+                // old backup: tables and one-off updates of the current version, moving old picture storages
                 ResourceDatabasePopulator schema = new ResourceDatabasePopulator(new ClassPathResource("schema.sql"));
                 schema.setSqlScriptEncoding("UTF-8");
                 schema.execute(dataSource);
@@ -138,8 +138,8 @@ public class Backup {
     }
 
     /**
-     * База из архива открывается, в ней есть пользователи и она этой версии (копия версии до 1.18 не подходит:
-     * её база не переносится, см. DataReset) — иначе BadBackup.
+     * The database from the archive opens, has users and is of this version (a backup of a version before 1.18 does not fit:
+     * its database is not carried over, see DataReset) — otherwise BadBackup.
      */
     private static void checkDb(Path db) throws BadBackup {
         boolean old;
@@ -157,7 +157,7 @@ public class Backup {
         }
     }
 
-    /** Путь в кавычках для команды драйвера «restore from» (кавычки, которых нет в пути). */
+    /** Quoted path for the driver command "restore from" (quotes that are not in the path). */
     private static String quote(Path p) {
         String s = p.toString();
         return s.contains("'") ? "\"" + s + "\"" : "'" + s + "'";
@@ -171,13 +171,13 @@ public class Backup {
         }
     }
 
-    /** Для страницы: сколько места займёт копия (база + картинки), байт — примерно. */
+    /** For the page: how much space the backup takes (database + pictures), bytes — roughly. */
     public long approximateSize() {
         long size = 0;
         try {
             size += Files.size(dataDir.resolve("app.db"));
         } catch (IOException ignored) {
-            // базы может не быть в другом месте — не важно для подсказки
+            // the database may be elsewhere — does not matter for the hint
         }
         Long images = jdbc.queryForObject("SELECT COALESCE(SUM(size), 0) FROM pictures", Long.class);
         return size + (images == null ? 0 : images);

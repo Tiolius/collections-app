@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.context.support.ResourceBundleMessageSource;
 
-/** Требования к паролям и файл Excel без библиотек. */
+/** Password requirements and an Excel file without libraries. */
 class PasswordsXlsxTest {
 
     @BeforeAll
@@ -31,13 +31,13 @@ class PasswordsXlsxTest {
 
     @Test
     void weakPasswordsAreRejected() {
-        assertThat(Passwords.problem("short", "u")).isNotNull();                    // короче 12
-        assertThat(Passwords.problem("aaaaaaaaaaaaaa", "u")).isNotNull();           // мало разных символов
-        assertThat(Passwords.problem("abcabcabcabcabc", "u")).isNotNull();          // повтор
-        assertThat(Passwords.problem("qwertyuiopasd", "u")).isNotNull();            // ряд клавиш
-        assertThat(Passwords.problem("1234567890123", "u")).isNotNull();            // ряд цифр
-        assertThat(Passwords.problem("myname-is-stanislav", "stanislav")).isNotNull(); // имя пользователя
-        assertThat(Passwords.problem("P@ssw0rd2024!", "u")).isNotNull();            // распространённое слово с заменами
+        assertThat(Passwords.problem("short", "u")).isNotNull();                    // shorter than 12
+        assertThat(Passwords.problem("aaaaaaaaaaaaaa", "u")).isNotNull();           // too few different characters
+        assertThat(Passwords.problem("abcabcabcabcabc", "u")).isNotNull();          // repetition
+        assertThat(Passwords.problem("qwertyuiopasd", "u")).isNotNull();            // keyboard row
+        assertThat(Passwords.problem("1234567890123", "u")).isNotNull();            // digit row
+        assertThat(Passwords.problem("myname-is-stanislav", "stanislav")).isNotNull(); // user name
+        assertThat(Passwords.problem("P@ssw0rd2024!", "u")).isNotNull();            // common word with substitutions
     }
 
     @Test
@@ -51,7 +51,7 @@ class PasswordsXlsxTest {
         String h = Passwords.hash("Kwq7-zmlpt-Rvx9");
         assertThat(Passwords.matches("Kwq7-zmlpt-Rvx9", h)).isTrue();
         assertThat(Passwords.matches("Kwq7-zmlpt-Rvx8", h)).isFalse();
-        assertThat(Passwords.hash("Kwq7-zmlpt-Rvx9")).isNotEqualTo(h); // своя соль
+        assertThat(Passwords.hash("Kwq7-zmlpt-Rvx9")).isNotEqualTo(h); // its own salt
     }
 
     @Test
@@ -63,7 +63,7 @@ class PasswordsXlsxTest {
         Xlsx.write(out, List.of(sheet, new Xlsx.Sheet("игры: диски/pc", List.of("A"), List.of(), List.of(10))));
         List<Xlsx.Sheet> read = Xlsx.read(new ByteArrayInputStream(out.toByteArray()));
         assertThat(read).hasSize(2);
-        // недопустимые знаки — пробелы, одинаковые без учёта регистра — с номером
+        // invalid characters — spaces, names equal ignoring case — get a number
         assertThat(read.get(0).name()).isEqualTo("Игры диски PC");
         assertThat(read.get(1).name()).isNotEqualToIgnoringCase(read.get(0).name());
         List<List<Object>> rows = read.get(0).rows();

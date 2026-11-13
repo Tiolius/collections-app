@@ -6,7 +6,7 @@
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('import')}"></th:block>
   <h3 class="section" th:text="#{import.title}">Картинки и описания объектов из Steam, GOG, Nintendo eShop, LaunchBox, Discogs или FantLab</h3>
-  <!-- Импорт идёт: прогресс обновляется скриптом из /import/status -->
+  <!-- Import running: progress is updated by a script from /import/status -->
   <div class="import-box" id="import-job" th:if="${job != null and job.active()}">
     <div><b th:text="${job.collectionName}"></b> (<span th:text="${job.sourceName()}"></span>) — <span id="ij-state" th:text="#{${job.state == 'queued' ? 'js.importQueued' : 'js.importRunning'}}"></span></div>
     <progress id="ij-bar" th:max="${job.total == 0 ? 1 : job.total}" th:value="${job.processed}"></progress>
@@ -19,7 +19,7 @@
     <form autocomplete="off" method="post" action="/import/cancel"><button class="btn gray" th:text="#{import.stop}">Остановить</button></form>
   </div>
 
-  <!-- Итог последнего импорта -->
+  <!-- Result of the last import -->
   <th:block th:if="${job != null and !job.active()}">
     <p th:class="${job.state == 'failed' ? 'error' : 'ok'}">
       <span th:text="${job.state == 'done' ? #messages.msg('import.done') : job.state == 'cancelled' ? #messages.msg('import.cancelled') : job.message}"></span>
@@ -32,7 +32,7 @@
   <form autocomplete="off" class="form" method="post" action="/import/start" th:unless="${job != null and job.active()}">
     <label for="f-coll" th:text="#{cache.collection}">Коллекция</label>
     <select id="f-coll" name="collection" required>
-      <!-- data-profile — профиль типа коллекции: при выборе коллекции выбирается подходящий источник -->
+      <!-- data-profile — profile of the collection type: choosing a collection selects a fitting source -->
       <option th:each="c : ${collections}" th:value="${c.id()}" th:text="${c.name() + ' (' + c.count() + ')'}"
               th:data-profile="${profiles.get(c.id())}" th:selected="${job != null and job.collectionId == c.id()}"></option>
     </select>
@@ -47,7 +47,7 @@
         <option value="discogs" data-profile="music" th:text="|Discogs (#{import.music})|" th:selected="${job != null and job.source == 'discogs'}">Discogs (музыка)</option>
         <option value="fantlab" data-profile="books" th:text="|FantLab (#{import.books})|" th:selected="${job != null and job.source == 'fantlab'}">FantLab (книги)</option>
       </select>
-      <!-- Описание выбранного источника (остальные скрыты скриптом) и общая строка о скорости -->
+      <!-- Description of the selected source (the others are hidden by the script) and a common line about speed -->
       <div class="muted note">
         <span data-source="steam"><b>Steam</b> — <th:block th:text="#{import.help.steam}"></th:block></span>
         <span data-source="gog"><b>GOG</b> — <th:block th:text="#{import.help.gog}"></th:block></span>
@@ -67,7 +67,7 @@
 
     <label for="f-count"><span th:text="#{import.count}">Картинок на объект</span> <span th:replace="~{base :: info(#{import.help.count})}"></span></label>
     <div>
-      <!-- сколько картинок загружать, если у источника их несколько (скриншоты Steam, картинки альбома Discogs, обложки изданий FantLab) -->
+      <!-- how many pictures to load if the source has several (Steam screenshots, Discogs album pictures, FantLab edition covers) -->
       <select id="f-count" name="imageCount" class="narrow">
         <option th:each="n : ${#numbers.sequence(1, 5)}" th:value="${n}" th:text="#{import.upTo(${n})}" th:selected="${n == 5}"></option>
       </select>
@@ -75,7 +75,7 @@
 
     <label th:text="#{import.first}">Первая картинка</label>
     <div>
-      <!-- для игр с обложками коробок (GOG, Nintendo eShop, LaunchBox): с чего начинать картинки объекта; Steam — только скриншоты -->
+      <!-- for games with box covers (GOG, Nintendo eShop, LaunchBox): what the item's pictures start with; Steam — screenshots only -->
       <label class="radio"><input type="radio" name="firstImage" value="screenshot" checked> <span th:text="#{import.screenshot}">скриншот</span></label>
       <label class="radio"><input type="radio" name="firstImage" value="cover"> <span th:text="#{import.cover}">обложка коробки</span></label>
     </div>
@@ -86,7 +86,7 @@
     <div class="full"><button class="btn" th:disabled="${collections.isEmpty()}" th:text="#{import.start}">Загрузить</button></div>
   </form>
 
-  <!-- Загрузка из Excel: каждый лист файла — новая коллекция (XlsxImport); итог — после перехода обратно сюда -->
+  <!-- Load from Excel: each sheet of the file is a new collection (XlsxImport); the result — after returning here -->
   <h3 class="section" id="excel" th:text="#{excel.title}">Загрузка из Excel</h3>
   <p class="ok" th:if="${excelResult != null}">
     <span th:text="#{excel.done(${excelResult.created()}, ${excelResult.updated()}, ${excelResult.added()}, ${excelResult.changed()})}">Создано коллекций: 1, дополнено: 0. Объектов добавлено: 10, обновлено: 0.</span>
@@ -114,7 +114,7 @@
     <div class="full"><button class="btn" th:text="#{excel.start}">Загрузить из Excel</button></div>
   </form>
 
-  <!-- Личный токен Discogs: у каждого пользователя свой; сам токен на страницу не выводится -->
+  <!-- Personal Discogs token: each user has their own; the token itself is not shown on the page -->
   <h3 class="section" th:text="#{import.token.title}">Токен Discogs</h3>
   <p class="ok" th:if="${param.token != null and param.token[0] == 'saved'}" th:text="#{import.token.saved}">Токен Discogs сохранён.</p>
   <p class="ok" th:if="${param.token != null and param.token[0] == 'deleted'}" th:text="#{import.token.deleted}">Токен Discogs удалён.</p>
@@ -130,15 +130,15 @@
     </label>
     <input type="password" id="f-token" name="token" autocomplete="new-password" maxlength="200" required
            th:placeholder="${discogsReady ? #messages.msg('import.token.savedHint', discogsTokenEnd) : #messages.msg('import.token.none')}">
-    <div class="full split">  <!-- «Сохранить» слева, «Удалить токен» — у правого края формы -->
+    <div class="full split">  <!-- "Save" on the left, "Delete token" — at the right edge of the form -->
       <button class="btn" th:text="#{btn.save}">Сохранить</button>
       <button class="btn light danger" name="delete" value="true" th:if="${discogsReady}" formnovalidate th:text="#{import.token.delete}">Удалить токен</button>
     </div>
   </form>
 
 <script>
-  // Источники по профилю типа коллекции: в списке — только подходящие (игры — Steam, GOG, Nintendo eShop, LaunchBox;
-  // музыка — Discogs; книги — FantLab), у «другое» — все. Выбранный неподходящий источник меняется на первый подходящий
+  // Sources by profile of the collection type: only fitting ones are listed (games — Steam, GOG, Nintendo eShop, LaunchBox;
+  // music — Discogs; books — FantLab), "other" — all. A selected unfitting source changes to the first fitting one
   (function () {
     var coll = document.getElementById('f-coll'), src = document.getElementById('f-source');
     if (!coll || !src) return;
@@ -153,7 +153,7 @@
     coll.addEventListener('change', pick);
     pick();
   })();
-  // В описании под «Источником» — только выбранный источник (и общая строка о скорости)
+  // The description under "Source" shows only the selected source (and the common line about speed)
   (function () {
     var sel = document.getElementById('f-source');
     function sync() {
@@ -162,7 +162,7 @@
     sel.addEventListener('change', sync);
     sync();
   })();
-  // Discogs без токена отдаёт только описания: галочка «картинки» для него неактивна
+  // Discogs without a token returns only descriptions: the "pictures" tick is inactive for it
   (function () {
     var img = document.getElementById('f-images');
     if (!img || img.dataset.discogsReady === 'true') return;
@@ -170,14 +170,14 @@
     document.getElementById('f-source').addEventListener('change', sync);
     sync();
   })();
-  // Первая картинка «скриншот / обложка коробки» — для игр и когда загружаются картинки. У источника без обложек
-  // (Steam) «обложка» недоступна и сама выбирается «скриншот»; у музыки и книг (Discogs, FantLab) выбор неактивен
+  // First picture "screenshot / box cover" — for games and when pictures are loaded. For a source without covers
+  // (Steam) "cover" is unavailable and "screenshot" is selected; for music and books (Discogs, FantLab) the choice is inactive
   (function () {
     var img = document.getElementById('f-images');
     if (!img) return;
     var shot = document.querySelector('input[name=firstImage][value=screenshot]'),
         cover = document.querySelector('input[name=firstImage][value=cover]'),
-        wantCover = cover.checked; // выбор пользователя: возвращается, когда снова выбран источник с обложками
+        wantCover = cover.checked; // the user's choice: restored when a source with covers is selected again
     [shot, cover].forEach(function (r) { r.addEventListener('change', function () { wantCover = cover.checked; }); });
     function sync() {
       var src = document.getElementById('f-source').value, off = !img.checked || img.disabled,
@@ -194,7 +194,7 @@
   })();
 </script>
 <script th:if="${job != null and job.active()}">
-  // Прогресс импорта: раз в секунду спрашиваем состояние; когда импорт закончится — перезагружаем страницу (итог)
+  // Import progress: ask for the state every second; when the import finishes, reload the page (result)
   (function () {
     function $(id) { return document.getElementById(id); }
     function tick() {
