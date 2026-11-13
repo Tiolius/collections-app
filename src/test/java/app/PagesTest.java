@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 
@@ -31,6 +33,13 @@ class PagesTest extends DbTest {
 
     String page(long uid, String url) throws Exception {
         return mvc.perform(get(url).session(login(uid))).andReturn().getResponse().getContentAsString();
+    }
+
+    /** Страница-ответ на POST с параметрами (имя, значение, имя, значение…). */
+    String postPage(long uid, String url, String... params) throws Exception {
+        var req = post(url).session(login(uid));
+        for (int i = 0; i < params.length; i += 2) req.param(params[i], params[i + 1]);
+        return mvc.perform(req).andReturn().getResponse().getContentAsString();
     }
 
     /** Порядок, в котором классы c-<поле> встречаются в куске страницы. */
@@ -140,5 +149,37 @@ class PagesTest extends DbTest {
                 .param("collectionsPerPage", "10").param("itemsPerPage", "200").param("theme", "neon")).andReturn().getResponse().getStatus();
         assertThat(status).isEqualTo(400);
         assertThat(repo.themePair(uid)).isEqualTo("dusk");
+    }
+
+    @Test
+    void adminSetsPasswordOfAnotherUserIncludingAdmin() throws Exception {
+        long admin = newUser();
+        jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", admin);
+        String name = "Второй админ " + System.nanoTime();
+        long other = repo.createUser(name, "старый-пароль-длинный", Repo.ADMIN);
+        String newPw = "новая фраза для входа";
+        // слабый пароль и несовпадение — ошибка, пароль прежний
+        assertThat(postPage(admin, "/users/" + other + "/password", "password", "123", "password2", "123")).contains("class=\"error\"");
+        assertThat(postPage(admin, "/users/" + other + "/password", "password", newPw, "password2", newPw + "!"))
+                .contains("Пароли не совпадают");
+        assertThat(Passwords.matches("старый-пароль-длинный", repo.user(other).passwordHash())).isTrue();
+        // верный — пароль сменён (текущий не нужен)
+        mvc.perform(post("/users/" + other + "/password").session(login(admin)).param("password", newPw).param("password2", newPw))
+                .andExpect(status().is3xxRedirection());
+        assertThat(Passwords.matches(newPw, repo.user(other).passwordHash())).isTrue();
+        // свой пароль так не меняется — только на вкладке «Пароль»
+        String before = repo.user(admin).passwordHash();
+        mvc.perform(post("/users/" + admin + "/password").session(login(admin)).param("password", newPw).param("password2", newPw))
+                .andExpect(redirectedUrl("/account"));
+        assertThat(repo.user(admin).passwordHash()).isEqualTo(before);
+        // не администратор — запрещено
+        long plain = newUser();
+        mvc.perform(post("/users/" + other + "/password").session(login(plain)).param("password", newPw).param("password2", newPw))
+                .andExpect(status().is4xxClientError());
+        // страница: ключ у каждого, у себя — ссылка на «Пароль», в списке формы себя нет, выбор по ссылке
+        String users = page(admin, "/users?pw=" + other);
+        assertThat(users).contains("href=\"/account\"").contains("/users?pw=" + other + "#pw-form")
+                .containsPattern("<option value=\"" + other + "\"[^>]*selected")
+                .doesNotContain("<option value=\"" + admin + "\"");
     }
 }

@@ -362,7 +362,31 @@ public class WebController {
         requireAdmin(uid);
         m.addAttribute("users", repo.users());
         m.addAttribute("roles", Repo.ROLES);
+        m.addAttribute("me", uid);
         return "users";
+    }
+
+    /**
+     * Новый пароль другого пользователя (в т. ч. администратора) — только администратор, без текущего пароля.
+     * Свой пароль — на вкладке «Пароль» (там нужен текущий). Сессии пользователя завершаются: хеш пароля в них устарел.
+     */
+    @PostMapping("/users/{id}/password")
+    public String setUserPassword(@SessionAttribute("uid") long uid, @PathVariable long id,
+                                  @RequestParam(defaultValue = "") String password,
+                                  @RequestParam(defaultValue = "") String password2, Model m) {
+        requireAdmin(uid);
+        Repo.User u = repo.user(id);
+        if (u == null) throw Fail.notFound();
+        if (id == uid) return "redirect:/account";
+        String error = Passwords.problem(password, u.name());
+        if (error == null && !password.equals(password2)) error = I18n.t("user.passwordsDiffer");
+        if (error != null) {
+            m.addAttribute("pwError", error);
+            m.addAttribute("pwUser", id);
+            return users(uid, m);
+        }
+        repo.setPassword(id, password);
+        return "redirect:/users?passwordSet=" + java.net.URLEncoder.encode(u.name(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /** Добавление пользователя — только администратор (в «Настройках»). */
