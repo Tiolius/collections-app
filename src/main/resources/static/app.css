@@ -245,6 +245,9 @@ header a { color: inherit; text-decoration: none; }
 header a:hover { text-decoration: none; }
 /* Logo — a cell with lines on the left (at the left edge of the white area) and on the right, like the buttons on the right */
 header .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -.02em; height: 100%; padding: 0 16px; }
+/* The logo never wraps or shrinks: a narrow window (e.g. a new browser window) would split "Collections App" into two lines,
+   and some browsers keep that layout after the window is widened until the next repaint */
+header .logo { flex-shrink: 0; white-space: nowrap; }
 header .logo .mi { color: var(--accent); }
 /* Logo — books on a shelf (an outline icon, drawn with a line, not a fill) */
 header .logo .logo-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
