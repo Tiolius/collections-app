@@ -20,7 +20,9 @@
     </tr></tbody>
   </table>
 
-  <!-- Новый пароль другого пользователя (в т. ч. администратора): текущий пароль не нужен, его сессии завершатся -->
+  <!-- Новый пароль другого пользователя (в т. ч. администратора): текущий пароль не нужен, его сессии завершатся.
+       Других пользователей нет — блока нет -->
+  <th:block th:if="${users.size() > 1}">
   <h3 class="section" id="pw-form" th:text="#{users.setPassword}">Сменить пароль</h3>
   <p class="error" th:if="${pwError != null}" th:text="${pwError}"></p>
   <form class="form" method="post" autocomplete="off" id="user-pw"
@@ -45,6 +47,7 @@
     // адрес формы — по выбранному пользователю (в том числе выбранному ссылкой-ключом)
     (function () { var s = document.getElementById('f-pwuser'); s.form.action = '/users/' + s.value + '/password'; })();
   </script>
+  </th:block>
 
   <h3 class="section" th:text="#{users.add}">Добавить пользователя</h3>
   <p class="error" th:if="${userError != null}" th:text="${userError}"></p>
