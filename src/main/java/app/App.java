@@ -143,7 +143,10 @@ public class App {
     private static void openBrowser() {
         String url = "http://localhost:" + port;
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        String[] cmd = os.contains("win") ? new String[] {"rundll32", "url.dll,FileProtocolHandler", url}
+        // Windows: новое окно браузера по умолчанию (BrowserWindow), не узнали браузер — обычное открытие ссылки
+        java.util.List<String> window = os.contains("win") ? BrowserWindow.command(url) : null;
+        String[] cmd = window != null ? window.toArray(String[]::new)
+                : os.contains("win") ? new String[] {"rundll32", "url.dll,FileProtocolHandler", url}
                 : os.contains("mac") ? new String[] {"open", url} : new String[] {"xdg-open", url};
         try {
             new ProcessBuilder(cmd).start();
