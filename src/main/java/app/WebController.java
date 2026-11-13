@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.springframework.http.MediaType;
@@ -26,6 +27,7 @@ public class WebController {
 
     private final Repo repo;
     private final LoginGuard guard;
+    private final Remember remember;
     private final ImageImport images;
     private final CacheClear cacheClear;
     private final OldGames oldGames;
@@ -34,8 +36,9 @@ public class WebController {
     private final XlsxImport xlsxImport;
     private final XlsxExport xlsxExport;
 
-    public WebController(Repo repo, LoginGuard guard, ImageImport images, CacheClear cacheClear, OldGames oldGames,
+    public WebController(Repo repo, LoginGuard guard, Remember remember, ImageImport images, CacheClear cacheClear, OldGames oldGames,
                          Backup backup, Updates updates, XlsxImport xlsxImport, XlsxExport xlsxExport) {
+        this.remember = remember;
         this.xlsxImport = xlsxImport;
         this.xlsxExport = xlsxExport;
         this.backup = backup;
@@ -57,14 +60,22 @@ public class WebController {
     private static final String DUMMY_HASH = Passwords.hash("dummy-password");
 
     @GetMapping("/login")
-    public String loginForm(Model m) {
+    public String loginPage(HttpServletRequest request, Model m) {
+        // компьютер запомнен — сразу в приложение (вход сделает WebConfig)
+        Long uid = remember.user(request);
+        if (uid != null && repo.user(uid) != null) return "redirect:/";
+        return loginForm(m);
+    }
+
+    private String loginForm(Model m) {
         m.addAttribute("setup", repo.countUsers() == 0);
         return "login";
     }
 
     @PostMapping("/login")
     public String login(@RequestParam String name, @RequestParam(defaultValue = "") String password,
-                        HttpServletRequest request, Model m) {
+                        @RequestParam(defaultValue = "false") boolean remember,
+                        HttpServletRequest request, HttpServletResponse response, Model m) {
         // Защита от подбора: адрес + имя (5 попыток) и адрес по любым именам (30 попыток)
         String ip = "ip:" + request.getRemoteAddr();
         String ipName = ip + "|" + name.trim().toLowerCase(java.util.Locale.ROOT);
@@ -85,6 +96,7 @@ public class WebController {
         }
         guard.success(ipName);
         signIn(request, u.id());
+        if (remember) this.remember.issue(u.id(), response);
         return "redirect:/";
     }
 
@@ -362,7 +374,31 @@ public class WebController {
         requireAdmin(uid);
         m.addAttribute("users", repo.users());
         m.addAttribute("roles", Repo.ROLES);
+        m.addAttribute("me", uid);
         return "users";
+    }
+
+    /**
+     * Новый пароль другого пользователя (в т. ч. администратора) — только администратор, без текущего пароля.
+     * Свой пароль — на вкладке «Пароль» (там нужен текущий). Сессии пользователя завершаются: хеш пароля в них устарел.
+     */
+    @PostMapping("/users/{id}/password")
+    public String setUserPassword(@SessionAttribute("uid") long uid, @PathVariable long id,
+                                  @RequestParam(defaultValue = "") String password,
+                                  @RequestParam(defaultValue = "") String password2, Model m) {
+        requireAdmin(uid);
+        Repo.User u = repo.user(id);
+        if (u == null) throw Fail.notFound();
+        if (id == uid) return "redirect:/account";
+        String error = Passwords.problem(password, u.name());
+        if (error == null && !password.equals(password2)) error = I18n.t("user.passwordsDiffer");
+        if (error != null) {
+            m.addAttribute("pwError", error);
+            m.addAttribute("pwUser", id);
+            return users(uid, m);
+        }
+        repo.setPassword(id, password);
+        return "redirect:/users?passwordSet=" + java.net.URLEncoder.encode(u.name(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /** Добавление пользователя — только администратор (в «Настройках»). */
@@ -401,7 +437,8 @@ public class WebController {
     }
 
     @PostMapping("/logout")
-    public String logout(HttpSession session) {
+    public String logout(HttpSession session, HttpServletRequest request, HttpServletResponse response) {
+        remember.forget(request, response); // выход на запомненном компьютере — забыть его
         session.invalidate();
         return "redirect:/login";
     }
@@ -409,7 +446,8 @@ public class WebController {
     @PostMapping("/account/password")
     public String changePassword(@SessionAttribute("uid") long uid, @RequestParam(defaultValue = "") String current,
                                  @RequestParam(defaultValue = "") String password,
-                                 @RequestParam(defaultValue = "") String password2, HttpSession session, Model m) {
+                                 @RequestParam(defaultValue = "") String password2, HttpSession session,
+                                 HttpServletRequest request, HttpServletResponse response, Model m) {
         String error = null;
         // Подбор текущего пароля тоже ограничен: 5 неудачных попыток — блокировка
         String key = "pw:" + uid;
@@ -427,7 +465,9 @@ public class WebController {
             return "account";
         }
         guard.success(key);
-        repo.setPassword(uid, password);
+        boolean remembered = remember.user(request) != null;
+        repo.setPassword(uid, password); // удаляет ключи «Запомнить меня» на всех компьютерах
+        if (remembered) remember.issue(uid, response); // этот компьютер остаётся запомненным
         // Эта сессия остаётся, остальные сессии пользователя завершатся (хеш пароля изменился)
         session.setAttribute(SESSION_PW, repo.user(uid).passwordHash());
         return "redirect:/account?passwordChanged";

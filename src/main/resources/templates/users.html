@@ -6,13 +6,48 @@
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('users')}"></th:block>
   <p class="ok" th:if="${param.userAdded != null}" th:text="#{users.added(${param.userAdded})}"></p>
+  <p class="ok" th:if="${param.passwordSet != null}" th:text="#{users.passwordSet(${param.passwordSet})}"></p>
+  <!-- Ключ в строке — к форме «Сменить пароль» с этим пользователем; у себя — вкладка «Пароль» (нужен текущий пароль) -->
   <table class="items users">
-    <thead><tr><th th:text="#{users.name}">Имя</th><th class="title" th:text="#{users.role}">Роль</th></tr></thead>
+    <thead><tr><th th:text="#{users.name}">Имя</th><th class="title" th:text="#{users.role}">Роль</th><th></th></tr></thead>
     <tbody><tr th:each="u : ${users}">
       <td th:text="${u.name()}"></td>
       <td class="title" th:text="${#messages.msg(roles.get(u.role()))}"></td>
+      <td class="actions">
+        <a class="icon" th:href="${u.id() == me ? '/account' : '/users?pw=' + u.id() + '#pw-form'}"
+           th:title="#{users.setPassword}" th:aria-label="#{users.setPassword} + ': ' + ${u.name()}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M280-400q-33 0-56.5-23.5T200-480q0-33 23.5-56.5T280-560q33 0 56.5 23.5T360-480q0 33-23.5 56.5T280-400Zm0 160q-100 0-170-70T40-480q0-100 70-170t170-70q67 0 121.5 33t86.5 87h352l120 120-180 180-80-60-80 60-85-60h-47q-32 54-86.5 87T280-240Zm0-80q56 0 98.5-34t56.5-86h125l58 41 82-61 71 55 75-75-40-40H435q-14-52-56.5-86T280-640q-66 0-113 47t-47 113q0 66 47 113t113 47Z"/></svg></a>
+      </td>
     </tr></tbody>
   </table>
+
+  <!-- Новый пароль другого пользователя (в т. ч. администратора): текущий пароль не нужен, его сессии завершатся.
+       Других пользователей нет — блока нет -->
+  <th:block th:if="${users.size() > 1}">
+  <h3 class="section" id="pw-form" th:text="#{users.setPassword}">Сменить пароль</h3>
+  <p class="error" th:if="${pwError != null}" th:text="${pwError}"></p>
+  <form class="form" method="post" autocomplete="off" id="user-pw"
+        th:with="sel=${pwUser != null ? pwUser : (param.pw != null ? #conversions.convert(param.pw[0], 'java.lang.Long') : null)}">
+    <label for="f-pwuser"><span th:text="#{users.user}">Пользователь</span> <span th:replace="~{base :: info(#{users.setPasswordHint})}"></span></label>
+    <select id="f-pwuser" name="user" required autocomplete="off"
+            onchange="this.form.action = '/users/' + this.value + '/password'">
+      <option value="" th:text="#{users.choose}">— выберите —</option>
+      <option th:each="u : ${users}" th:unless="${u.id() == me}" th:value="${u.id()}" th:selected="${sel == u.id()}"
+              th:text="${u.name() + ' (' + #messages.msg(roles.get(u.role())) + ')'}"></option>
+    </select>
+
+    <label for="f-pwnew"><span th:text="#{account.new}">Новый пароль</span> <span th:replace="~{base :: info(#{password.hint})}"></span></label>
+    <input id="f-pwnew" type="password" name="password" required autocomplete="new-password">
+
+    <label for="f-pwnew2" th:text="#{account.new2}">Повторите новый пароль</label>
+    <input id="f-pwnew2" type="password" name="password2" required autocomplete="new-password">
+
+    <div class="full"><button class="btn" th:text="#{users.setPasswordBtn}">Сменить пароль</button></div>
+  </form>
+  <script>
+    // адрес формы — по выбранному пользователю (в том числе выбранному ссылкой-ключом)
+    (function () { var s = document.getElementById('f-pwuser'); s.form.action = '/users/' + s.value + '/password'; })();
+  </script>
+  </th:block>
 
   <h3 class="section" th:text="#{users.add}">Добавить пользователя</h3>
   <p class="error" th:if="${userError != null}" th:text="${userError}"></p>

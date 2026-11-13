@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 
@@ -31,6 +33,13 @@ class PagesTest extends DbTest {
 
     String page(long uid, String url) throws Exception {
         return mvc.perform(get(url).session(login(uid))).andReturn().getResponse().getContentAsString();
+    }
+
+    /** Страница-ответ на POST с параметрами (имя, значение, имя, значение…). */
+    String postPage(long uid, String url, String... params) throws Exception {
+        var req = post(url).session(login(uid));
+        for (int i = 0; i < params.length; i += 2) req.param(params[i], params[i + 1]);
+        return mvc.perform(req).andReturn().getResponse().getContentAsString();
     }
 
     /** Порядок, в котором классы c-<поле> встречаются в куске страницы. */
@@ -140,5 +149,71 @@ class PagesTest extends DbTest {
                 .param("collectionsPerPage", "10").param("itemsPerPage", "200").param("theme", "neon")).andReturn().getResponse().getStatus();
         assertThat(status).isEqualTo(400);
         assertThat(repo.themePair(uid)).isEqualTo("dusk");
+    }
+
+    @Test
+    void adminSetsPasswordOfAnotherUserIncludingAdmin() throws Exception {
+        long admin = newUser();
+        jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", admin);
+        String name = "Второй админ " + System.nanoTime();
+        long other = repo.createUser(name, "старый-пароль-длинный", Repo.ADMIN);
+        String newPw = "новая фраза для входа";
+        // слабый пароль и несовпадение — ошибка, пароль прежний
+        assertThat(postPage(admin, "/users/" + other + "/password", "password", "123", "password2", "123")).contains("class=\"error\"");
+        assertThat(postPage(admin, "/users/" + other + "/password", "password", newPw, "password2", newPw + "!"))
+                .contains("Пароли не совпадают");
+        assertThat(Passwords.matches("старый-пароль-длинный", repo.user(other).passwordHash())).isTrue();
+        // верный — пароль сменён (текущий не нужен)
+        mvc.perform(post("/users/" + other + "/password").session(login(admin)).param("password", newPw).param("password2", newPw))
+                .andExpect(status().is3xxRedirection());
+        assertThat(Passwords.matches(newPw, repo.user(other).passwordHash())).isTrue();
+        // свой пароль так не меняется — только на вкладке «Пароль»
+        String before = repo.user(admin).passwordHash();
+        mvc.perform(post("/users/" + admin + "/password").session(login(admin)).param("password", newPw).param("password2", newPw))
+                .andExpect(redirectedUrl("/account"));
+        assertThat(repo.user(admin).passwordHash()).isEqualTo(before);
+        // не администратор — запрещено
+        long plain = newUser();
+        mvc.perform(post("/users/" + other + "/password").session(login(plain)).param("password", newPw).param("password2", newPw))
+                .andExpect(status().is4xxClientError());
+        // страница: ключ у каждого, у себя — ссылка на «Пароль», в списке формы себя нет, выбор по ссылке
+        String users = page(admin, "/users?pw=" + other);
+        assertThat(users).contains("href=\"/account\"").contains("/users?pw=" + other + "#pw-form")
+                .containsPattern("<option value=\"" + other + "\"[^>]*selected")
+                .doesNotContain("<option value=\"" + admin + "\"");
+    }
+
+    @Test
+    void rememberMeSignsInWithoutPasswordUntilLogoutOrPasswordChange() throws Exception {
+        long uid = newUser();
+        String name = repo.user(uid).name();
+        // без галочки — cookie нет
+        var plain = mvc.perform(post("/login").param("name", name).param("password", "Kwq7-zmlpt-Rvx9")).andReturn().getResponse();
+        assertThat(plain.getHeaders("Set-Cookie")).noneMatch(c -> c.startsWith(Remember.COOKIE + "="));
+        // с галочкой — cookie на 90 дней, недоступная скриптам; в базе — только хеш
+        var res = mvc.perform(post("/login").param("name", name).param("password", "Kwq7-zmlpt-Rvx9").param("remember", "true"))
+                .andReturn().getResponse();
+        String set = res.getHeaders("Set-Cookie").stream().filter(c -> c.startsWith(Remember.COOKIE + "=")).findFirst().orElseThrow();
+        assertThat(set).contains("Max-Age=7776000").contains("HttpOnly").contains("SameSite=Lax");
+        String token = set.substring(Remember.COOKIE.length() + 1, set.indexOf(';'));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM remember_tokens WHERE hash = ?", Integer.class, Remember.hash(token))).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM remember_tokens WHERE hash = ?", Integer.class, token)).isZero();
+        var cookie = new jakarta.servlet.http.Cookie(Remember.COOKIE, token);
+        // новый браузерный сеанс без сессии — сразу в приложение; страница входа ведёт туда же
+        mvc.perform(get("/").cookie(cookie)).andExpect(status().isOk());
+        mvc.perform(get("/login").cookie(cookie)).andExpect(redirectedUrl("/"));
+        // чужой или испорченный ключ — на вход
+        mvc.perform(get("/").cookie(new jakarta.servlet.http.Cookie(Remember.COOKIE, "x" + token))).andExpect(redirectedUrl("/login"));
+        // смена пароля (администратором или самим) — ключ больше не действует
+        repo.setPassword(uid, "совсем другая фраза для входа");
+        mvc.perform(get("/").cookie(cookie)).andExpect(redirectedUrl("/login"));
+        // выход — этот компьютер забыт
+        res = mvc.perform(post("/login").param("name", name).param("password", "совсем другая фраза для входа").param("remember", "true"))
+                .andReturn().getResponse();
+        set = res.getHeaders("Set-Cookie").stream().filter(c -> c.startsWith(Remember.COOKIE + "=")).findFirst().orElseThrow();
+        var cookie2 = new jakarta.servlet.http.Cookie(Remember.COOKIE, set.substring(Remember.COOKIE.length() + 1, set.indexOf(';')));
+        var out = mvc.perform(post("/logout").session(login(uid)).cookie(cookie2)).andReturn().getResponse();
+        assertThat(out.getHeaders("Set-Cookie")).anyMatch(c -> c.startsWith(Remember.COOKIE + "=;") && c.contains("Max-Age=0"));
+        mvc.perform(get("/").cookie(cookie2)).andExpect(redirectedUrl("/login"));
     }
 }

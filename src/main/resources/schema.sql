@@ -131,6 +131,14 @@ CREATE TABLE IF NOT EXISTS user_theme (
     pair TEXT NOT NULL
 );
 
+-- «Запомнить меня на этом компьютере» (Remember): SHA-256 ключа входа из cookie браузера, срок (мс). Сам ключ и пароль
+-- здесь не хранятся. Смена пароля удаляет ключи пользователя, выход — ключ этого компьютера
+CREATE TABLE IF NOT EXISTS remember_tokens (
+    hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires INTEGER NOT NULL
+);
+
 -- Личные токены сервисов импорта (вкладка «Импорт»), сейчас только service = 'discogs'
 CREATE TABLE IF NOT EXISTS user_tokens (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
