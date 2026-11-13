@@ -21,6 +21,14 @@
       <input id="f-pw2" type="password" name="password2" autocomplete="new-password">
     </th:block>
 
+    <!-- «Запомнить меня»: ключ входа в cookie на 90 дней (Remember), пароль не сохраняется -->
+    <th:block th:unless="${setup}">
+      <span></span>
+      <div class="remember"><label class="radio"><input id="f-remember" type="checkbox" name="remember" value="true" autocomplete="off">
+        <span th:text="#{login.remember}">Запомнить меня на этом компьютере</span></label>
+        <span th:replace="~{base :: info(#{login.rememberHint})}"></span></div>
+    </th:block>
+
     <div class="full end"><button class="btn" th:text="${setup ? #messages.msg('login.createAdmin') : #messages.msg('login.signIn')}"></button></div>
   </form>
 </main>

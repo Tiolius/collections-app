@@ -182,4 +182,38 @@ class PagesTest extends DbTest {
                 .containsPattern("<option value=\"" + other + "\"[^>]*selected")
                 .doesNotContain("<option value=\"" + admin + "\"");
     }
+
+    @Test
+    void rememberMeSignsInWithoutPasswordUntilLogoutOrPasswordChange() throws Exception {
+        long uid = newUser();
+        String name = repo.user(uid).name();
+        // без галочки — cookie нет
+        var plain = mvc.perform(post("/login").param("name", name).param("password", "Kwq7-zmlpt-Rvx9")).andReturn().getResponse();
+        assertThat(plain.getHeaders("Set-Cookie")).noneMatch(c -> c.startsWith(Remember.COOKIE + "="));
+        // с галочкой — cookie на 90 дней, недоступная скриптам; в базе — только хеш
+        var res = mvc.perform(post("/login").param("name", name).param("password", "Kwq7-zmlpt-Rvx9").param("remember", "true"))
+                .andReturn().getResponse();
+        String set = res.getHeaders("Set-Cookie").stream().filter(c -> c.startsWith(Remember.COOKIE + "=")).findFirst().orElseThrow();
+        assertThat(set).contains("Max-Age=7776000").contains("HttpOnly").contains("SameSite=Lax");
+        String token = set.substring(Remember.COOKIE.length() + 1, set.indexOf(';'));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM remember_tokens WHERE hash = ?", Integer.class, Remember.hash(token))).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM remember_tokens WHERE hash = ?", Integer.class, token)).isZero();
+        var cookie = new jakarta.servlet.http.Cookie(Remember.COOKIE, token);
+        // новый браузерный сеанс без сессии — сразу в приложение; страница входа ведёт туда же
+        mvc.perform(get("/").cookie(cookie)).andExpect(status().isOk());
+        mvc.perform(get("/login").cookie(cookie)).andExpect(redirectedUrl("/"));
+        // чужой или испорченный ключ — на вход
+        mvc.perform(get("/").cookie(new jakarta.servlet.http.Cookie(Remember.COOKIE, "x" + token))).andExpect(redirectedUrl("/login"));
+        // смена пароля (администратором или самим) — ключ больше не действует
+        repo.setPassword(uid, "совсем другая фраза для входа");
+        mvc.perform(get("/").cookie(cookie)).andExpect(redirectedUrl("/login"));
+        // выход — этот компьютер забыт
+        res = mvc.perform(post("/login").param("name", name).param("password", "совсем другая фраза для входа").param("remember", "true"))
+                .andReturn().getResponse();
+        set = res.getHeaders("Set-Cookie").stream().filter(c -> c.startsWith(Remember.COOKIE + "=")).findFirst().orElseThrow();
+        var cookie2 = new jakarta.servlet.http.Cookie(Remember.COOKIE, set.substring(Remember.COOKIE.length() + 1, set.indexOf(';')));
+        var out = mvc.perform(post("/logout").session(login(uid)).cookie(cookie2)).andReturn().getResponse();
+        assertThat(out.getHeaders("Set-Cookie")).anyMatch(c -> c.startsWith(Remember.COOKIE + "=;") && c.contains("Max-Age=0"));
+        mvc.perform(get("/").cookie(cookie2)).andExpect(redirectedUrl("/login"));
+    }
 }

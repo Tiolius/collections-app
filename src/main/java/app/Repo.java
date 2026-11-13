@@ -563,8 +563,27 @@ public class Repo {
         return uid;
     }
 
+    /** Новый пароль; запомненные компьютеры пользователя забываются (их ключи входа удаляются). */
     public void setPassword(long uid, String password) {
         jdbc.update("UPDATE users SET password_hash = ? WHERE id = ?", Passwords.hash(password), uid);
+        jdbc.update("DELETE FROM remember_tokens WHERE user_id = ?", uid);
+    }
+
+    // ---------- «Запомнить меня» (Remember): ключи входа, в базе — только их хеш ----------
+
+    public void saveRememberToken(String hash, long uid, long expires) {
+        jdbc.update("DELETE FROM remember_tokens WHERE expires < ?", System.currentTimeMillis());
+        jdbc.update("INSERT INTO remember_tokens (hash, user_id, expires) VALUES (?, ?, ?)", hash, uid, expires);
+    }
+
+    /** Пользователь по хешу действующего ключа или null. */
+    public Long rememberTokenUser(String hash, long now) {
+        List<Long> ids = jdbc.queryForList("SELECT user_id FROM remember_tokens WHERE hash = ? AND expires > ?", Long.class, hash, now);
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    public void deleteRememberToken(String hash) {
+        jdbc.update("DELETE FROM remember_tokens WHERE hash = ?", hash);
     }
 
     // ---------- чтение ----------

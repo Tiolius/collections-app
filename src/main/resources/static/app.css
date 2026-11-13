@@ -726,3 +726,5 @@ table.items tbody tr[style] .chip { background: color-mix(in srgb, var(--row-bg)
 }
 /* Статистика: стоимость коллекции — моноширинным */
 table.items.stats td.num { font-family: var(--mono); white-space: nowrap; text-align: left; }
+/* Вход: «Запомнить меня» и значок подсказки в одну строку */
+.remember { display: flex; align-items: center; gap: 6px; }
