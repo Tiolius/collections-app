@@ -8,7 +8,7 @@
     <a class="btn light back" href="/kinds" th:title="#{nav.back}" th:aria-label="#{nav.back}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
     <h2 th:text="#{${title}}"></h2>
   </div>
-  <!-- Снятие поля у типа, который используется, удаляет значения этого поля у объектов — с подтверждением -->
+  <!-- Removing a field from a type in use deletes the values of this field from items — with confirmation -->
   <form autocomplete="off" class="form kind-form" method="post" id="kind-form"
         th:data-used="${kind != null ? kind.used() : 0}" th:data-confirm="#{kinds.dropConfirm}" th:data-ok="#{btn.save}">
     <label for="f-name" th:text="#{kinds.name} + ' *'">Название типа *</label>
@@ -20,9 +20,9 @@
               th:selected="${kind != null ? kind.profile() == p.key : p.key == 'other'}"></option>
     </select>
 
-    <!-- Поля: галочка — поле есть у типа; своя подпись (пусто — стандартная); стрелки — порядок полей в окне объекта и столбцов таблицы.
-         Порядок строк = порядок полей; в каждой строке ровно одно role, label, type, opts (у встроенных type и opts пустые).
-         Свои поля: role «c<id>» (вид не меняется) или «n<номер>» (новое, вид выбирается); значения списка — по строке -->
+    <!-- Fields: tick — the type has the field; own label (empty — standard); arrows — order of fields in the item window and table columns.
+         Row order = field order; each row has exactly one role, label, type, opts (built-in fields have empty type and opts).
+         Custom fields: role "c<id>" (kind does not change) or "n<number>" (new, kind is chosen); list values — one per line -->
     <label class="top"><span th:text="#{kinds.fields}">Поля объектов</span> <span th:replace="~{base :: info(#{kinds.fieldsHint})}"></span></label>
     <div>
       <table class="kind-fields">
@@ -37,7 +37,7 @@
             <td th:unless="${r.custom()}"><label th:for="${'f-on-' + r.role()}" th:text="${r.defaultLabel()}"></label>
               <input type="hidden" name="role" th:value="${r.role()}"><input type="hidden" name="type" value=""><input type="hidden" name="opts" value=""></td>
             <td th:unless="${r.custom()}"><input type="text" name="label" autocomplete="off" maxlength="60" th:value="${r.label()}" th:placeholder="${r.defaultLabel()}" th:aria-label="#{kinds.ownLabel}"></td>
-            <!-- своё поле: вид (после создания не меняется) и подпись; у списка — значения -->
+            <!-- custom field: kind (does not change after creation) and label; a list also has values -->
             <td th:if="${r.custom()}"><input type="hidden" name="role" th:value="${r.role()}"><input type="hidden" name="type" th:value="${r.type()}">
               <select disabled th:aria-label="#{kinds.type}"><option th:each="t : ${customTypes}" th:value="${t.key}" th:text="#{${t.value}}" th:selected="${t.key == r.type()}"></option></select></td>
             <td th:if="${r.custom()}" class="custom-cell"><input type="text" name="label" autocomplete="off" maxlength="60" th:value="${r.label()}" th:placeholder="#{kinds.customLabel}" th:aria-label="#{kinds.customLabel}">
@@ -50,7 +50,7 @@
         </tbody>
       </table>
       <button type="button" class="btn gray" id="add-field" th:data-max="${maxCustom}" th:text="#{kinds.addField}">Добавить поле</button>
-      <!-- Новое своё поле: строка-образец (role n<номер> ставит скрипт) -->
+      <!-- New custom field: a template row (the script sets role n<number>) -->
       <template id="new-field">
         <tr class="custom">
           <td><input type="checkbox" name="on" checked th:aria-label="#{kinds.customLabel}"></td>
@@ -66,7 +66,7 @@
       </template>
     </div>
 
-    <!-- Статусы (значения поля «Статус»): по порядку; пустая строка не сохраняется; цвет строки объекта — если отмечен -->
+    <!-- Statuses (values of the "Status" field): in order; an empty line is not saved; item row colour — if ticked -->
     <label class="top"><span th:text="#{kinds.statuses}">Статусы</span> <span th:replace="~{base :: info(#{kinds.statusesHint})}"></span></label>
     <div>
       <table class="status-colors" id="status-rows" th:data-max="${maxStatuses}">
@@ -97,7 +97,7 @@
 <script>
   (function () {
     var form = document.getElementById('kind-form');
-    // Порядок полей — стрелками
+    // Field order — with the arrows
     document.getElementById('kind-field-rows').addEventListener('click', function (e) {
       var b = e.target.closest('button');
       if (!b) return;
@@ -106,7 +106,7 @@
       if (b.classList.contains('move-down') && tr.nextElementSibling) tr.parentNode.insertBefore(tr.nextElementSibling, tr);
       b.focus();
     });
-    // Своё поле: новое — строкой-образцом (role n<номер>, отмечено); значения списка видны только у вида «список»
+    // Custom field: a new one — from the template row (role n<number>, ticked); list values are visible only for the "list" kind
     var fieldRows = document.getElementById('kind-field-rows'), addField = document.getElementById('add-field'), n = 0;
     function customCount() { return fieldRows.querySelectorAll('tr.custom').length; }
     addField.addEventListener('click', function () {
@@ -119,7 +119,7 @@
     });
     addField.disabled = customCount() >= +addField.dataset.max;
     fieldRows.addEventListener('change', function (e) {
-      // новое поле, с которого сняли галочку, — просто убрать строку
+      // a new field that was unticked — just remove the row
       if (e.target.name === 'on' && !e.target.checked && /^n/.test(e.target.value)) {
         e.target.closest('tr').remove();
         addField.disabled = customCount() >= +addField.dataset.max;
@@ -130,7 +130,7 @@
       opts.hidden = e.target.value !== 'select';
       opts.required = e.target.value === 'select';
     });
-    // Цвет строки: отправляется в скрытом stc, только если отмечена галочка
+    // Row colour: sent in the hidden stc only if the tick is set
     var rows = document.querySelector('#status-rows tbody');
     function sync(tr) {
       var use = tr.querySelector('.use-color'), pick = tr.querySelector('.pick-color');
@@ -140,7 +140,7 @@
     rows.addEventListener('input', function (e) { sync(e.target.closest('tr')); });
     rows.addEventListener('change', function (e) { sync(e.target.closest('tr')); });
     rows.querySelectorAll('tr').forEach(sync);
-    // Новая строка статуса — копия последней, пустая
+    // A new status row — a copy of the last one, empty
     var add = document.getElementById('add-status'), max = +document.getElementById('status-rows').dataset.max;
     function addState() { add.disabled = rows.rows.length >= max; }
     add.addEventListener('click', function () {
@@ -154,7 +154,7 @@
       tr.querySelector('input[name=st]').focus();
     });
     addState();
-    // Снято поле, которое было у используемого типа, — его значения у объектов удалятся: подтверждение
+    // A field that the type in use had was unticked — its values in items will be deleted: confirmation
     form.addEventListener('submit', function (e) {
       if (!+form.dataset.used) return;
       var dropped = Array.prototype.some.call(form.querySelectorAll('tr[data-was-on="1"]'), function (tr) {

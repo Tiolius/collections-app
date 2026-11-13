@@ -7,8 +7,8 @@
   <th:block th:replace="~{base :: settingsHead('display')}"></th:block>
   <p class="ok" th:if="${param.saved != null}" th:text="#{display.saved}">Настройки сохранены.</p>
   <form autocomplete="off" class="form" method="post" action="/display">
-    <!-- Тема: пары «тёмная — светлая»; переключатель в шапке меняет тёмную и светлую тему выбранной пары.
-         Выбор сразу виден на странице (скрипт ставит data-pair), сохраняется кнопкой «Сохранить» -->
+    <!-- Theme: "dark — light" pairs; the switch in the header toggles dark and light within the chosen pair.
+         The choice shows on the page at once (a script sets data-pair) and is saved with the "Save" button -->
     <label class="at-field"><span th:text="#{display.theme}">Тема</span> <span th:replace="~{base :: info(#{display.themeHint})}"></span></label>
     <div class="theme-cards">
       <label class="theme-card" th:each="t : ${themes}" th:data-pair="${t.key}">

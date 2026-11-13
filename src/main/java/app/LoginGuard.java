@@ -6,24 +6,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 
 /**
- * Защита от подбора пароля: после нескольких неудачных попыток ключ (адрес + имя, адрес, пользователь)
- * блокируется на время. Хранится в памяти, после перезапуска счётчики обнуляются.
+ * Protection against password guessing: after several failed attempts a key (address + name, address, user)
+ * is locked for a while. Kept in memory; counters reset after a restart.
  */
 @Component
 public class LoginGuard {
 
-    /** Блокировка после стольких неудачных попыток подряд… */
+    /** Lock after this many failed attempts in a row… */
     public static final int MAX_FAILS = 5;
-    /** …с одного адреса по любым именам (перебор имён) */
+    /** …from one address with any names (guessing names) */
     public static final int MAX_FAILS_PER_IP = 30;
-    /** …на столько минут. */
+    /** …for this many minutes. */
     public static final int LOCK_MINUTES = 15;
 
     private record State(int fails, long lockedUntil) {}
 
     private final Map<String, State> states = new ConcurrentHashMap<>();
 
-    /** Сколько ещё минут заблокирован хотя бы один из ключей (0 — не заблокирован). */
+    /** How many more minutes at least one of the keys is locked (0 — not locked). */
     public long lockedMinutes(String... keys) {
         long now = System.currentTimeMillis(), until = 0;
         for (String k : keys) {
@@ -33,7 +33,7 @@ public class LoginGuard {
         return until == 0 ? 0 : (until - now + 59_999) / 60_000;
     }
 
-    /** Неудачная попытка: limit — сколько попыток до блокировки для этого ключа. */
+    /** A failed attempt: limit — how many attempts before this key is locked. */
     public void fail(String key, int limit) {
         long now = System.currentTimeMillis();
         if (states.size() > 10_000) states.values().removeIf(s -> s.lockedUntil() < now && s.fails() < limit);
@@ -43,7 +43,7 @@ public class LoginGuard {
         });
     }
 
-    /** Удачная попытка — счётчик ключа сбрасывается. */
+    /** A successful attempt — the key's counter is reset. */
     public void success(String key) {
         states.remove(key);
     }

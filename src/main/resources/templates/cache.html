@@ -6,13 +6,13 @@
 <main class="settings">
   <th:block th:replace="~{base :: settingsHead('cache')}"></th:block>
   <h3 class="section" th:text="#{cache.title}">Картинки коллекции</h3>
-  <!-- Идёт удаление: прогресс обновляется скриптом из /cache/status, по окончании страница перезагружается -->
+  <!-- Deleting in progress: progress is updated by a script from /cache/status, when done the page reloads -->
   <div class="import-box" id="cache-job" th:if="${job != null and job.active()}">
     <div><span th:text="#{cache.deleting}">Удаление картинок:</span> <b th:text="${job.collectionName}"></b></div>
     <progress id="cj-bar" th:max="${job.total == 0 ? 1 : job.total}" th:value="${job.done}"></progress>
     <div><span th:text="#{cache.deleted}">Удалено</span> <span id="cj-done" th:text="${job.done}"></span> <span th:text="#{cache.of}">из</span> <span id="cj-total" th:text="${job.total}"></span></div>
   </div>
-  <!-- Итог последнего удаления -->
+  <!-- Result of the last deletion -->
   <th:block th:if="${job != null and !job.active()}">
     <p class="ok" th:if="${job.state == 'done'}" th:text="#{cache.done(${job.done}, ${job.collectionName})}"></p>
     <p class="error" th:unless="${job.state == 'done'}" th:text="#{cache.failed(${job.collectionName}, ${job.done}, ${job.total})}"></p>
@@ -39,8 +39,8 @@
     </div>
   </form>
 <script th:if="${job != null and job.active()}">
-  // Прогресс удаления: раз в полсекунды спрашиваем состояние; когда закончится — перезагружаем страницу
-  // (итог и новые числа картинок в списке коллекций)
+  // Deletion progress: ask for the state every half second; when finished, reload the page
+  // (result and new picture counts in the collection list)
   (function () {
     function $(id) { return document.getElementById(id); }
     function tick() {

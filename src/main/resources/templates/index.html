@@ -25,7 +25,7 @@
       <div>
         <div class="name" th:text="${c.name()}"></div>
         <div class="type" th:text="${c.kind() == null ? '—' : c.kind()}"></div>
-        <!-- Счётчики: всего; в наличии и стоимость — если у типа есть эти поля (стоимость скрыта настройкой — в подсказке у глаза) -->
+        <!-- Counters: total; available and value — if the type has these fields (value hidden by a setting — in the eye tooltip) -->
         <div class="muted meta-line stats" th:with="f=${kindFields.get(c.id())}">
           <span th:text="#{index.total(${c.count()})}"></span>
           <th:block th:if="${f.contains('available')}"><span class="sep">·</span> <span th:text="#{index.available(${availableCounts.get(c.id())})}"></span></th:block>

@@ -10,16 +10,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Удаление всех картинок объектов коллекции («Настройки» → «Кэш») в фоне: при тысячах картинок это долго,
- * страница показывает прогресс (опрашивает /cache/status). Одна очистка на всё приложение за раз;
- * состояние — в памяти (Job на пользователя, после перезапуска теряется).
+ * Deletes all pictures of the items of a collection ("Settings" → "Cache") in the background: with thousands of pictures it takes a while,
+ * the page shows progress (polls /cache/status). One clearing for the whole application at a time;
+ * state is in memory (a Job per user, lost after a restart).
  */
 @Component
 public class CacheClear {
 
     private static final Logger log = LoggerFactory.getLogger(CacheClear.class);
 
-    /** Состояние очистки пользователя. */
+    /** The user's clearing state. */
     public static class Job {
         public final long collectionId;
         public final String collectionName;
@@ -49,13 +49,13 @@ public class CacheClear {
         this.files = files;
     }
 
-    /** Текущая или последняя очистка пользователя (или null). */
+    /** The user's current or last clearing (or null). */
     public Job job(long uid) {
         return jobs.get(uid);
     }
 
-    /** Есть ли идущая очистка этой коллекции (у кого угодно) — тогда импорт в неё не запускать. */
-    /** Идёт ли очистка у кого-нибудь (восстановление из копии в это время не запускается). */
+    /** Whether this collection is being cleared (by anyone) — then no import into it is started. */
+    /** Whether anyone is clearing (restoring from a backup is not started meanwhile). */
     public boolean anyActive() {
         return jobs.values().stream().anyMatch(Job::active);
     }
@@ -65,8 +65,8 @@ public class CacheClear {
     }
 
     /**
-     * Запускает очистку; false — у пользователя уже идёт очистка. Права на коллекцию проверяет вызывающий код.
-     * total — сколько картинок у объектов коллекции сейчас (для прогресса).
+     * Starts clearing; false — the user already has one running. Rights to the collection are checked by the caller.
+     * total — how many pictures the items of the collection have now (for progress).
      */
     public synchronized boolean start(long uid, Entry collection, int total) {
         Job old = jobs.get(uid);

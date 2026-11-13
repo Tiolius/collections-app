@@ -19,7 +19,7 @@
         </span>
       </div>
     </div>
-    <!-- Действия с коллекцией — всегда одной строкой (на телефоне переносятся целиком под название) -->
+    <!-- Collection actions — always in one row (on a phone they move as a whole under the name) -->
     <div class="coll-actions">
       <a class="icon big add new-item" th:title="#{item.new}" th:aria-label="#{item.new}" th:href="@{/collections/{id}/items/new(id=${c.id()})}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M550-320h60v-90h90v-60h-90v-90h-60v90h-90v60h90v90ZM140-160q-24 0-42-18.5T80-220v-520q0-23 18-41.5t42-18.5h281l60 60h339q23 0 41.5 18.5T880-680v460q0 23-18.5 41.5T820-160H140Zm0-60h680v-460H456l-60-60H140v520Zm0 0v-520 520Z"/></svg></a>
       <a class="icon big" th:title="#{dups.title}" th:aria-label="#{dups.title}" th:href="@{/collections/{id}(id=${c.id()},dups=1)}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-620h60v620h500v60H180Zm120-180v-560 560Z"/></svg></a>
@@ -44,7 +44,7 @@
   <p class="empty" th:if="${totalAll == 0}" th:text="${dups ? #messages.msg('dups.none') : #messages.msg('coll.empty')}"></p>
 
   <th:block th:if="${totalAll > 0}">
-  <!-- Форма фильтров: поля фильтров в шапке таблицы привязаны к ней атрибутом form -->
+  <!-- Filter form: the filter fields in the table header are bound to it by the form attribute -->
   <form autocomplete="off" id="filter-form" method="get" th:action="@{/collections/{id}(id=${c.id()})}"
         onsubmit="for (const el of this.elements) if (el.name && !el.value) el.disabled = true">
     <input type="hidden" name="dups" value="1" th:if="${dups}">
@@ -64,7 +64,7 @@
       </th:block>
     </span>
     <span class="spacer"></span>
-    <!-- Справа: сбросить ширину столбцов и сбросить фильтры (объектов на странице — «Настройки» → «Отображение») -->
+    <!-- On the right: reset column widths and reset filters (items per page — "Settings" → "Display") -->
     <span class="pager-tools">
       <button type="button" class="icon" id="reset-widths" th:title="#{coll.resetWidths}" th:aria-label="#{coll.resetWidths}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M140-160q-24.75 0-42.37-17.63Q80-195.25 80-220v-520q0-24.75 17.63-42.38Q115.25-800 140-800h680q24.75 0 42.38 17.62Q880-764.75 880-740v520q0 24.75-17.62 42.37Q844.75-160 820-160H140Zm0-60h187v-520H140v520Zm247 0h186v-520H387v520Zm246 0h187v-520H633v520Zm-246 0v-520 520Z"/></svg></button>
       <a th:unless="${filters.isEmpty()}" class="icon" th:title="#{coll.resetFilters}" th:aria-label="#{coll.resetFilters}"
@@ -73,7 +73,7 @@
     </span>
   </div>
 
-  <!-- Массовые действия: галочки строк (name="ids", form="bulk-form"); панель видна, когда что-то выбрано -->
+  <!-- Bulk actions: row ticks (name="ids", form="bulk-form"); the panel is visible when something is selected -->
   <form autocomplete="off" id="bulk-form" class="bulk" method="post" th:action="@{/collections/{id}/bulk(id=${c.id()})}" hidden
         th:data-confirm="#{bulk.deleteConfirm}"
         onsubmit="return this.elements.action.value !== 'delete' || appConfirm(event, this.dataset.confirm.replace('{0}', document.querySelectorAll('input[name=ids]:checked').length))">
@@ -87,7 +87,7 @@
       <option value="move" th:unless="${moveTargets.isEmpty()}" th:text="#{bulk.move}">Перенести в коллекцию</option>
       <option value="delete" th:text="#{js.delete}">Удалить</option>
     </select>
-    <!-- значение для выбранного действия: видно и отправляется только одно -->
+    <!-- value for the selected action: only one is visible and sent -->
     <select name="value" data-for="available" th:if="${fields.contains('available')}" hidden disabled>
       <option value="1" th:text="#{available.yes}">Есть</option>
       <option value="0" th:text="#{available.no}">Нет</option>
@@ -118,13 +118,13 @@
            th:text="${col.label() + (sort == col.key() ? (dir == 'asc' ? ' ▲' : ' ▼') : '')}"></a>
         <span class="grip" th:title="#{coll.dragWidth}"></span>
       </th>
-      <!-- Картинка: иконка у объектов, у которых она есть -->
+      <!-- Picture: an icon for items that have one -->
       <th class="pic-col" th:title="#{field.image}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm56-97h489L578-473 446-302l-93-127-117 152Zm-56 97v-600 600Z"/></svg></th>
     </tr>
     <tr class="filters">
       <th class="sel"></th>
       <th th:each="col : ${cols}" th:class="${col.css() + ' c-' + col.key()}">
-        <!-- Набор с клавиатуры — применяется по Enter; вставка (Ctrl+V, меню, перетаскивание) — сразу -->
+        <!-- Typing — applied on Enter; pasting (Ctrl+V, menu, drag and drop) — at once -->
         <input th:if="${col.key() == 'name'}" type="search" name="f_name" form="filter-form" th:placeholder="#{coll.searchName}"
                oninput="if (/^insertFrom(Paste|Drop)/.test(event.inputType)) this.form.requestSubmit()"
                autocomplete="off" th:value="${filters.get('name')}" th:classappend="${filters.containsKey('name')} ? 'active'">
@@ -134,7 +134,7 @@
           <option th:each="v : ${filterOptions.get(col.key())}" th:value="${v}" th:text="${v}"
                   th:selected="${v == filters.get(col.key())}"></option>
         </select>
-        <!-- своё поле «да / нет»: Все / Да / Нет -->
+        <!-- custom yes/no field: All / Yes / No -->
         <select th:if="${customTypes.get(col.key()) == 'bool'}" th:name="${'f_' + col.key()}" form="filter-form"
                 onchange="this.form.requestSubmit()" th:classappend="${filters.containsKey(col.key())} ? 'active'">
           <option value="" th:text="#{filter.all}">Все</option>
@@ -162,7 +162,7 @@
         </div>
       </th>
       <th class="pic-col">
-        <!-- Картинки: есть / нет / ровно N (например, найти объекты, где после импорта одна картинка) -->
+        <!-- Pictures: present / none / exactly N (for example, to find items with one picture after an import) -->
         <select name="f_images" form="filter-form" onchange="this.form.requestSubmit()" th:title="#{filter.images}"
                 th:classappend="${filters.containsKey('images')} ? 'active'">
           <option value="" th:text="#{filter.all}">Все</option>
@@ -179,9 +179,9 @@
                th:style="${bg != null ? '--row-bg:' + bg : null}"
                th:data-id="${it.id()}" th:data-item="${itemJson.get(it.id())}">
       <td class="sel"><input type="checkbox" name="ids" form="bulk-form" th:value="${it.id()}" th:aria-label="${it.name()}"></td>
-      <!-- Щелчок по названию открывает окно объекта (адрес ссылки — для открытия в новой вкладке) -->
+      <!-- Clicking the name opens the item window (the link address — for opening in a new tab) -->
       <td class="title" th:title="${it.name()}"><a class="edit-item" th:href="@{/items/{id}/edit(id=${it.id()},view=${view})}" th:text="${it.name()}"></a></td>
-      <!-- Ячейки — в порядке столбцов (cols: порядок полей типа), как и заголовки -->
+      <!-- Cells — in column order (cols: the order of type fields), like the headers -->
       <th:block th:each="col : ${cols}" th:unless="${col.key() == 'name'}"><th:block th:switch="${col.key()}">
       <td th:case="'platform'" class="c-platform" th:text="${it.platform()}"></td>
       <td th:case="'format'" class="c-format" th:text="${it.format()}"></td>
@@ -204,7 +204,7 @@
         <span th:unless="${it.available()}" class="avail no" th:title="#{available.no}" th:aria-label="#{available.no}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></span>
       </td>
       <td th:case="'tags'" class="tags c-tags" th:title="${it.tags()}"><span class="tag" th:each="t : ${it.tagList()}" th:text="${t}"></span></td>
-      <!-- свои поля: значение для показа (customText); «да/нет» — галочкой -->
+      <!-- custom fields: value for display (customText); yes/no — as a tick -->
       <td th:case="*" th:class="${col.css() + ' c-' + col.key()}"
           th:with="v=${customText.get(it.id()) == null ? null : customText.get(it.id()).get(col.key())}">
         <th:block th:if="${customTypes.get(col.key()) == 'bool'}">
@@ -224,7 +224,7 @@
   <th:block th:replace="~{base :: itemDialog}"></th:block>
 </main>
 <script>
-  // Массовые действия: выбор строк (Shift — диапазон), «выбрать все на странице», панель и значение для действия
+  // Bulk actions: row selection (Shift — a range), "select all on the page", the panel and the value for the action
   (function () {
     var form = document.getElementById('bulk-form');
     if (!form) return;
@@ -252,15 +252,15 @@
     });
     sync();
   })();
-  // Ширина столбцов: потянуть за правый край заголовка. Запоминается в браузере (localStorage).
+  // Column width: drag the right edge of a header. Remembered in the browser (localStorage).
   (function () {
     var table = document.querySelector('table.items');
     if (!table) return;
     var key = 'colw:' + table.dataset.cols;
     var ths = Array.prototype.slice.call(table.querySelectorAll('thead tr.head th'));
-    // Текущая ширина столбца с запасом на округление, чтобы текст не обрезался
+    // Current column width with a margin for rounding, so the text is not cut
     function width(th) { return Math.ceil(th.getBoundingClientRect().width) + 1; }
-    // Ширина таблицы = сумма столбцов, чтобы менялся только тот столбец, который тянут
+    // Table width = sum of columns, so only the dragged column changes
     function fitTable() {
       table.style.width = ths.reduce(function (sum, th) { return sum + parseInt(th.style.width, 10); }, 0) + 'px';
     }

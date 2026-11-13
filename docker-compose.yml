@@ -3,7 +3,7 @@ services:
     build: .
     container_name: collections-app
     ports:
-      # Только с этого компьютера. Для доступа из сети/интернета — см. README, «Публикация в интернете»
+      # This computer only. For access from a network or the internet, see README, "Publishing on the internet"
       - "127.0.0.1:47321:8000"
     volumes:
       - ./data:/data

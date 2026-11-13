@@ -22,13 +22,13 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 /**
- * Простой файл Excel (.xlsx) без библиотек: .xlsx — это ZIP с несколькими XML-файлами.
- * Запись: каждый лист — заголовок (жирный, закреплён) и строки; ячейки — текст или число, null — пустая.
- * Чтение: листы по порядку, ячейки — текст (String), число (Double) или null; формулы — их сохранённым значением.
+ * A simple Excel file (.xlsx) without libraries: .xlsx is a ZIP with several XML files.
+ * Writing: each sheet — a header (bold, frozen) and rows; cells — text or number, null — empty.
+ * Reading: sheets in order, cells — text (String), number (Double) or null; formulas — by their saved value.
  */
 public final class Xlsx {
 
-    /** Лист: название (обрезается до 31 символа и делается уникальным), заголовки, строки, ширина столбцов в символах. */
+    /** Sheet: name (cut to 31 characters and made unique), headers, rows, column widths in characters. */
     public record Sheet(String name, List<String> headers, List<List<Object>> rows, List<Integer> widths) {}
 
     private Xlsx() {
@@ -71,7 +71,7 @@ public final class Xlsx {
                 + "</Relationships>");
         put(zip, "xl/workbook.xml", book.toString());
         put(zip, "xl/_rels/workbook.xml.rels", bookRels.toString());
-        // Стили: 0 — обычный, 1 — жирный (заголовок)
+        // Styles: 0 — normal, 1 — bold (header)
         put(zip, "xl/styles.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
                 + "<fonts count=\"2\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font><font><b/><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>"
@@ -88,7 +88,7 @@ public final class Xlsx {
     private static String sheetXml(Sheet sh) {
         StringBuilder x = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
-                // Заголовок закреплён при прокрутке
+                // The header is frozen when scrolling
                 + "<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>"
                 + "</sheetView></sheetViews><cols>");
         for (int c = 0; c < sh.widths().size(); c++)
@@ -119,14 +119,14 @@ public final class Xlsx {
                     .append(esc(v.toString())).append("</t></is></c>");
     }
 
-    /** Буквы столбца: 0 → A, 25 → Z, 26 → AA. */
+    /** Column letters: 0 → A, 25 → Z, 26 → AA. */
     private static String column(int c) {
         StringBuilder s = new StringBuilder();
         for (c++; c > 0; c = (c - 1) / 26) s.insert(0, (char) ('A' + (c - 1) % 26));
         return s.toString();
     }
 
-    /** Название листа по правилам Excel: без []:*?/\, до 31 символа, не пустое и уникальное без учёта регистра. */
+    /** Sheet name by Excel rules: without []:*?/\, up to 31 characters, not empty and unique ignoring case. */
     static String sheetName(String name, Set<String> used) {
         String base = name.replaceAll("[\\[\\]:*?/\\\\]", " ").replaceAll("\\s+", " ").replaceAll("^'+|'+$", "").trim();
         if (base.isEmpty()) base = I18n.t("export.sheet");
@@ -140,7 +140,7 @@ public final class Xlsx {
         return n;
     }
 
-    /** Экранирование для XML; управляющие символы (кроме таба и переводов строк) выбрасываются — XML их не допускает. */
+    /** Escaping for XML; control characters (except tab and line breaks) are dropped — XML does not allow them. */
     private static String esc(String s) {
         StringBuilder b = new StringBuilder(s.length());
         for (char ch : s.toCharArray()) {
@@ -161,27 +161,27 @@ public final class Xlsx {
         zip.closeEntry();
     }
 
-    // ---------- чтение ----------
+    // ---------- reading ----------
 
-    /** Наибольший размер одного файла внутри .xlsx после распаковки (защита от «ZIP-бомбы»). */
+    /** Largest size of one file inside .xlsx after unpacking (protection against a "ZIP bomb"). */
     static final int MAX_PART_BYTES = 64 * 1024 * 1024;
-    /** Наибольшее число строк на листе и столбцов в строке. */
+    /** Largest number of rows on a sheet and columns in a row. */
     static final int MAX_ROWS = 100_000, MAX_COLS = 200;
 
-    /** Файл не похож на .xlsx или повреждён. */
+    /** The file does not look like .xlsx or is damaged. */
     public static class BadFile extends IOException {
         BadFile(String message) {
             super(message);
         }
     }
 
-    /** Листы файла по порядку: название и все строки (первая — как есть, заголовки выбирает вызывающий код). */
+    /** Sheets of the file in order: name and all rows (the first as is, the caller chooses the headers). */
     public static List<Sheet> read(InputStream in) throws IOException {
         Map<String, byte[]> parts = new HashMap<>();
         try (ZipInputStream zip = new ZipInputStream(in, StandardCharsets.UTF_8)) {
             for (ZipEntry e; (e = zip.getNextEntry()) != null; ) {
                 String n = e.getName();
-                // нужны только книга, связи, общие строки и листы
+                // only the workbook, relationships, shared strings and sheets are needed
                 if (!n.equals("xl/workbook.xml") && !n.equals("xl/_rels/workbook.xml.rels") && !n.equals("xl/sharedStrings.xml")
                         && !n.startsWith("xl/worksheets/")) continue;
                 parts.put(n, readPart(zip));
@@ -203,7 +203,7 @@ public final class Xlsx {
                         if (x.getAttributeLocalName(a).equals("id")) rid = x.getAttributeValue(a);
                     String target = rid == null ? null : targets.get(rid);
                     if (target == null) continue;
-                    // путь листа — от папки xl/ или от корня архива («/xl/worksheets/sheet1.xml»)
+                    // sheet path — from the xl/ folder or from the archive root ("/xl/worksheets/sheet1.xml")
                     String path = target.startsWith("/") ? target.substring(1) : "xl/" + target;
                     byte[] sheet = parts.get(path);
                     if (sheet != null) res.add(new Sheet(name == null ? "" : name, List.of(), rows(sheet, shared), List.of()));
@@ -224,7 +224,7 @@ public final class Xlsx {
         return out.toByteArray();
     }
 
-    /** Разбор XML без DTD и внешних сущностей (файл присылает пользователь). */
+    /** XML parsing without DTD and external entities (the file comes from the user). */
     private static XMLStreamReader xml(byte[] data) throws XMLStreamException {
         XMLInputFactory f = XMLInputFactory.newFactory();
         f.setProperty(XMLInputFactory.SUPPORT_DTD, false);
@@ -232,7 +232,7 @@ public final class Xlsx {
         return f.createXMLStreamReader(new ByteArrayInputStream(data));
     }
 
-    /** Связи книги: Id → путь листа. */
+    /** Workbook relationships: Id → sheet path. */
     private static Map<String, String> relationships(byte[] data) throws XMLStreamException {
         Map<String, String> res = new HashMap<>();
         if (data == null) return res;
@@ -243,7 +243,7 @@ public final class Xlsx {
         return res;
     }
 
-    /** Общие строки книги по номеру: текст всех <t> строки, кроме фонетических подсказок (<rPh>). */
+    /** Shared strings of the workbook by number: text of all <t> of the string, except phonetic hints (<rPh>). */
     private static List<String> sharedStrings(byte[] data) throws XMLStreamException {
         List<String> res = new ArrayList<>();
         if (data == null) return res;
@@ -267,14 +267,14 @@ public final class Xlsx {
         return res;
     }
 
-    /** Строки листа: ячейки по номеру столбца (из адреса «B7»), пропуски — null; пустые строки в конце не входят. */
+    /** Sheet rows: cells by column number (from the "B7" address), gaps — null; empty rows at the end are not included. */
     private static List<List<Object>> rows(byte[] data, List<String> shared) throws XMLStreamException {
         List<List<Object>> res = new ArrayList<>();
         XMLStreamReader x = xml(data);
         List<Object> row = null;
         String type = null, ref = null, value = null;
         StringBuilder inline = null;
-        int next = 0; // столбец следующей ячейки без адреса
+        int next = 0; // column of the next cell without an address
         while (x.hasNext()) {
             int ev = x.next();
             if (ev == XMLStreamReader.START_ELEMENT) {
@@ -283,7 +283,7 @@ public final class Xlsx {
                         String r = x.getAttributeValue(null, "r");
                         int n = r == null ? res.size() + 1 : Integer.parseInt(r);
                         if (n > MAX_ROWS) return res;
-                        while (res.size() < n - 1) res.add(new ArrayList<>()); // пропущенные пустые строки
+                        while (res.size() < n - 1) res.add(new ArrayList<>()); // skipped empty rows
                         row = new ArrayList<>();
                         next = 0;
                     }
@@ -320,7 +320,7 @@ public final class Xlsx {
         return res;
     }
 
-    /** Номер столбца по адресу ячейки: «A1» → 0, «AB12» → 27. */
+    /** Column number from a cell address: "A1" → 0, "AB12" → 27. */
     static int column(String ref) {
         int n = 0;
         for (int i = 0; i < ref.length() && Character.isLetter(ref.charAt(i)); i++)
@@ -328,7 +328,7 @@ public final class Xlsx {
         return n - 1;
     }
 
-    /** Значение ячейки: общая строка (s), строка в ячейке (inlineStr, str), логическое (b — «1»/«0»), число; ошибка — null. */
+    /** Cell value: shared string (s), inline string (inlineStr, str), boolean (b — "1"/"0"), number; error — null. */
     private static Object cellValue(String type, String value, StringBuilder inline, List<String> shared) {
         if ("inlineStr".equals(type)) return inline == null ? null : inline.toString();
         if (value == null) return null;

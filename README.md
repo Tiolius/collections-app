@@ -14,7 +14,7 @@ Runs as a Windows program (no Docker, no Java installation needed) or in Docker.
 1. Download `CollectionsApp-X.Y.Z-windows.zip` from the **Releases** section of the GitHub repository
    (the archive is built automatically for every new version).
 2. Unpack it to any folder — you get the `CollectionsApp` folder.
-3. Run `CollectionsApp.exe`: the application opens in the default browser (http://localhost:47321),
+3. Run `CollectionsApp.exe`: the application opens in a new window of the default browser (http://localhost:47321),
    and its icon appears next to the clock on the taskbar. There is no console window.
    If port 47321 is used by another program, the application starts on any free port — the address will differ
    (browser settings, such as the dark theme, are remembered anew for it); the icon and running the exe again open the right address.
@@ -98,7 +98,7 @@ For access from the internet:
 1. Скачайте архив `CollectionsApp-X.Y.Z-windows.zip` из раздела **Releases** репозитория на GitHub
    (архив собирается автоматически при выходе каждой новой версии).
 2. Распакуйте его в удобную папку — получится папка `CollectionsApp`.
-3. Запустите `CollectionsApp.exe`: приложение откроется в браузере по умолчанию (http://localhost:47321),
+3. Запустите `CollectionsApp.exe`: приложение откроется в новом окне браузера по умолчанию (http://localhost:47321),
    а у часов на панели задач появится его значок. Окна консоли нет.
    Если порт 47321 занят другой программой, приложение запустится на любом свободном порту — адрес будет другим
    (настройки браузера, например тёмная тема, для него запоминаются заново); значок и повторный запуск exe открывают верный адрес.

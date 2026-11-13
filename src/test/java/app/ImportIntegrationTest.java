@@ -25,8 +25,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Импорт целиком (задание, источник, запросы, запись картинок и описания) на временной базе
- * и заглушке Discogs: картинки берутся у самого популярного CD-издания того же альбома.
+ * Whole import (job, source, requests, saving pictures and description) on a temporary database
+ * and a Discogs stub: pictures come from the most popular CD release of the same album.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ImportIntegrationTest {
@@ -117,7 +117,7 @@ class ImportIntegrationTest {
         Entry e = repo.item(uid, item);
         assertThat(e.description()).isEqualTo("Rock opera.");
         assertThat(e.pics()).isEqualTo(sha(CD) + "," + sha(CD_BACK));
-        // издания искались на CD и по числу владельцев
+        // releases were searched on CD and by number of owners
         assertThat(REQUESTS).anyMatch(r -> r.contains("type=release") && r.contains("format=CD") && r.contains("sort=have"));
     }
 

@@ -1,4 +1,4 @@
-# Данные пользователя: никогда не коммитить
+# User data: never commit
 data/
 *.db
 *.db-journal
@@ -15,9 +15,9 @@ target/
 *.iml
 .vscode/
 
-# Секреты (токен Discogs и др.) — в файле .env рядом с docker-compose.yml
+# Secrets (Discogs token etc.) — in the .env file next to docker-compose.yml
 .env
 
-# Инструкции для ассистента — только локально
+# Assistant instructions — local only
 CLAUDE.md
 .claude/

@@ -11,9 +11,9 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.ModelAndView;
 
 /**
- * Общее для всех страниц: вошедший пользователь (currentUser) и страница ошибки error.html.
- * На странице ошибки текст показывается только наш (например, «Название обязательно»); остальные ошибки
- * идут через стандартный /error без технических подробностей (server.error.include-message=never).
+ * Common to all pages: the signed-in user (currentUser) and the error page error.html.
+ * The error page shows only our own text (for example, "Name is required"); other errors
+ * go through the standard /error without technical details (server.error.include-message=never).
  */
 @ControllerAdvice
 public class WebAdvice {
@@ -26,20 +26,20 @@ public class WebAdvice {
         this.updates = updates;
     }
 
-    /** Новая версия приложения (или null) — администратору, для ссылки в шапке. */
+    /** New application version (or null) — for the administrator, for the link in the header. */
     @ModelAttribute("update")
     public Updates.Release update(HttpSession session) {
         Repo.User u = currentUser(session);
         return u != null && u.isAdmin() ? updates.available() : null;
     }
 
-    /** Пара тем оформления вошедшего пользователя (ключ Repo.THEMES) или null — до входа (тогда — из браузера). */
+    /** Theme pair of the signed-in user (a Repo.THEMES key) or null before sign-in (then taken from the browser). */
     @ModelAttribute("themePair")
     public String themePair(HttpSession session) {
         return session.getAttribute("uid") instanceof Long uid ? repo.themePair(uid) : null;
     }
 
-    /** Вошедший пользователь (или null) — для шапки страниц и прав администратора в шаблонах. */
+    /** Signed-in user (or null) — for the page header and administrator rights in templates. */
     @ModelAttribute("currentUser")
     public Repo.User currentUser(HttpSession session) {
         return session.getAttribute("uid") instanceof Long uid ? repo.user(uid) : null;
@@ -53,7 +53,7 @@ public class WebAdvice {
         return mv;
     }
 
-    /** Файл больше лимита (spring.servlet.multipart.max-file-size). */
+    /** File larger than the limit (spring.servlet.multipart.max-file-size). */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ModelAndView tooLarge(HttpServletResponse res, HttpSession session) {
         return error(413, res, session);

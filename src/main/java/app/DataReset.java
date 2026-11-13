@@ -9,10 +9,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * База прежних версий (до 1.18: тип коллекции — название в collections.kind, поля объектов — столбцами и отдельными
- * таблицами) новой версией не переносится (решение пользователя: данные загружаются заново из Excel, картинки —
- * импортом). Перед запуском такая база и её картинки откладываются в резервные файлы рядом —
- * app-before-1.18.db, images-before-1.18, — и приложение начинает с чистой базы.
+ * A database of previous versions (before 1.18: collection type — a name in collections.kind, item fields — columns and separate
+ * tables) is not carried over by the new version (the user's decision: data is loaded again from Excel, pictures — by
+ * import). Before start such a database and its pictures are moved aside into backup files next to it —
+ * app-before-1.18.db, images-before-1.18, — and the application starts with a clean database.
  */
 final class DataReset {
 
@@ -20,13 +20,13 @@ final class DataReset {
 
     private DataReset() {}
 
-    /** Откладывает базу прежней версии в папке данных; true — отложена. Новую или пустую базу не трогает. */
+    /** Moves a previous-version database in the data folder aside; true — moved. A new or empty database is left alone. */
     static boolean resetIfOld(Path dataDir) throws IOException {
         Path db = dataDir.resolve("app.db");
         if (!Files.exists(db) || !isOld(db)) return false;
         String to = free(dataDir, "app" + SUFFIX, ".db");
         move(db, dataDir.resolve(to));
-        // журнал базы (если остался) — вместе с ней, под тем же именем
+        // the database journal (if left over) goes with it, under the same name
         for (String part : new String[] {"-wal", "-shm"}) {
             Path p = dataDir.resolve("app.db" + part);
             if (Files.exists(p)) move(p, dataDir.resolve(to + part));
@@ -38,7 +38,7 @@ final class DataReset {
         return true;
     }
 
-    /** База прежней версии: в коллекциях тип — по названию (столбец kind), а не по id. */
+    /** Previous-version database: collections refer to the type by name (column kind), not by id. */
     static boolean isOld(Path db) throws IOException {
         try (Connection c = DriverManager.getConnection("jdbc:sqlite:" + db.toAbsolutePath());
              ResultSet rs = c.createStatement().executeQuery(
@@ -49,7 +49,7 @@ final class DataReset {
         }
     }
 
-    /** Имя, которого ещё нет в папке: name + ext, иначе name-2 + ext, name-3 + ext… */
+    /** A name not yet in the folder: name + ext, otherwise name-2 + ext, name-3 + ext… */
     private static String free(Path dir, String name, String ext) {
         String n = name + ext;
         for (int i = 2; Files.exists(dir.resolve(n)); i++) n = name + "-" + i + ext;

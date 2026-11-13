@@ -7,18 +7,18 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Программа для Windows: один запуск на папку данных, тексты значка и окон сообщений. */
+/** Windows program: one run per data folder, texts of the icon and message windows. */
 class DesktopAppTest {
 
     @Test
     void dataFolderIsLockedByFirstStart(@TempDir Path dir) throws Exception {
         try {
             assertThat(DesktopApp.lock(dir)).isTrue();
-            assertThat(DesktopApp.lock(dir)).isFalse(); // второй запуск — только открыть браузер
+            assertThat(DesktopApp.lock(dir)).isFalse(); // a second run only opens the browser
         } finally {
-            DesktopApp.unlock(); // иначе в Windows временную папку не удалить
+            DesktopApp.unlock(); // otherwise Windows cannot delete the temporary folder
         }
-        assertThat(DesktopApp.lock(dir)).isTrue(); // после выхода — снова можно запустить
+        assertThat(DesktopApp.lock(dir)).isTrue(); // after exit it can be started again
         DesktopApp.unlock();
     }
 
@@ -26,7 +26,7 @@ class DesktopAppTest {
     void portOfRunningProgramIsReadByNextStart(@TempDir Path dir) throws Exception {
         try {
             assertThat(DesktopApp.lock(dir)).isTrue();
-            assertThat(DesktopApp.savedPort(dir)).isEqualTo(-1); // ещё запускается
+            assertThat(DesktopApp.savedPort(dir)).isEqualTo(-1); // still starting
             DesktopApp.savePort(51234);
             assertThat(DesktopApp.savedPort(dir)).isEqualTo(51234);
         } finally {
@@ -37,7 +37,7 @@ class DesktopAppTest {
     @Test
     void busyPortIsReplacedByFreeOne() throws Exception {
         int first = App.freePort();
-        if (first != App.DESKTOP_PORT) return; // 47321 уже чем-то занят на этой машине — проверка ниже не о том
+        if (first != App.DESKTOP_PORT) return; // 47321 is already taken on this machine — the check below is not about that
         try (var busy = new java.net.ServerSocket(App.DESKTOP_PORT, 1, java.net.InetAddress.getLoopbackAddress())) {
             int other = App.freePort();
             assertThat(other).isNotEqualTo(App.DESKTOP_PORT).isPositive();
@@ -54,13 +54,13 @@ class DesktopAppTest {
 
     @Test
     void windowColorsComeFromEveryThemeOfApp() {
-        // у каждой пары и режима в app.css есть все цвета, нужные окнам программы
+        // every pair and mode in app.css has all the colours the program windows need
         for (String pair : Repo.THEMES.keySet())
             for (boolean dark : new boolean[] {false, true})
                 assertThat(DesktopTheme.vars(pair, dark)).as(pair + (dark ? " dark" : " light"))
                         .containsKeys("page", "paper", "card2", "text", "muted", "border", "blue", "on-blue", "btn2-border", "red");
         assertThat(DesktopTheme.of("night", true).paper()).isEqualTo(java.awt.Color.decode("#18191c"));
-        assertThat(DesktopTheme.of("нет такой", false).paper()).isEqualTo(java.awt.Color.decode("#ffffff")); // первая пара
+        assertThat(DesktopTheme.of("нет такой", false).paper()).isEqualTo(java.awt.Color.decode("#ffffff")); // the first pair
         assertThat(DesktopTheme.of("night", false).font().getFamily()).startsWith("Inter");
     }
 }

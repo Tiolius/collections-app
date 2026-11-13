@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 
-/** Маленькие PNG для тестов (4×4 одного цвета). */
+/** Small PNGs for tests (4×4, one colour). */
 final class TestImages {
 
     private TestImages() {}

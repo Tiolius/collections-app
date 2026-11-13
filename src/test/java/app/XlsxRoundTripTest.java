@@ -10,7 +10,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** Выгрузка в Excel и загрузка обратно: все поля объектов (кроме картинок) переносятся без потерь. */
+/** Export to Excel and loading back: all item fields (except pictures) are carried over without losses. */
 class XlsxRoundTripTest extends DbTest {
 
     @Autowired XlsxExport export;
@@ -71,7 +71,7 @@ class XlsxRoundTripTest extends DbTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Xlsx.write(out, sheets);
         jdbc.update("DELETE FROM items WHERE collection_id = ?", cid);
-        // статус в другом регистре — берётся из списка типа; столбцы узнаются по своим подписям
+        // status in another case — taken from the type list; columns are recognised by their own labels
         XlsxImport.Result r = load.load(uid, new ByteArrayInputStream(out.toByteArray()), "");
         Entry it = repo.items(r.firstCollection(), "name", false, Map.of()).get(0);
         assertThat(it.status()).isEqualTo("Читаю");

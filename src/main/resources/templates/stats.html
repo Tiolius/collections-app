@@ -3,8 +3,8 @@
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
-<!-- Статистика: итоги, по коллекциям (числа — ссылки на коллекцию с нужным фильтром), рейтинги, покупки по годам, теги.
-     «В наличии», статусы и стоимость считаются только у коллекций, у типа которых есть эти поля; «—» — поля нет -->
+<!-- Statistics: totals, by collection (numbers link to the collection with the right filter), ratings, purchases by year, tags.
+     "Available", statuses and value are counted only for collections whose type has these fields; "—" — no such field -->
 <main>
   <div class="bar">
     <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
@@ -15,7 +15,7 @@
     <div class="tile"><b th:text="${collections.size()}"></b><span th:text="#{stats.collections}">коллекций</span></div>
     <div class="tile"><b th:text="${total.items}"></b><span th:text="#{stats.items}">объектов</span></div>
     <div class="tile"><b th:text="${total.available}"></b><span th:text="#{stats.available}">в наличии</span></div>
-    <!-- самые частые статусы по всем коллекциям -->
+    <!-- the most frequent statuses across all collections -->
     <div class="tile" th:each="st : ${statusTotals}"><b th:text="${st.value}"></b><span th:text="${st.key}"></span></div>
     <div class="tile"><b th:text="${total.images}"></b><span th:text="#{stats.withImages}">с картинками</span></div>
     <div class="tile" th:if="${showPrices}"><b th:text="${totalPrice + ' ₽'}"></b><span th:text="#{stats.value}">стоимость</span></div>
@@ -43,7 +43,7 @@
       <td class="title"><a th:href="@{/collections/{id}(id=${c.id()})}" th:text="${c.name()}"></a></td>
       <td th:text="${s.items()}"></td>
       <td><a th:if="${f.contains('available')}" th:href="@{/collections/{id}(id=${c.id()},f_available=1)}" th:text="${s.available()}"></a><span th:unless="${f.contains('available')}" class="muted">—</span></td>
-      <!-- статусы типа коллекции: «статус число» — ссылка на коллекцию с этим статусом; цвет — цвет строки статуса -->
+      <!-- statuses of the collection type: "status number" — link to the collection with this status; colour — the status row colour -->
       <td class="statuses">
         <th:block th:if="${f.contains('status')}">
           <a th:each="st : ${statuses.get(c.id())}" class="swatch" th:style="${st.color() != null ? 'background:' + st.color() : null}"
@@ -58,7 +58,7 @@
       </td>
       <td th:text="${s.withImages()}"></td>
       <td th:text="${s.withDescription()}"></td>
-      <!-- стоимость коллекции; цены скрыты («Отображение») — за иконкой глаза, как в итогах -->
+      <!-- collection value; prices hidden ("Display") — behind the eye icon, as in the totals -->
       <td class="num">
         <span th:if="${f.contains('price') and showPrices}" th:text="${prices.get(c.id()) + ' ₽'}"></span>
         <span th:if="${f.contains('price') and !showPrices}" class="icon tip small" tabindex="0" th:aria-label="#{coll.valueLabel}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z"/></svg>
@@ -69,7 +69,7 @@
   </table>
 
   <div class="stat-blocks">
-    <!-- Рейтинг: сколько объектов в каждой звезде (3,5 считается как 4) -->
+    <!-- Rating: how many items in each star (3.5 counts as 4) -->
     <section th:if="${ratingMax > 0}">
       <h3 class="section" th:text="#{field.rating}">Рейтинг</h3>
       <div class="bars">
@@ -80,7 +80,7 @@
         </th:block>
       </div>
     </section>
-    <!-- Покупки по годам (поле «Дата покупки») -->
+    <!-- Purchases by year (the "Purchase date" field) -->
     <section th:unless="${years.isEmpty()}">
       <h3 class="section" th:text="#{stats.byYear}">Покупки по годам</h3>
       <div class="bars">
@@ -91,7 +91,7 @@
         </th:block>
       </div>
     </section>
-    <!-- Самые частые теги -->
+    <!-- Most frequent tags -->
     <section th:unless="${tags.isEmpty()}">
       <h3 class="section" th:text="#{stats.tags}">Частые теги</h3>
       <div><span class="tag" th:each="t : ${tags}"><th:block th:text="${t.key}"></th:block> <span class="muted" th:text="${t.value}"></span></span></div>

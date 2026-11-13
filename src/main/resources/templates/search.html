@@ -3,7 +3,7 @@
 <head th:replace="~{base :: head}"></head>
 <body>
 <header th:replace="~{base :: header}"></header>
-<!-- Поиск по всем коллекциям: коллекции по названию и объекты (название, теги, регион / издание, заметки) -->
+<!-- Search across all collections: collections by name and items (name, tags, region / edition, notes) -->
 <main>
   <div class="bar">
     <a class="btn light back" href="/" th:title="#{nav.allCollections}" th:aria-label="#{nav.allCollections}"><svg class="mi" viewBox="0 -960 960 960" aria-hidden="true"><path d="m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60H274Z"/></svg></a>
@@ -53,7 +53,7 @@
     </th:block>
   </th:block>
 </main>
-<!-- Объект открывается в окне объекта; после сохранения и удаления — снова эти результаты (скрытое поле q) -->
+<!-- An item opens in the item window; after saving and deleting — back to these results (hidden field q) -->
 <th:block th:replace="~{base :: itemDialog}"></th:block>
 </body>
 </html>

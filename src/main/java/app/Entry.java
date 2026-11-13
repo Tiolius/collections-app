@@ -1,37 +1,37 @@
 package app;
 
 /**
- * Коллекция или объект.
- * hasImage — есть ли картинка (у коллекции и у объекта).
- * Только у объектов: description — описание (у всех объектов, независимо от типа коллекции).
- * Только у коллекций: kind (название типа коллекции, kinds.name), count (число объектов в списке).
- * Только у объектов: collectionId, platform, format, status, price, available (есть ли в наличии),
- * imageCount (сколько картинок, до ImageFiles.MAX_IMAGES), rating (рейтинг в половинках звезды: 1…10, null — нет),
- * oldGames (ссылка на страницу игры на Old-Games.ru или null), purchased (дата покупки ГГГГ-ММ-ДД), tags (теги через «, »),
- * edition (регион / издание), notes (заметки) — null, если не заполнено.
- * pics — хеши картинок через запятую (у объекта — по порядку, у коллекции — обложка) для адресов /img/<хеш>; null — нет.
+ * A collection or an item.
+ * hasImage — whether there is a picture (for a collection and an item).
+ * Items only: description — description (all items have it, regardless of the collection type).
+ * Collections only: kind (collection type name, kinds.name), count (number of items in the list).
+ * Items only: collectionId, platform, format, status, price, available (whether it is in stock),
+ * imageCount (how many pictures, up to ImageFiles.MAX_IMAGES), rating (rating in half stars: 1…10, null — none),
+ * oldGames (link to the game page on Old-Games.ru or null), purchased (purchase date YYYY-MM-DD), tags (tags separated by ", "),
+ * edition (region / edition), notes (notes) — null if not filled in.
+ * pics — picture hashes separated by commas (item — in order, collection — the cover) for /img/<hash> addresses; null — none.
  */
 public record Entry(long id, String name, boolean hasImage, Long collectionId, int count,
                     String kind, String platform, String format, String status, Integer price,
                     String description, Boolean available, int imageCount, Integer rating, String oldGames,
                     String purchased, String tags, String edition, String notes, String pics) {
 
-    /** Хеш первой картинки (обложки коллекции) или null. */
+    /** Hash of the first picture (collection cover) or null. */
     public String pic() {
         return pics == null || pics.isEmpty() ? null : pics.split(",")[0];
     }
 
-    /** Номер игры на Old-Games.ru (из сохранённого адреса страницы) — его показывает поле; null — ссылки нет. */
+    /** Game number on Old-Games.ru (from the saved page address) — shown by the field; null — no link. */
     public String oldGamesId() {
         return OldGames.gameId(oldGames);
     }
 
-    /** Дата покупки для показа: «01.05.2024» по-русски, «May 1, 2024» по-английски; null — не указана. */
+    /** Purchase date for display: "01.05.2024" in Russian, "May 1, 2024" in English; null — not given. */
     public String purchasedText() {
         return purchased == null ? null : dateText(purchased);
     }
 
-    /** Дата ГГГГ-ММ-ДД для показа по языку интерфейса; не дата — как есть. */
+    /** Date YYYY-MM-DD for display in the interface language; not a date — as is. */
     public static String dateText(String date) {
         java.util.Locale l = org.springframework.context.i18n.LocaleContextHolder.getLocale();
         java.time.format.DateTimeFormatter f = "en".equals(l.getLanguage())
@@ -44,7 +44,7 @@ public record Entry(long id, String name, boolean hasImage, Long collectionId, i
         }
     }
 
-    /** Теги списком (без пустых). */
+    /** Tags as a list (without empty ones). */
     public java.util.List<String> tagList() {
         return Repo.splitTags(tags);
     }

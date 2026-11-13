@@ -9,7 +9,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Типы коллекций: поля по порядку, свои подписи, профиль, статусы с цветами; значения объектов в item_values. */
+/** Collection types: fields in order, own labels, profile, statuses with colours; item values in item_values. */
 class KindsTest extends DbTest {
 
     @Test
@@ -33,9 +33,9 @@ class KindsTest extends DbTest {
                 List.of("Стоимость", "Статус прохождения", "", " Метки "), List.of("Прочитано", "", "Читаю"), List.of("#AABBCC", "", ""));
         Kind k = repo.kind(uid, id);
         assertThat(k.profile()).isEqualTo("books");
-        assertThat(k.fields()).containsExactly("price", "status", "tags");          // порядок формы, только отмеченные
+        assertThat(k.fields()).containsExactly("price", "status", "tags");          // form order, ticked only
         assertThat(k.field("price").label()).isEqualTo("Стоимость");
-        assertThat(k.field("status").label()).isNull();                          // как стандартная — не своя
+        assertThat(k.field("status").label()).isNull();                          // same as standard — not own
         assertThat(k.label("tags")).isEqualTo("Метки");
         assertThat(k.label("status")).isEqualTo("Статус прохождения");
         assertThat(k.statuses()).containsExactly("Прочитано", "Читаю");
@@ -46,12 +46,12 @@ class KindsTest extends DbTest {
     void badKindInputIsRejected() {
         long uid = newUser();
         assertThatThrownBy(() -> repo.saveKind(uid, null, "Книги", "books", List.of(), List.of(), List.of(), List.of(), List.of()))
-                .isInstanceOf(ResponseStatusException.class);                     // такой тип уже есть
+                .isInstanceOf(ResponseStatusException.class);                     // such a type already exists
         assertThatThrownBy(() -> repo.saveKind(uid, null, "X", "other", List.of("status"), List.of("status"), List.of(),
-                List.of("a", "A"), List.of())).isInstanceOf(ResponseStatusException.class); // статус дважды
+                List.of("a", "A"), List.of())).isInstanceOf(ResponseStatusException.class); // status twice
         assertThatThrownBy(() -> repo.saveKind(uid, null, "Y", "other", List.of("status"), List.of("status"), List.of(),
-                List.of("a"), List.of("red"))).isInstanceOf(ResponseStatusException.class); // неверный цвет
-        // неизвестный профиль — «другое»
+                List.of("a"), List.of("red"))).isInstanceOf(ResponseStatusException.class); // invalid colour
+        // unknown profile — "other"
         long id = repo.saveKind(uid, null, "Z", "planes", List.of("bogus"), List.of("bogus"), List.of(), List.of(), List.of());
         assertThat(repo.kind(uid, id).profile()).isEqualTo("other");
         assertThat(repo.kind(uid, id).fields()).isEmpty();
@@ -64,19 +64,19 @@ class KindsTest extends DbTest {
         long id = newItem(uid, cid, new Repo.ItemForm("Fallout 2", "PC", null, "Completed", 300, List.of("0", "1"), 9,
                 "https://www.old-games.ru/game/11.html", null, null, null, null, "Описание"));
         Entry e = repo.item(uid, id);
-        assertThat(e.platform()).isNull();                                       // поля «Платформа» у типа нет
+        assertThat(e.platform()).isNull();                                       // the type has no "Platform" field
         assertThat(e.status()).isEqualTo("Completed");
         assertThat(e.price()).isEqualTo(300);
         assertThat(e.rating()).isEqualTo(9);
         assertThat(e.available()).isTrue();
         assertThat(e.oldGamesId()).isEqualTo("11");
         assertThat(e.description()).isEqualTo("Описание");
-        // статуса нет в списке типа — 400; пусто — без статуса
+        // status not in the type's list — 400; empty — no status
         assertThatThrownBy(() -> repo.saveItem(uid, id, "Игры (диски)", statusForm("Fallout 2", "Пройдено"), Map.of(), java.util.Set.of()))
                 .isInstanceOf(ResponseStatusException.class);
         repo.saveItem(uid, id, "Игры (диски)", statusForm("Fallout 2", ""), Map.of(), java.util.Set.of());
         assertThat(repo.item(uid, id).status()).isNull();
-        // в форме без цены цена очищается (у типа поле есть, значения нет); сортировка цены — числами, без цены — в конце
+        // a form without a price clears the price (the type has the field, no value); price sorting — by number, no price — at the end
         assertThat(repo.item(uid, id).price()).isNull();
         newItem(uid, cid, new Repo.ItemForm("Arcanum", null, null, null, 1500, List.of("0"), null, null, null, null, null, null, null));
         newItem(uid, cid, new Repo.ItemForm("Baldur's Gate", null, null, null, 90, List.of("0"), null, null, null, null, null, null, null));
@@ -90,13 +90,13 @@ class KindsTest extends DbTest {
         long uid = newUser();
         long cid = newCollection(uid, "Диски", "Игры (диски)");
         long id = newItem(uid, cid, new Repo.ItemForm("Gothic", null, null, "Unfinished", 500, null, 6, null, null, null, null, null, null));
-        // «Игры (цифровые)»: есть статус, рейтинг, цена; нет Old-Games — у объекта его и не было
+        // "Игры (цифровые)": has status, rating, price; no Old-Games — the item did not have it anyway
         repo.saveCollection(uid, cid, "Диски", "Игры (цифровые)", null, false);
         Entry e = repo.item(uid, id);
         assertThat(e.status()).isEqualTo("Unfinished");
         assertThat(e.rating()).isEqualTo(6);
         assertThat(e.price()).isEqualTo(500);
-        // у «Книг» нет статуса и рейтинга: значения скрыты, а при возврате прежнего типа — снова видны
+        // "Книги" has no status and rating: values are hidden, and when the previous type comes back — visible again
         repo.saveCollection(uid, cid, "Диски", "Книги", null, false);
         assertThat(repo.item(uid, id).status()).isNull();
         assertThat(repo.item(uid, id).price()).isEqualTo(500);
@@ -112,7 +112,7 @@ class KindsTest extends DbTest {
         repo.moveItem(id, b);
         assertThat(repo.item(uid, id).status()).isEqualTo("Completed");
         assertThat(repo.item(uid, id).price()).isEqualTo(100);
-        // снять «Цену» у типа — значения цены удаляются; вернуть поле — пусто
+        // removing "Price" from the type deletes price values; adding the field back — empty
         Kind k = repo.kindByName(uid, "Игры (цифровые)");
         List<String> without = k.fields().stream().filter(f -> !f.equals("price")).toList();
         repo.saveKind(uid, k.id(), k.name(), k.profile(), without, without, List.of(), k.statuses(), List.of());
@@ -151,7 +151,7 @@ class KindsTest extends DbTest {
         assertThat(st.rated()).isEqualTo(2);
         assertThat(st.avgRating()).isEqualTo(2.75);
         assertThat(st.price()).isEqualTo(150);
-        assertThat(repo.ratingHistogram(uid)).containsExactly(0, 1, 0, 1, 0); // 1,5 → 2 звезды, 4 → 4 звезды
+        assertThat(repo.ratingHistogram(uid)).containsExactly(0, 1, 0, 1, 0); // 1.5 → 2 stars, 4 → 4 stars
         assertThat(repo.purchasesByYear(uid).keySet()).containsExactly("2022", "2021");
         assertThat(repo.topTags(uid, 5)).extracting(Map.Entry::getKey).first().isEqualTo("шутер");
         assertThat(repo.distinctValues(cid, "platform")).containsExactly("PC", "PS1");

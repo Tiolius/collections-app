@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Свои поля типа: создание, порядок, значения по виду поля, сортировка, фильтры, Excel, поиск. */
+/** Custom fields of a type: creation, order, values by field kind, sorting, filters, Excel, search. */
 class CustomFieldsTest extends DbTest {
 
     @Autowired XlsxExport export;
     @Autowired XlsxImport load;
 
-    /** Тип «Книги+»: цена, затем свои поля (текст, число, список, да/нет, дата, длинный текст), затем статус. */
+    /** Type "Книги+": price, then custom fields (text, number, list, yes/no, date, long text), then status. */
     Kind books(long uid) {
         List<String> rows = List.of("price", "n1", "n2", "n3", "n4", "n5", "n6", "status");
         repo.saveKind(uid, null, "Книги+", "books", rows, rows,
@@ -36,7 +36,7 @@ class CustomFieldsTest extends DbTest {
     @Test
     void customFieldsAreCreatedInOrderWithKindsAndOptions() {
         long uid = newUser();
-        assertThatThrownBy(() -> books(uid)).isInstanceOf(ResponseStatusException.class); // «твёрдый» — повтор
+        assertThatThrownBy(() -> books(uid)).isInstanceOf(ResponseStatusException.class); // "твёрдый" — a repeat
         List<String> rows = List.of("price", "n1", "n3", "status");
         repo.saveKind(uid, null, "Книги+", "books", rows, rows, List.of("", "Издательство", "Переплёт", ""),
                 List.of("", "text", "select", ""), List.of("", "", "Твёрдый\nМягкий", ""), List.of(), List.of());
@@ -45,7 +45,7 @@ class CustomFieldsTest extends DbTest {
         assertThat(k.customs()).extracting(Kind.Field::label).containsExactly("Издательство", "Переплёт");
         assertThat(k.keys()).containsExactly("price", "c" + field(k, "Издательство"), "c" + field(k, "Переплёт"), "status");
         assertThat(k.field("c" + field(k, "Переплёт")).values()).containsExactly("Твёрдый", "Мягкий");
-        // без названия, неизвестный вид, список без значений — ошибка
+        // no name, unknown kind, a list without values — an error
         assertThatThrownBy(() -> repo.saveKind(uid, k.id(), k.name(), "books", List.of("n1"), List.of("n1"), List.of(""),
                 List.of("text"), List.of(""), List.of(), List.of())).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> repo.saveKind(uid, k.id(), k.name(), "books", List.of("n1"), List.of("n1"), List.of("X"),
@@ -84,19 +84,19 @@ class CustomFieldsTest extends DbTest {
         assertThatThrownBy(() -> repo.setCustom(a, pages, "много")).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> repo.setCustom(a, cover, "Кожаный")).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> repo.setCustom(a, read, "29.02.2024")).isInstanceOf(ResponseStatusException.class);
-        repo.setCustom(a, pub, "");                                               // пусто — значения нет
+        repo.setCustom(a, pub, "");                                               // empty — no value
         assertThat(repo.customValues(List.of(a)).get(a)).doesNotContainKey(pub);
-        // числа сортируются числами, без значения — в конце
+        // numbers sort as numbers, no value — at the end
         assertThat(repo.items(cid, "c" + pages, false, Map.of())).extracting(Entry::name).containsExactly("Улитка", "Солярис", "Пикник");
         assertThat(repo.items(cid, "c" + pages, true, Map.of())).extracting(Entry::name).containsExactly("Пикник", "Солярис", "Улитка");
         assertThat(repo.items(cid, "name", false, Map.of("c" + cover, "Твёрдый"))).extracting(Entry::name).containsExactly("Солярис");
         assertThat(repo.items(cid, "name", false, Map.of("c" + signed, "1"))).extracting(Entry::name).containsExactly("Пикник");
         assertThat(repo.items(cid, "name", false, Map.of("c" + signed, "0"))).hasSize(2);
         assertThat(repo.customDistinct(cid, pages)).containsExactly("1024.5", "352", "96");
-        // поле не из типа объекта — ничего; чужое поле в фильтре — не учитывается
+        // a field not of the item's type — nothing; someone else's field in a filter — ignored
         repo.setCustom(a, 999_999L, "x");
         assertThat(repo.items(cid, "name", false, Map.of("c999999", "x"))).hasSize(3);
-        // поиск — по тексту своих полей
+        // search — by the text of custom fields
         repo.setCustom(c, pub, "Детская литература");
         assertThat(repo.search(uid, "детская").items()).extracting(Entry::name).containsExactly("Улитка");
     }
@@ -110,7 +110,7 @@ class CustomFieldsTest extends DbTest {
         long a = newItem(uid, cid, form("Солярис"));
         repo.setCustom(a, pub, "Мир");
         repo.setCustom(a, pages, "352");
-        // переименовать «Издательство», переставить; вид своего поля не меняется, даже если прислан другой
+        // rename "Издательство", reorder; the kind of a custom field does not change even if another one is sent
         List<String> rows = List.of("c" + pages, "c" + pub, "price");
         repo.saveKind(uid, k.id(), k.name(), "books", rows, List.of("c" + pub, "price"), List.of("", "Издатель", ""),
                 List.of("", "number", ""), List.of("", "", ""), List.of(), List.of());
@@ -119,7 +119,7 @@ class CustomFieldsTest extends DbTest {
         assertThat(k2.label("c" + pub)).isEqualTo("Издатель");
         assertThat(k2.field("c" + pub).type()).isEqualTo("text");
         assertThat(repo.customValues(List.of(a)).get(a)).containsEntry(pub, "Мир").doesNotContainKey(pages);
-        // чужое своё поле в форме — 404
+        // someone else's custom field in the form — 404
         long other = newUser();
         Kind ok = fullBooks(other);
         assertThatThrownBy(() -> repo.saveKind(uid, k.id(), k.name(), "books", List.of("c" + field(ok, "Страниц")),

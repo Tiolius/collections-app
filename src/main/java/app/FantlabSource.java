@@ -15,18 +15,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * FantLab (книги, API без ключа): название объекта — «Автор - Книга» или просто «Название»;
- * картинки — обложка произведения и обложки изданий, описание — аннотация.
+ * FantLab (books, API without a key): item name — "Author - Book" or just "Title";
+ * pictures — the cover of the work and covers of editions, description — the annotation.
  */
 @Component
 class FantlabSource extends ImportSource {
 
-    /** FantLab просит не чаще раза в 1,2 с (Crawl-delay в robots.txt). */
+    /** FantLab asks for at most one request per 1.2 s (Crawl-delay in robots.txt). */
     @Value("${fantlab.api-interval-ms:1200}")
     private long intervalMs;
     @Value("${fantlab.api-url:https://api.fantlab.ru}")
     private String apiUrl;
-    /** Сайт: пути к обложкам в ответах API — относительно него. */
+    /** Site: cover paths in API responses are relative to it. */
     @Value("${fantlab.site-url:https://fantlab.ru}")
     private String site;
 
@@ -49,7 +49,7 @@ class FantlabSource extends ImportSource {
         return https(u, "fantlab.ru", ".fantlab.ru") || under(url, site);
     }
 
-    /** Книга: «Автор - Книга» (как у дисков; автор проверяется), без « - » — просто «Название». null — не найдена. */
+    /** Book: "Author - Book" (as with discs; the author is checked), without " - " — just "Title". null — not found. */
     @Override
     Found find(ImageImport.Job job, Entry item, boolean wantImage, boolean wantDescription) throws Exception {
         String[] at = artistAlbum(item.name());
@@ -61,8 +61,8 @@ class FantlabSource extends ImportSource {
         if (norm(title).isEmpty()) return null;
         JsonNode res = api(job, apiUrl + "/search-works?page=1&q=" + enc(title));
         if (res == null) return null;
-        // Произведения с тем же названием (русским или оригинальным) и, если указан, тем же автором — от самого популярного
-        // (по числу оценок): иначе вместо романа можно получить одноимённый сценарий или цикл
+        // Works with the same title (Russian or original) and, if given, the same author — from the most popular
+        // (by number of ratings): otherwise a novel could be confused with a screenplay or series of the same name
         List<JsonNode> matches = new ArrayList<>();
         for (JsonNode w : res.path("matches"))
             if (sameTitle(w, title) && (author == null
@@ -76,7 +76,7 @@ class FantlabSource extends ImportSource {
             String image = work.path("image").asText("");
             List<byte[]> imgs = List.of();
             if (wantImage) {
-                // своя обложка произведения, за ней (или вместо неё) — обложки изданий
+                // the work's own cover, then (or instead) — edition covers
                 List<String> urls = new ArrayList<>();
                 if (!image.isEmpty()) urls.add(image);
                 if (image.isEmpty() || job.maxImages > 1) urls.addAll(editionCovers(job, workId));
@@ -89,7 +89,7 @@ class FantlabSource extends ImportSource {
         return null;
     }
 
-    /** Название: русское, оригинальное или одно из альтернативных переводов («Основание» = «Академия» Азимова). */
+    /** Title: Russian, original or one of the alternative translations (Asimov's "Основание" = "Академия"). */
     static boolean sameTitle(JsonNode w, String title) {
         String t = norm(title);
         boolean same = norm(w.path("rusname").asText("")).equals(t) || norm(w.path("name").asText("")).equals(t);
@@ -98,7 +98,7 @@ class FantlabSource extends ImportSource {
         return same;
     }
 
-    /** Обложки изданий (расширенная карточка): издания с картинкой, русские — в первую очередь. */
+    /** Edition covers (extended card): editions with a picture, Russian ones first. */
     private List<String> editionCovers(ImageImport.Job job, long workId) throws Exception {
         JsonNode ext = api(job, apiUrl + "/work/" + workId + "/extended");
         if (ext == null) return List.of();
@@ -114,8 +114,8 @@ class FantlabSource extends ImportSource {
     }
 
     /**
-     * Тот же автор: каждое слово из написанного пользователем совпадает началом (до 5 букв) со словом в именах авторов FantLab —
-     * «Стругацкие», «Стругацкий» и «Аркадий и Борис Стругацкие» подходят друг к другу.
+     * Same author: each word the user wrote matches the start (up to 5 letters) of a word in FantLab author names —
+     * "Стругацкие", "Стругацкий" and "Аркадий и Борис Стругацкие" match each other.
      */
     static boolean sameAuthor(String given, String fantlabNames) {
         List<String> names = List.of(norm(fantlabNames).split(" "));
@@ -127,7 +127,7 @@ class FantlabSource extends ImportSource {
         return true;
     }
 
-    /** Аннотация без разметки FantLab ([b], [i], [url=…], [spoiler] и т. п. — остаётся текст); пустая — null. */
+    /** Annotation without FantLab markup ([b], [i], [url=…], [spoiler] etc. — the text stays); empty — null. */
     static String cleanFantlab(String s) {
         String t = s.replaceAll("\\[/?[a-zA-Z]+(=[^\\]]*)?\\]", "")
                 .replace("\r\n", "\n").replaceAll("[ \\t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();

@@ -19,15 +19,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Discogs (музыка): название объекта — «Группа - Альбом», ищется альбом с тем же названием у той же группы.
- * Описание — Notes главной версии альбома (иначе её основного издания); картинки — самого популярного издания
- * этого же альбома на носителе объекта (CD, винил, кассета). Токен Discogs — у каждого пользователя свой
- * (вкладка «Импорт»): без него Discogs отдаёт результаты и Notes, но без обложек, и только 25 запросов в минуту.
+ * Discogs (music): item name — "Group - Album", an album with the same name by the same group is searched for.
+ * Description — Notes of the album's master version (otherwise of its main release); pictures — of the most popular release
+ * of the same album on the item's media (CD, vinyl, cassette). Each user has their own Discogs token
+ * ("Import" tab): without it Discogs returns results and Notes, but no covers, and only 25 requests a minute.
  */
 @Component
 class DiscogsSource extends ImportSource {
 
-    /** С токеном — до 60 запросов в минуту; без токена — 25 (не чаще раза в 2,5 с). */
+    /** With a token — up to 60 requests a minute; without — 25 (at most once per 2.5 s). */
     @Value("${discogs.api-interval-ms:1100}")
     private long intervalMs;
     @Value("${discogs.api-url:https://api.discogs.com}")
@@ -63,10 +63,10 @@ class DiscogsSource extends ImportSource {
     }
 
     /**
-     * Альбом «Группа - Альбом» (без разделителя — не ищем): картинки (если нужны) и Notes (если нужно описание); null — не найден.
-     * Сначала главная версия альбома (master), если её нет — отдельные издания (release).
-     * Картинки — издания на носителе объекта (поле «Формат»: винил, кассета; иначе CD): у главной версии картинки
-     * её основного издания, а это часто винил; нет такого издания — картинки главной версии.
+     * Album "Group - Album" (no separator — not searched): pictures (if needed) and Notes (if a description is needed); null — not found.
+     * First the album's master version, if there is none — individual releases.
+     * Pictures — of a release on the item's media (the "Format" field: vinyl, cassette; otherwise CD): the master version has the pictures
+     * of its main release, which is often vinyl; no such release — the pictures of the master version.
      */
     @Override
     Found find(ImageImport.Job job, Entry item, boolean wantImage, boolean wantDescription) throws Exception {
@@ -78,40 +78,40 @@ class DiscogsSource extends ImportSource {
             JsonNode res = api(job, apiUrl + "/database/search?type=" + type + "&per_page=10&artist=" + enc(artist)
                     + "&release_title=" + enc(album));
             if (res == null) continue;
-            // Подходящие результаты (название «Группа - Альбом» совпадает) — от самого популярного:
-            // у одноимённых фильма, сборника или бутлега владельцев на Discogs гораздо меньше, чем у самого альбома
+            // Matching results (the name "Group - Album" matches) — from the most popular:
+            // a film, compilation or bootleg of the same name has far fewer owners on Discogs than the album itself
             List<JsonNode> matches = new ArrayList<>();
             for (JsonNode r : res.path("results"))
                 if (sameAlbum(r, artist, album)) matches.add(r);
             matches.sort(Comparator.comparingLong((JsonNode r) -> r.path("community").path("have").asLong()).reversed());
             for (JsonNode r : matches) {
-                Map<String, JsonNode> cache = new HashMap<>(); // карточки альбома: для Notes и картинок — один запрос
+                Map<String, JsonNode> cache = new HashMap<>(); // album cards: one request for Notes and pictures
                 long id = r.path("id").asLong();
                 List<byte[]> imgs = List.of();
                 if (wantImage) {
-                    // Издание на нужном носителе того же альбома; нет — картинки найденного результата
+                    // A release of the same album on the needed media; none — the pictures of the found result
                     long masterId = type.equals("master") ? id : r.path("master_id").asLong();
                     JsonNode media = mediaRelease(job, artist, album, format, masterId);
                     JsonNode src = media != null ? media : r;
                     String srcType = media != null ? "release" : type;
                     List<String> urls = new ArrayList<>();
-                    // несколько картинок — из карточки альбома (обложка, оборот, вкладыш…), иначе — обложка из поиска
+                    // several pictures — from the album card (cover, back, insert…), otherwise — the cover from the search
                     if (job.maxImages > 1) urls.addAll(images(job, srcType, src.path("id").asLong(), cache));
                     String cover = src.path("cover_image").asText("");
-                    // обложка из поиска — если из карточки ничего нет (иначе была бы та же картинка в другом размере);
-                    // нет обложки — у Discogs пустая заглушка spacer.gif
+                    // the cover from the search — if the card has nothing (otherwise it would be the same picture in another size);
+                    // no cover — Discogs has an empty spacer.gif placeholder
                     if (urls.isEmpty() && realCover(cover)) urls.add(cover);
                     imgs = downloadAll(urls, job.maxImages);
                 }
                 String notes = wantDescription ? notes(job, type, id, cache) : null;
-                if (imgs.isEmpty() && notes == null) continue; // ни обложки, ни примечаний — следующий результат
+                if (imgs.isEmpty() && notes == null) continue; // neither cover nor notes — next result
                 return new Found(imgs, notes);
             }
         }
         return null;
     }
 
-    /** Результат поиска — тот же альбом: название «Группа - Альбом» совпадает. */
+    /** The search result is the same album: the name "Group - Album" matches. */
     private static boolean sameAlbum(JsonNode r, String artist, String album) {
         String[] t = artistAlbum(r.path("title").asText(""));
         return t != null && norm(t[1]).equals(norm(album)) && sameArtist(t[0], artist);
@@ -121,7 +121,7 @@ class DiscogsSource extends ImportSource {
         return !url.isEmpty() && !url.contains("spacer.gif");
     }
 
-    /** Носитель для поиска изданий по полю «Формат» объекта: винил, кассета; всё остальное (CD, пусто) — CD. */
+    /** Media for searching releases by the item's "Format" field: vinyl, cassette; everything else (CD, empty) — CD. */
     static String format(String itemFormat) {
         String f = itemFormat == null ? "" : itemFormat.toLowerCase(Locale.ROOT);
         if (f.matches(".*(vinyl|винил|пластинк|\\blp\\b).*")) return "Vinyl";
@@ -130,10 +130,10 @@ class DiscogsSource extends ImportSource {
     }
 
     /**
-     * Самое популярное издание (release) альбома на носителе format — с обложкой; null — такого нет.
-     * Поиск — сразу по числу владельцев (sort=have): по умолчанию Discogs сортирует по релевантности,
-     * и самые популярные издания могут не попасть в первые 50.
-     * Тот же альбом — тот же master (masterId > 0), иначе — то же название «Группа - Альбом».
+     * The most popular release of the album on media format — with a cover; null — there is none.
+     * The search is sorted by number of owners right away (sort=have): by default Discogs sorts by relevance,
+     * and the most popular releases may not get into the first 50.
+     * The same album — the same master (masterId > 0), otherwise — the same name "Group - Album".
      */
     private JsonNode mediaRelease(ImageImport.Job job, String artist, String album, String format, long masterId) throws Exception {
         JsonNode res = api(job, apiUrl + "/database/search?type=release&format=" + enc(format)
@@ -141,12 +141,12 @@ class DiscogsSource extends ImportSource {
         return res == null ? null : bestMedia(res.path("results"), artist, album, format, masterId);
     }
 
-    /** Из результатов поиска изданий — самое популярное издание того же альбома на носителе format с обложкой. */
+    /** From release search results — the most popular release of the same album on media format with a cover. */
     static JsonNode bestMedia(JsonNode results, String artist, String album, String format, long masterId) {
         JsonNode best = null;
         for (JsonNode r : results) {
             if (masterId > 0 ? r.path("master_id").asLong() != masterId : !sameAlbum(r, artist, album)) continue;
-            // носитель — в списке форматов издания (на случай, если Discogs не учёл фильтр)
+            // media — in the release's format list (in case Discogs ignored the filter)
             boolean hasFormat = false;
             for (JsonNode f : r.path("format")) hasFormat |= f.asText("").equalsIgnoreCase(format);
             if (!hasFormat || !realCover(r.path("cover_image").asText(""))) continue;
@@ -155,7 +155,7 @@ class DiscogsSource extends ImportSource {
         return best;
     }
 
-    /** Запрос с запоминанием ответа в пределах одного альбома. */
+    /** A request with the answer remembered within one album. */
     private JsonNode cached(ImageImport.Job job, String url, Map<String, JsonNode> cache) throws Exception {
         if (cache.containsKey(url)) return cache.get(url);
         JsonNode n = api(job, url);
@@ -163,7 +163,7 @@ class DiscogsSource extends ImportSource {
         return n;
     }
 
-    /** Адреса картинок из карточки (master или release), главная — первой; без токена Discogs их не отдаёт. */
+    /** Picture addresses from a card (master or release), the main one first; without a token Discogs does not return them. */
     private List<String> images(ImageImport.Job job, String type, long id, Map<String, JsonNode> cache) throws Exception {
         if (id <= 0) return List.of();
         JsonNode d = cached(job, apiUrl + (type.equals("master") ? "/masters/" : "/releases/") + id, cache);
@@ -178,7 +178,7 @@ class DiscogsSource extends ImportSource {
         return res;
     }
 
-    /** Notes альбома: у главной версии (master), если там пусто — у её основного издания; у издания (release) — его Notes. */
+    /** Album Notes: of the master version, if empty there — of its main release; of a release — its own Notes. */
     private String notes(ImageImport.Job job, String type, long id, Map<String, JsonNode> cache) throws Exception {
         if (id <= 0) return null;
         if (type.equals("master")) {
@@ -195,13 +195,13 @@ class DiscogsSource extends ImportSource {
     }
 
     /**
-     * Notes без разметки Discogs: [url=…]текст[/url] → текст, [a=Имя]/[l=Имя] → Имя,
-     * ссылки на записи по номеру ([a123], [m=123]) и теги [b] [i] [u] убираются, пробелы перед знаками препинания — тоже; пустое — null.
+     * Notes without Discogs markup: [url=…]text[/url] → text, [a=Name]/[l=Name] → Name,
+     * links to records by number ([a123], [m=123]) and tags [b] [i] [u] are removed, spaces before punctuation too; empty — null.
      */
     static String cleanNotes(String s) {
         String t = s.replaceAll("(?is)\\[url=[^\\]]*\\](.*?)\\[/url\\]", "$1")
-                .replaceAll("\\[[alrm]=?\\d+\\]", "")          // ссылки по номеру: [a45467], [m=11329]
-                .replaceAll("\\[[alrm]=([^\\]]+)\\]", "$1")    // по имени: [a=Имя], [l=Студия]
+                .replaceAll("\\[[alrm]=?\\d+\\]", "")          // links by number: [a45467], [m=11329]
+                .replaceAll("\\[[alrm]=([^\\]]+)\\]", "$1")    // by name: [a=Name], [l=Studio]
                 .replaceAll("(?i)\\[/?[biu]\\]", "")
                 .replaceAll("[ \\t]+([,.;:!?)])", "$1").replaceAll("[ \\t]{2,}", " ")
                 .replace("\r\n", "\n").replaceAll("[ \\t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();

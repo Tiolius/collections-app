@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.LocaleResolver;
 
 /**
- * Язык интерфейса: русский (по умолчанию) или английский. Выбор — флажок в шапке, хранится в cookie «lang» браузера
- * (ставит скрипт в base.html). Тексты — messages.properties (русский) и messages_en.properties (английский);
- * в шаблонах — #{ключ}, в Java — I18n.t("ключ", …).
+ * Interface language: Russian (default) or English. Chosen with the flag in the header, kept in the browser cookie "lang"
+ * (set by a script in base.html). Texts — messages.properties (Russian) and messages_en.properties (English);
+ * in templates — #{key}, in Java — I18n.t("key", …).
  */
-@Component("localeResolver") // DispatcherServlet берёт определение языка из бина с этим именем
+@Component("localeResolver") // DispatcherServlet takes the locale resolver from the bean with this name
 public class I18n implements LocaleResolver {
 
     public static final Locale RU = Locale.forLanguageTag("ru");
@@ -41,12 +41,12 @@ public class I18n implements LocaleResolver {
         throw new UnsupportedOperationException("язык выбирается cookie «lang»");
     }
 
-    /** Текст на языке текущего запроса. */
+    /** Text in the language of the current request. */
     public static String t(String key, Object... args) {
         return t(LocaleContextHolder.getLocale(), key, args);
     }
 
-    /** Текст на заданном языке (фоновые задачи запоминают язык при запуске). */
+    /** Text in the given language (background jobs remember the language when started). */
     public static String t(Locale locale, String key, Object... args) {
         return messages.getMessage(key, args.length == 0 ? null : args, locale);
     }

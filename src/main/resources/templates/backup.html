@@ -7,7 +7,7 @@
   <th:block th:replace="~{base :: settingsHead('backup')}"></th:block>
   <p class="ok" th:if="${param.restored != null}" th:text="#{backup.restored}">Данные восстановлены из копии.</p>
 
-  <!-- Скачать: zip с базой и картинками (Backup.write) -->
+  <!-- Download: a zip with the database and pictures (Backup.write) -->
   <h3 class="section" th:text="#{backup.download.title}">Скачать копию</h3>
   <form autocomplete="off" class="form compact" onsubmit="return false">
     <label><span th:text="#{backup.copy}">Копия</span>
@@ -24,7 +24,7 @@
     </div>
   </form>
 
-  <!-- Восстановить: файл уходит телом запроса (XMLHttpRequest — виден прогресс загрузки), ответ — {ok} или {error} -->
+  <!-- Restore: the file is sent as the request body (XMLHttpRequest — upload progress is visible), the answer is {ok} or {error} -->
   <h3 class="section" th:text="#{backup.restore.title}">Восстановить из копии</h3>
   <p class="error" id="restore-error" hidden></p>
   <div class="import-box" id="restore-job" hidden>
@@ -53,9 +53,9 @@
     };
     function $(id) { return document.getElementById(id); }
     function showError(text) { $('restore-error').textContent = text; $('restore-error').hidden = false; $('restore-job').hidden = true; form.hidden = false; }
-    // после подтверждения (appConfirm отправляет форму заново) — загрузка файла скриптом вместо обычной отправки
+    // after confirmation (appConfirm submits the form again) — upload the file by script instead of a normal submit
     form.addEventListener('submit', function (e) {
-      if (e.defaultPrevented) return; // ещё ждём подтверждения
+      if (e.defaultPrevented) return; // still waiting for confirmation
       e.preventDefault();
       var file = $('f-backup').files[0];
       if (!file) return;
