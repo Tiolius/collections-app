@@ -219,6 +219,7 @@
 /* Font: Inter 14px everywhere (fields, lists and buttons inherit); headings bold with tight letter spacing;
    numbers, column headers and small capitals labels — monospace (--mono) */
 * { box-sizing: border-box; }
+html { zoom: 0.9; }
 input, select, button, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 body { font-family: var(--font); font-size: 14px; line-height: 1.45; margin: 0; background: var(--page); color: var(--text);
        -webkit-font-smoothing: antialiased; }

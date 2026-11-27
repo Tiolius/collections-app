@@ -258,8 +258,9 @@
     if (!table) return;
     var key = 'colw:' + table.dataset.cols;
     var ths = Array.prototype.slice.call(table.querySelectorAll('thead tr.head th'));
+    var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
     // Current column width with a margin for rounding, so the text is not cut
-    function width(th) { return Math.ceil(th.getBoundingClientRect().width) + 1; }
+    function width(th) { return Math.ceil(th.getBoundingClientRect().width / zoom) + 1; }
     // Table width = sum of columns, so only the dragged column changes
     function fitTable() {
       table.style.width = ths.reduce(function (sum, th) { return sum + parseInt(th.style.width, 10); }, 0) + 'px';
@@ -284,7 +285,7 @@
         if (!table.classList.contains('fixed')) fix(ths.map(width));
         var startX = e.clientX, startW = parseInt(th.style.width, 10);
         document.body.classList.add('resizing');
-        function move(ev) { th.style.width = Math.max(40, startW + ev.clientX - startX) + 'px'; fitTable(); }
+        function move(ev) { th.style.width = Math.round(Math.max(40, startW + (ev.clientX - startX) / zoom)) + 'px'; fitTable(); }
         function up() {
           document.removeEventListener('mousemove', move);
           document.removeEventListener('mouseup', up);

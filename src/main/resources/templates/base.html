@@ -122,19 +122,20 @@
       if (!t) return;
       t.classList.remove('above');
       t.style.left = ''; t.style.maxWidth = ''; t.style.maxHeight = ''; t.style.overflowY = '';
+      var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
       var box = (tip.closest('.form, .import-box, dialog, main') || document.body).getBoundingClientRect();
       var left = Math.max(box.left, 0) + 8, right = Math.min(box.right, innerWidth) - 8;
-      t.style.maxWidth = Math.min(340, right - left) + 'px';
+      t.style.maxWidth = Math.min(340, (right - left) / zoom) + 'px';
       var r = t.getBoundingClientRect(), dx = 0;
       if (r.right > right) dx = right - r.right;
       if (r.left + dx < left) dx = left - r.left;
-      t.style.left = dx + 'px';
+      t.style.left = dx / zoom + 'px';
       if (r.bottom <= innerHeight - 8) return;
       var icon = tip.getBoundingClientRect(), below = innerHeight - 8 - r.top, above = icon.top - 12;
       if (above > below) t.classList.add('above');
       // Fits neither below nor above — height by the free space, the text scrolls
       var room = Math.max(above, below);
-      if (r.height > room) { t.style.maxHeight = room + 'px'; t.style.overflowY = 'auto'; }
+      if (r.height > room) { t.style.maxHeight = room / zoom + 'px'; t.style.overflowY = 'auto'; }
     }
     function on(e) {
       var tip = e.target.closest && e.target.closest('.tip.help');
@@ -185,8 +186,9 @@
     (function () {
       var items = document.querySelectorAll('header .logo, header .right a.search, header .right .user, header .right a.update, header .right a.settings, header .right .theme, header .right .lang-btn, header .right .logout');
       function fit() {
+        var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
         items.forEach(function (e) { e.style.width = ''; });
-        items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) + 'px'; });
+        items.forEach(function (e) { e.style.width = Math.ceil(e.getBoundingClientRect().width) / zoom + 'px'; });
       }
       fit();
       addEventListener('resize', fit);
